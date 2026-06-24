@@ -177,93 +177,64 @@
 //! the inner call is a `shutdown` call, then the CANCELLED bit is set, and the
 //! poll call will notice it when the poll finishes, and the task is cancelled
 //! at that point.
-
 mod core;
 use self::core::Cell;
 use self::core::Header;
-
 mod error;
 pub use self::error::JoinError;
-
 mod harness;
 use self::harness::Harness;
-
 mod id;
 pub use id::{id, try_id, Id};
-
 #[cfg(feature = "rt")]
 mod abort;
 mod join;
-
 #[cfg(feature = "rt")]
 pub use self::abort::AbortHandle;
-
 pub use self::join::JoinHandle;
-
 mod list;
 pub(crate) use self::list::{LocalOwnedTasks, OwnedTasks};
-
 mod raw;
 pub(crate) use self::raw::RawTask;
-
 mod state;
 use self::state::State;
-
 mod waker;
-
 pub(crate) use self::spawn_location::SpawnLocation;
-
 cfg_taskdump! {
-    pub(crate) mod trace;
+    pub (crate) mod trace;
 }
-
 use crate::future::Future;
 use crate::util::linked_list;
 use crate::util::sharded_list;
-
 use crate::runtime::metrics::ScheduleLatencyInstant;
 use crate::runtime::TaskCallback;
 use std::marker::PhantomData;
 use std::panic::Location;
 use std::ptr::NonNull;
 use std::{fmt, mem};
-
 /// An owned handle to the task, tracked by ref count.
 #[repr(transparent)]
 pub(crate) struct Task<S: 'static> {
     raw: RawTask,
     _p: PhantomData<S>,
 }
-
 unsafe impl<S> Send for Task<S> {}
 unsafe impl<S> Sync for Task<S> {}
-
 /// A task was notified.
 #[repr(transparent)]
 pub(crate) struct Notified<S: 'static>(Task<S>);
-
 impl<S> Notified<S> {
     #[cfg(all(tokio_unstable, feature = "rt-multi-thread"))]
     #[inline]
     pub(crate) fn task_meta<'meta>(&self) -> crate::runtime::TaskMeta<'meta> {
-        self.0.task_meta()
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn set_scheduled_at(&self, scheduled_at: ScheduleLatencyInstant) {
-        // SAFETY: There are no concurrent writes because there is only ever one `Notified`
-        // reference per task. There are no concurrent reads because this field is only read
-        // when polling the task, which can only happen after it's scheduled.
-        unsafe {
-            self.0.header().set_scheduled_at(scheduled_at);
-        }
+        panic!("STUB: not implemented");
     }
 }
-
-// safety: This type cannot be used to touch the task without first verifying
-// that the value is on a thread where it is safe to poll the task.
 unsafe impl<S: Schedule> Send for Notified<S> {}
 unsafe impl<S: Schedule> Sync for Notified<S> {}
-
 /// A non-Send variant of Notified with the invariant that it is on a thread
 /// where it is safe to poll it.
 #[repr(transparent)]
@@ -271,39 +242,31 @@ pub(crate) struct LocalNotified<S: 'static> {
     task: Task<S>,
     _not_send: PhantomData<*const ()>,
 }
-
 impl<S> LocalNotified<S> {
     #[cfg(tokio_unstable)]
     #[inline]
     pub(crate) fn task_meta<'meta>(&self) -> crate::runtime::TaskMeta<'meta> {
-        self.task.task_meta()
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn get_scheduled_at(&self) -> ScheduleLatencyInstant {
-        self.task.header().get_scheduled_at()
+        panic!("STUB: not implemented");
     }
 }
-
 /// A task that is not owned by any `OwnedTasks`. Used for blocking tasks.
 /// This type holds two ref-counts.
 pub(crate) struct UnownedTask<S: 'static> {
     raw: RawTask,
     _p: PhantomData<S>,
 }
-
-// safety: This type can only be created given a Send task.
 unsafe impl<S> Send for UnownedTask<S> {}
 unsafe impl<S> Sync for UnownedTask<S> {}
-
 /// Task result sent back.
 pub(crate) type Result<T> = std::result::Result<T, JoinError>;
-
 /// Hooks for scheduling tasks which are needed in the task harness.
 #[derive(Clone)]
 pub(crate) struct TaskHarnessScheduleHooks {
     pub(crate) task_terminate_callback: Option<TaskCallback>,
 }
-
 pub(crate) trait Schedule: Sync + Sized + 'static {
     /// The task has completed work and is ready to be released. The scheduler
     /// should release it immediately and return it. The task module will batch
@@ -311,319 +274,174 @@ pub(crate) trait Schedule: Sync + Sized + 'static {
     ///
     /// If the scheduler has already released the task, then None is returned.
     fn release(&self, task: &Task<Self>) -> Option<Task<Self>>;
-
     /// Schedule the task
     fn schedule(&self, task: Notified<Self>);
-
     fn hooks(&self) -> TaskHarnessScheduleHooks;
-
     /// Schedule the task to run in the near future, yielding the thread to
     /// other tasks.
     fn yield_now(&self, task: Notified<Self>) {
         self.schedule(task);
     }
-
     /// Polling the task resulted in a panic. Should the runtime shutdown?
-    fn unhandled_panic(&self) {
-        // By default, do nothing. This maintains the 1.0 behavior.
-    }
+    fn unhandled_panic(&self) {}
 }
-
 cfg_rt! {
-    /// This is the constructor for a new task. Three references to the task are
-    /// created. The first task reference is usually put into an `OwnedTasks`
-    /// immediately. The Notified is sent to the scheduler as an ordinary
-    /// notification.
-    fn new_task<T, S>(
-        task: T,
-        scheduler: S,
-        id: Id,
-        spawned_at: SpawnLocation,
-    ) -> (Task<S>, Notified<S>, JoinHandle<T::Output>)
-    where
-        S: Schedule,
-        T: Future + 'static,
-        T::Output: 'static,
-    {
-        let raw = RawTask::new::<T, S>(
-            task,
-            scheduler,
-            id,
-            spawned_at,
-        );
-        let task = Task {
-            raw,
-            _p: PhantomData,
-        };
-        let notified = Notified(Task {
-            raw,
-            _p: PhantomData,
-        });
-        let join = JoinHandle::new(raw);
-
-        (task, notified, join)
-    }
-
-    /// Creates a new task with an associated join handle. This method is used
-    /// only when the task is not going to be stored in an `OwnedTasks` list.
-    ///
-    /// Currently only blocking tasks use this method.
-    pub(crate) fn unowned<T, S>(
-        task: T,
-        scheduler: S,
-        id: Id,
-        spawned_at: SpawnLocation,
-    ) -> (UnownedTask<S>, JoinHandle<T::Output>)
-    where
-        S: Schedule,
-        T: Send + Future + 'static,
-        T::Output: Send + 'static,
-    {
-        let (task, notified, join) = new_task(
-            task,
-            scheduler,
-            id,
-            spawned_at,
-        );
-
-        // This transfers the ref-count of task and notified into an UnownedTask.
-        // This is valid because an UnownedTask holds two ref-counts.
-        let unowned = UnownedTask {
-            raw: task.raw,
-            _p: PhantomData,
-        };
-        std::mem::forget(task);
-        std::mem::forget(notified);
-
-        (unowned, join)
-    }
+    #[doc = " This is the constructor for a new task. Three references to the task are"]
+    #[doc = " created. The first task reference is usually put into an `OwnedTasks`"]
+    #[doc = " immediately. The Notified is sent to the scheduler as an ordinary"] #[doc =
+    " notification."] fn new_task < T, S > (task : T, scheduler : S, id : Id, spawned_at
+    : SpawnLocation,) -> (Task < S >, Notified < S >, JoinHandle < T::Output >) where S :
+    Schedule, T : Future + 'static, T::Output : 'static, { let raw = RawTask::new::< T, S
+    > (task, scheduler, id, spawned_at,); let task = Task { raw, _p : PhantomData, }; let
+    notified = Notified(Task { raw, _p : PhantomData, }); let join =
+    JoinHandle::new(raw); (task, notified, join) } #[doc =
+    " Creates a new task with an associated join handle. This method is used"] #[doc =
+    " only when the task is not going to be stored in an `OwnedTasks` list."] #[doc = ""]
+    #[doc = " Currently only blocking tasks use this method."] pub (crate) fn unowned <
+    T, S > (task : T, scheduler : S, id : Id, spawned_at : SpawnLocation,) ->
+    (UnownedTask < S >, JoinHandle < T::Output >) where S : Schedule, T : Send + Future +
+    'static, T::Output : Send + 'static, { let (task, notified, join) = new_task(task,
+    scheduler, id, spawned_at,); let unowned = UnownedTask { raw : task.raw, _p :
+    PhantomData, }; std::mem::forget(task); std::mem::forget(notified); (unowned, join) }
 }
-
 impl<S: 'static> Task<S> {
     unsafe fn new(raw: RawTask) -> Task<S> {
-        Task {
-            raw,
-            _p: PhantomData,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// # Safety
     ///
     /// `ptr` must be a valid pointer to a [`Header`].
     unsafe fn from_raw(ptr: NonNull<Header>) -> Task<S> {
-        unsafe { Task::new(RawTask::from_raw(ptr)) }
+        panic!("STUB: not implemented");
     }
-
     cfg_taskdump! {
-        pub(super) fn as_raw(&self) -> RawTask {
-            self.raw
-        }
+        pub (super) fn as_raw(& self) -> RawTask { self.raw }
     }
-
     fn header(&self) -> &Header {
-        self.raw.header()
+        panic!("STUB: not implemented");
     }
-
     fn header_ptr(&self) -> NonNull<Header> {
-        self.raw.header_ptr()
+        panic!("STUB: not implemented");
     }
-
     /// Returns a [task ID] that uniquely identifies this task relative to other
     /// currently spawned tasks.
     ///
     /// [task ID]: crate::task::Id
     #[cfg(tokio_unstable)]
     pub(crate) fn id(&self) -> crate::task::Id {
-        // Safety: The header pointer is valid.
-        unsafe { Header::get_id(self.raw.header_ptr()) }
+        panic!("STUB: not implemented");
     }
-
     #[cfg(tokio_unstable)]
     pub(crate) fn spawned_at(&self) -> &'static Location<'static> {
-        // Safety: The header pointer is valid.
-        unsafe { Header::get_spawn_location(self.raw.header_ptr()) }
+        panic!("STUB: not implemented");
     }
-
-    // Explicit `'task` and `'meta` lifetimes are necessary here, as otherwise,
-    // the compiler infers the lifetimes to be the same, and considers the task
-    // to be borrowed for the lifetime of the returned `TaskMeta`.
     #[cfg(tokio_unstable)]
     pub(crate) fn task_meta<'meta>(&self) -> crate::runtime::TaskMeta<'meta> {
-        crate::runtime::TaskMeta {
-            id: self.id(),
-            spawned_at: self.spawned_at().into(),
-            _phantom: PhantomData,
-        }
+        panic!("STUB: not implemented");
     }
-
     cfg_taskdump! {
-        /// Notify the task for task dumping.
-        ///
-        /// Returns `None` if the task has already been notified.
-        pub(super) fn notify_for_tracing(&self) -> Option<Notified<S>> {
-            if self.as_raw().state().transition_to_notified_for_tracing() {
-                // SAFETY: `transition_to_notified_for_tracing` increments the
-                // refcount.
-                Some(unsafe { Notified(Task::new(self.raw)) })
-            } else {
-                None
-            }
-        }
-
+        #[doc = " Notify the task for task dumping."] #[doc = ""] #[doc =
+        " Returns `None` if the task has already been notified."] pub (super) fn
+        notify_for_tracing(& self) -> Option < Notified < S >> { if self.as_raw().state()
+        .transition_to_notified_for_tracing() { Some(unsafe { Notified(Task::new(self
+        .raw)) }) } else { None } }
     }
 }
-
 impl<S: 'static> Notified<S> {
     fn header(&self) -> &Header {
-        self.0.header()
+        panic!("STUB: not implemented");
     }
-
     #[cfg(tokio_unstable)]
     #[allow(dead_code)]
     pub(crate) fn task_id(&self) -> crate::task::Id {
-        self.0.id()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<S: 'static> Notified<S> {
     /// # Safety
     ///
     /// [`RawTask::ptr`] must be a valid pointer to a [`Header`].
     pub(crate) unsafe fn from_raw(ptr: RawTask) -> Notified<S> {
-        Notified(unsafe { Task::new(ptr) })
+        panic!("STUB: not implemented");
     }
 }
-
 impl<S: 'static> Notified<S> {
     pub(crate) fn into_raw(self) -> RawTask {
-        let raw = self.0.raw;
-        mem::forget(self);
-        raw
+        panic!("STUB: not implemented");
     }
 }
-
 impl<S: Schedule> Task<S> {
     /// Preemptively cancels the task as part of the shutdown process.
     pub(crate) fn shutdown(self) {
-        let raw = self.raw;
-        mem::forget(self);
-        raw.shutdown();
+        panic!("STUB: not implemented");
     }
 }
-
 impl<S: Schedule> LocalNotified<S> {
     /// Runs the task.
     pub(crate) fn run(self) {
-        let raw = self.task.raw;
-        mem::forget(self);
-        raw.poll();
+        panic!("STUB: not implemented");
     }
-
     cfg_taskdump! {
-        /// Returns a `WakerRef` borrowing from this task.
-        ///
-        /// `WakerRef` derefs to `Waker` without bumping the task's refcount.
-        pub(crate) fn waker_ref(&self) -> waker::WakerRef<'_, S> {
-            waker::waker_ref::<S>(self.task.raw.header_ptr_ref())
-        }
+        #[doc = " Returns a `WakerRef` borrowing from this task."] #[doc = ""] #[doc =
+        " `WakerRef` derefs to `Waker` without bumping the task's refcount."] pub (crate)
+        fn waker_ref(& self) -> waker::WakerRef <'_, S > { waker::waker_ref::< S > (self
+        .task.raw.header_ptr_ref()) }
     }
 }
-
 impl<S: Schedule> UnownedTask<S> {
-    // Used in test of the inject queue.
     #[cfg(test)]
     #[cfg_attr(target_family = "wasm", allow(dead_code))]
     pub(super) fn into_notified(self) -> Notified<S> {
         Notified(self.into_task())
     }
-
     fn into_task(self) -> Task<S> {
-        // Convert into a task.
-        let task = Task {
-            raw: self.raw,
-            _p: PhantomData,
-        };
-        mem::forget(self);
-
-        // Drop a ref-count since an UnownedTask holds two.
-        task.header().state.ref_dec();
-
-        task
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn run(self) {
-        let raw = self.raw;
-        mem::forget(self);
-
-        // Transfer one ref-count to a Task object.
-        let task = Task::<S> {
-            raw,
-            _p: PhantomData,
-        };
-
-        // Use the other ref-count to poll the task.
-        raw.poll();
-        // Decrement our extra ref-count
-        drop(task);
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn shutdown(self) {
-        self.into_task().shutdown();
+        panic!("STUB: not implemented");
     }
 }
-
 impl<S: 'static> Drop for Task<S> {
     fn drop(&mut self) {
-        // Decrement the ref count
-        if self.header().state.ref_dec() {
-            // Deallocate if this is the final ref count
-            self.raw.dealloc();
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<S: 'static> Drop for UnownedTask<S> {
     fn drop(&mut self) {
-        // Decrement the ref count
-        if self.raw.header().state.ref_dec_twice() {
-            // Deallocate if this is the final ref count
-            self.raw.dealloc();
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<S> fmt::Debug for Task<S> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "Task({:p})", self.header())
+        panic!("STUB: not implemented");
     }
 }
-
 impl<S> fmt::Debug for Notified<S> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "task::Notified({:p})", self.0.header())
+        panic!("STUB: not implemented");
     }
 }
-
 /// # Safety
 ///
 /// Tasks are pinned.
 unsafe impl<S> linked_list::Link for Task<S> {
     type Handle = Task<S>;
     type Target = Header;
-
     fn as_raw(handle: &Task<S>) -> NonNull<Header> {
-        handle.raw.header_ptr()
+        panic!("STUB: not implemented");
     }
-
     unsafe fn from_raw(ptr: NonNull<Header>) -> Task<S> {
-        unsafe { Task::from_raw(ptr) }
+        panic!("STUB: not implemented");
     }
-
-    unsafe fn pointers(target: NonNull<Header>) -> NonNull<linked_list::Pointers<Header>> {
-        unsafe { self::core::Trailer::addr_of_owned(Header::get_trailer(target)) }
+    unsafe fn pointers(
+        target: NonNull<Header>,
+    ) -> NonNull<linked_list::Pointers<Header>> {
+        panic!("STUB: not implemented");
     }
 }
-
 /// # Safety
 ///
 /// The id of a task is never changed after creation of the task, so the return value of
@@ -631,53 +449,42 @@ unsafe impl<S> linked_list::Link for Task<S> {
 /// the shard id still won't change from call to call.)
 unsafe impl<S> sharded_list::ShardedListItem for Task<S> {
     unsafe fn get_shard_id(target: NonNull<Self::Target>) -> usize {
-        // SAFETY: The caller guarantees that `target` points at a valid task.
-        let task_id = unsafe { Header::get_id(target) };
-        task_id.0.get() as usize
+        panic!("STUB: not implemented");
     }
 }
-
 /// Wrapper around [`std::panic::Location`] that's conditionally compiled out
 /// when `tokio_unstable` is not enabled.
 #[cfg(tokio_unstable)]
 mod spawn_location {
-
     use std::panic::Location;
-
     #[derive(Copy, Clone)]
     pub(crate) struct SpawnLocation(pub &'static Location<'static>);
-
     impl From<&'static Location<'static>> for SpawnLocation {
         fn from(location: &'static Location<'static>) -> Self {
-            Self(location)
+            panic!("STUB: not implemented");
         }
     }
 }
-
 #[cfg(not(tokio_unstable))]
 mod spawn_location {
     use std::panic::Location;
-
     #[derive(Copy, Clone)]
     pub(crate) struct SpawnLocation();
-
     impl From<&'static Location<'static>> for SpawnLocation {
         fn from(_: &'static Location<'static>) -> Self {
-            Self()
+            panic!("STUB: not implemented");
         }
     }
-
     #[cfg(test)]
     #[test]
     fn spawn_location_is_zero_sized() {
-        assert_eq!(std::mem::size_of::<SpawnLocation>(), 0);
+        assert_eq!(std::mem::size_of::< SpawnLocation > (), 0);
     }
 }
-
 impl SpawnLocation {
     #[track_caller]
     #[inline]
     pub(crate) fn capture() -> Self {
-        Self::from(Location::caller())
+        panic!("STUB: not implemented");
     }
 }

@@ -1,7 +1,6 @@
 use crate::sync::batch_semaphore::Semaphore;
 use std::marker::PhantomData;
 use std::{fmt, mem, ops};
-
 /// RAII structure used to release the exclusive write access of a lock when
 /// dropped.
 ///
@@ -13,8 +12,6 @@ use std::{fmt, mem, ops};
 /// [`RwLockWriteGuard`]: struct@crate::sync::RwLockWriteGuard
 #[clippy::has_significant_drop]
 pub struct RwLockMappedWriteGuard<'a, T: ?Sized> {
-    // When changing the fields in this struct, make sure to update the
-    // `skip_drop` method.
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     pub(super) resource_span: tracing::Span,
     pub(super) permits_acquired: u32,
@@ -22,8 +19,7 @@ pub struct RwLockMappedWriteGuard<'a, T: ?Sized> {
     pub(super) data: *mut T,
     pub(super) marker: PhantomData<&'a mut T>,
 }
-
-#[allow(dead_code)] // Unused fields are still used in Drop.
+#[allow(dead_code)]
 struct Inner<'a, T: ?Sized> {
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
@@ -31,21 +27,10 @@ struct Inner<'a, T: ?Sized> {
     s: &'a Semaphore,
     data: *mut T,
 }
-
 impl<'a, T: ?Sized> RwLockMappedWriteGuard<'a, T> {
     fn skip_drop(self) -> Inner<'a, T> {
-        let me = mem::ManuallyDrop::new(self);
-        // SAFETY: This duplicates the values in every field of the guard, then
-        // forgets the originals, so in the end no value is duplicated.
-        Inner {
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: unsafe { std::ptr::read(&me.resource_span) },
-            permits_acquired: me.permits_acquired,
-            s: me.s,
-            data: me.data,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Makes a new `RwLockMappedWriteGuard` for a component of the locked data.
     ///
     /// This operation cannot fail as the `RwLockMappedWriteGuard` passed in already
@@ -86,19 +71,8 @@ impl<'a, T: ?Sized> RwLockMappedWriteGuard<'a, T> {
     where
         F: FnOnce(&mut T) -> &mut U,
     {
-        let data = f(&mut *this) as *mut U;
-        let this = this.skip_drop();
-
-        RwLockMappedWriteGuard {
-            permits_acquired: this.permits_acquired,
-            s: this.s,
-            data,
-            marker: PhantomData,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: this.resource_span,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to make a new [`RwLockMappedWriteGuard`] for a component of
     /// the locked data. The original guard is returned if the closure returns
     /// `None`.
@@ -145,69 +119,38 @@ impl<'a, T: ?Sized> RwLockMappedWriteGuard<'a, T> {
     where
         F: FnOnce(&mut T) -> Option<&mut U>,
     {
-        let data = match f(&mut *this) {
-            Some(data) => data as *mut U,
-            None => return Err(this),
-        };
-        let this = this.skip_drop();
-
-        Ok(RwLockMappedWriteGuard {
-            permits_acquired: this.permits_acquired,
-            s: this.s,
-            data,
-            marker: PhantomData,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: this.resource_span,
-        })
+        panic!("STUB: not implemented");
     }
-
-    // Note: No `downgrade`, `downgrade_map` nor `try_downgrade_map` because they would be unsound, as we're already
-    //       potentially been mapped with internal mutability.
 }
-
 impl<T: ?Sized> ops::Deref for RwLockMappedWriteGuard<'_, T> {
     type Target = T;
-
     fn deref(&self) -> &T {
-        unsafe { &*self.data }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized> ops::DerefMut for RwLockMappedWriteGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.data }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T: ?Sized> fmt::Debug for RwLockMappedWriteGuard<'a, T>
 where
     T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T: ?Sized> fmt::Display for RwLockMappedWriteGuard<'a, T>
 where
     T: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T: ?Sized> Drop for RwLockMappedWriteGuard<'a, T> {
     fn drop(&mut self) {
-        self.s.release(self.permits_acquired as usize);
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        self.resource_span.in_scope(|| {
-            tracing::trace!(
-            target: "runtime::resource::state_update",
-            write_locked = false,
-            write_locked.op = "override",
-            )
-        });
+        panic!("STUB: not implemented");
     }
 }

@@ -2,82 +2,55 @@
 //!
 //! This module is only defined on Unix platforms and contains the primary
 //! `Signal` type for receiving notifications of signals.
-
 #![cfg(unix)]
 #![cfg_attr(docsrs, doc(cfg(all(unix, feature = "signal"))))]
-
 use crate::runtime::scheduler;
 use crate::runtime::signal::Handle;
 use crate::signal::registry::{globals, EventId, EventInfo, Globals, Storage};
 use crate::signal::RxFuture;
 use crate::sync::watch;
-
 use mio::net::UnixStream;
 use std::io::{self, Error, ErrorKind, Write};
 use std::sync::OnceLock;
 use std::task::{Context, Poll};
-
 #[cfg(not(any(target_os = "linux", target_os = "illumos")))]
 pub(crate) struct OsStorage([SignalInfo; 33]);
-
 #[cfg(any(target_os = "linux", target_os = "illumos"))]
 pub(crate) struct OsStorage(Box<[SignalInfo]>);
-
 impl OsStorage {
     fn get(&self, id: EventId) -> Option<&SignalInfo> {
-        self.0.get(id - 1)
+        panic!("STUB: not implemented");
     }
 }
-
 impl Default for OsStorage {
     fn default() -> Self {
-        // There are reliable signals ranging from 1 to 33 available on every Unix platform.
-        #[cfg(not(any(target_os = "linux", target_os = "illumos")))]
-        let inner = std::array::from_fn(|_| SignalInfo::default());
-
-        // On Linux and illumos, there are additional real-time signals
-        // available. (This is also likely true on Solaris, but this should be
-        // verified before being enabled.)
-        #[cfg(any(target_os = "linux", target_os = "illumos"))]
-        let inner = std::iter::repeat_with(SignalInfo::default)
-            .take(libc::SIGRTMAX() as usize)
-            .collect();
-
-        Self(inner)
+        panic!("STUB: not implemented");
     }
 }
-
 impl Storage for OsStorage {
     fn event_info(&self, id: EventId) -> Option<&EventInfo> {
-        self.get(id).map(|si| &si.event_info)
+        panic!("STUB: not implemented");
     }
-
     fn for_each<'a, F>(&'a self, f: F)
     where
         F: FnMut(&'a EventInfo),
     {
-        self.0.iter().map(|si| &si.event_info).for_each(f);
+        panic!("STUB: not implemented");
     }
 }
-
 #[derive(Debug)]
 pub(crate) struct OsExtraData {
     sender: UnixStream,
     pub(crate) receiver: UnixStream,
 }
-
 impl Default for OsExtraData {
     fn default() -> Self {
-        let (receiver, sender) = UnixStream::pair().expect("failed to create UnixStream");
-
-        Self { sender, receiver }
+        panic!("STUB: not implemented");
     }
 }
-
 /// Represents the specific kind of signal to listen for.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct SignalKind(libc::c_int);
-
 impl SignalKind {
     /// Allows for listening to any valid OS signal.
     ///
@@ -89,16 +62,9 @@ impl SignalKind {
     /// // let signum = libc::OS_SPECIFIC_SIGNAL;
     /// let kind = SignalKind::from_raw(signum);
     /// ```
-    // Use `std::os::raw::c_int` on public API to prevent leaking a non-stable
-    // type alias from libc.
-    // `libc::c_int` and `std::os::raw::c_int` are currently the same type, and are
-    // unlikely to change to other types, but technically libc can change this
-    // in the future minor version.
-    // See https://github.com/tokio-rs/tokio/issues/3767 for more.
     pub const fn from_raw(signum: std::os::raw::c_int) -> Self {
         Self(signum as libc::c_int)
     }
-
     /// Get the signal's numeric value.
     ///
     /// ```rust
@@ -109,7 +75,6 @@ impl SignalKind {
     pub const fn as_raw_value(&self) -> std::os::raw::c_int {
         self.0
     }
-
     /// Represents the `SIGALRM` signal.
     ///
     /// On Unix systems this signal is sent when a real-time timer has expired.
@@ -117,7 +82,6 @@ impl SignalKind {
     pub const fn alarm() -> Self {
         Self(libc::SIGALRM)
     }
-
     /// Represents the `SIGCHLD` signal.
     ///
     /// On Unix systems this signal is sent when the status of a child process
@@ -125,7 +89,6 @@ impl SignalKind {
     pub const fn child() -> Self {
         Self(libc::SIGCHLD)
     }
-
     /// Represents the `SIGHUP` signal.
     ///
     /// On Unix systems this signal is sent when the terminal is disconnected.
@@ -133,23 +96,23 @@ impl SignalKind {
     pub const fn hangup() -> Self {
         Self(libc::SIGHUP)
     }
-
     /// Represents the `SIGINFO` signal.
     ///
     /// On Unix systems this signal is sent to request a status update from the
     /// process. By default, this signal is ignored.
-    #[cfg(any(
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "macos",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "illumos"
-    ))]
+    #[cfg(
+        any(
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "macos",
+            target_os = "netbsd",
+            target_os = "openbsd",
+            target_os = "illumos"
+        )
+    )]
     pub const fn info() -> Self {
         Self(libc::SIGINFO)
     }
-
     /// Represents the `SIGINT` signal.
     ///
     /// On Unix systems this signal is sent to interrupt a program.
@@ -157,7 +120,6 @@ impl SignalKind {
     pub const fn interrupt() -> Self {
         Self(libc::SIGINT)
     }
-
     #[cfg(target_os = "haiku")]
     /// Represents the `SIGPOLL` signal.
     ///
@@ -174,7 +136,6 @@ impl SignalKind {
     pub const fn io() -> Self {
         Self(libc::SIGIO)
     }
-
     /// Represents the `SIGPIPE` signal.
     ///
     /// On Unix systems this signal is sent when the process attempts to write
@@ -183,7 +144,6 @@ impl SignalKind {
     pub const fn pipe() -> Self {
         Self(libc::SIGPIPE)
     }
-
     /// Represents the `SIGQUIT` signal.
     ///
     /// On Unix systems this signal is sent to issue a shutdown of the
@@ -192,7 +152,6 @@ impl SignalKind {
     pub const fn quit() -> Self {
         Self(libc::SIGQUIT)
     }
-
     /// Represents the `SIGTERM` signal.
     ///
     /// On Unix systems this signal is sent to issue a shutdown of the
@@ -200,7 +159,6 @@ impl SignalKind {
     pub const fn terminate() -> Self {
         Self(libc::SIGTERM)
     }
-
     /// Represents the `SIGUSR1` signal.
     ///
     /// On Unix systems this is a user defined signal.
@@ -208,7 +166,6 @@ impl SignalKind {
     pub const fn user_defined1() -> Self {
         Self(libc::SIGUSR1)
     }
-
     /// Represents the `SIGUSR2` signal.
     ///
     /// On Unix systems this is a user defined signal.
@@ -216,7 +173,6 @@ impl SignalKind {
     pub const fn user_defined2() -> Self {
         Self(libc::SIGUSR2)
     }
-
     /// Represents the `SIGWINCH` signal.
     ///
     /// On Unix systems this signal is sent when the terminal window is resized.
@@ -225,25 +181,21 @@ impl SignalKind {
         Self(libc::SIGWINCH)
     }
 }
-
 impl From<std::os::raw::c_int> for SignalKind {
     fn from(signum: std::os::raw::c_int) -> Self {
-        Self::from_raw(signum as libc::c_int)
+        panic!("STUB: not implemented");
     }
 }
-
 impl From<SignalKind> for std::os::raw::c_int {
     fn from(kind: SignalKind) -> Self {
-        kind.as_raw_value()
+        panic!("STUB: not implemented");
     }
 }
-
 #[derive(Default)]
 pub(crate) struct SignalInfo {
     event_info: EventInfo,
     init: OnceLock<Result<(), Option<i32>>>,
 }
-
 /// Our global signal handler for all signals registered by this module.
 ///
 /// The purpose of this signal handler is to primarily:
@@ -253,52 +205,16 @@ pub(crate) struct SignalInfo {
 ///
 /// Those two operations should both be async-signal safe.
 fn action(globals: &'static Globals, signal: libc::c_int) {
-    globals.record_event(signal as EventId);
-
-    // Send a wakeup, ignore any errors (anything reasonably possible is
-    // full pipe and then it will wake up anyway).
-    let mut sender = &globals.sender;
-    drop(sender.write(&[1]));
+    panic!("STUB: not implemented");
 }
-
 /// Enables this module to receive signal notifications for the `signal`
 /// provided.
 ///
 /// This will register the signal handler if it hasn't already been registered,
 /// returning any error along the way if that fails.
 fn signal_enable(signal: SignalKind, handle: &Handle) -> io::Result<()> {
-    let signal = signal.0;
-    if signal <= 0 || signal_hook_registry::FORBIDDEN.contains(&signal) {
-        return Err(Error::new(
-            ErrorKind::Other,
-            format!("Refusing to register signal {signal}"),
-        ));
-    }
-
-    // Check that we have a signal driver running
-    handle.check_inner()?;
-
-    let globals = globals();
-    let siginfo = match globals.storage().get(signal as EventId) {
-        Some(slot) => slot,
-        None => return Err(io::Error::new(io::ErrorKind::Other, "signal too large")),
-    };
-
-    siginfo
-        .init
-        .get_or_init(|| {
-            unsafe { signal_hook_registry::register(signal, move || action(globals, signal)) }
-                .map(|_| ())
-                .map_err(|e| e.raw_os_error())
-        })
-        .map_err(|e| {
-            e.map_or_else(
-                || Error::new(ErrorKind::Other, "registering signal handler failed"),
-                Error::from_raw_os_error,
-            )
-        })
+    panic!("STUB: not implemented");
 }
-
 /// An listener for receiving a particular type of OS signal.
 ///
 /// The listener can be turned into a `Stream` using [`SignalStream`].
@@ -370,7 +286,6 @@ fn signal_enable(signal: SignalKind, handle: &Handle) -> io::Result<()> {
 pub struct Signal {
     inner: RxFuture,
 }
-
 /// Creates a new listener which will receive notifications when the current
 /// process receives the specified signal `kind`.
 ///
@@ -400,24 +315,14 @@ pub struct Signal {
 /// feature flag is not enabled.
 #[track_caller]
 pub fn signal(kind: SignalKind) -> io::Result<Signal> {
-    let handle = scheduler::Handle::current();
-    let rx = signal_with_handle(kind, handle.driver().signal())?;
-
-    Ok(Signal {
-        inner: RxFuture::new(rx),
-    })
+    panic!("STUB: not implemented");
 }
-
 pub(crate) fn signal_with_handle(
     kind: SignalKind,
     handle: &Handle,
 ) -> io::Result<watch::Receiver<()>> {
-    // Turn the signal delivery on once we are ready for it
-    signal_enable(kind, handle)?;
-
-    Ok(globals().register_listener(kind.0 as EventId))
+    panic!("STUB: not implemented");
 }
-
 impl Signal {
     /// Receives the next signal notification event.
     ///
@@ -450,10 +355,8 @@ impl Signal {
     /// }
     /// ```
     pub async fn recv(&mut self) -> Option<()> {
-        self.inner.recv().await;
-        Some(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls to receive the next signal notification event, outside of an
     /// `async` context.
     ///
@@ -484,64 +387,49 @@ impl Signal {
     /// }
     /// ```
     pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
-        self.inner.poll_recv(cx).map(Some)
+        panic!("STUB: not implemented");
     }
 }
-
-// Work around for abstracting streams internally
 #[cfg(feature = "process")]
 pub(crate) trait InternalStream {
     fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>>;
 }
-
 #[cfg(feature = "process")]
 impl InternalStream for Signal {
     fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
-        self.poll_recv(cx)
+        panic!("STUB: not implemented");
     }
 }
-
 pub(crate) fn ctrl_c() -> io::Result<Signal> {
-    signal(SignalKind::interrupt())
+    panic!("STUB: not implemented");
 }
-
 #[cfg(all(test, not(loom)))]
 mod tests {
     use super::*;
-
     #[test]
     fn signal_enable_error_on_invalid_input() {
         let inputs = [-1, 0];
-
         for input in inputs {
             assert_eq!(
-                signal_enable(SignalKind::from_raw(input), &Handle::default())
-                    .unwrap_err()
-                    .kind(),
-                ErrorKind::Other,
+                signal_enable(SignalKind::from_raw(input), & Handle::default())
+                .unwrap_err().kind(), ErrorKind::Other,
             );
         }
     }
-
     #[test]
     fn signal_enable_error_on_forbidden_input() {
         let inputs = signal_hook_registry::FORBIDDEN;
-
         for &input in inputs {
             assert_eq!(
-                signal_enable(SignalKind::from_raw(input), &Handle::default())
-                    .unwrap_err()
-                    .kind(),
-                ErrorKind::Other,
+                signal_enable(SignalKind::from_raw(input), & Handle::default())
+                .unwrap_err().kind(), ErrorKind::Other,
             );
         }
     }
-
     #[test]
     fn from_c_int() {
         assert_eq!(SignalKind::from(2), SignalKind::interrupt());
     }
-
     #[test]
     fn into_c_int() {
         let value: std::os::raw::c_int = SignalKind::interrupt().into();

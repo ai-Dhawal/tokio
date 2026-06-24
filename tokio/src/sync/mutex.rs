@@ -1,16 +1,13 @@
 #![cfg_attr(not(feature = "sync"), allow(unreachable_pub, dead_code))]
-
 use crate::sync::batch_semaphore as semaphore;
 #[cfg(all(tokio_unstable, feature = "tracing"))]
 use crate::util::trace;
-
 use std::cell::UnsafeCell;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::{fmt, mem, ptr};
-
 /// An asynchronous `Mutex`-like type.
 ///
 /// This type acts similarly to [`std::sync::Mutex`], with two major
@@ -136,7 +133,6 @@ pub struct Mutex<T: ?Sized> {
     s: semaphore::Semaphore,
     c: UnsafeCell<T>,
 }
-
 /// A handle to a held `Mutex`. The guard can be held across any `.await` point
 /// as it is [`Send`].
 ///
@@ -149,13 +145,10 @@ pub struct Mutex<T: ?Sized> {
 #[clippy::has_significant_drop]
 #[must_use = "if unused the Mutex will immediately unlock"]
 pub struct MutexGuard<'a, T: ?Sized> {
-    // When changing the fields in this struct, make sure to update the
-    // `skip_drop` method.
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
     lock: &'a Mutex<T>,
 }
-
 /// An owned handle to a held `Mutex`.
 ///
 /// This guard is only available from a `Mutex` that is wrapped in an [`Arc`]. It
@@ -173,13 +166,10 @@ pub struct MutexGuard<'a, T: ?Sized> {
 /// [`Arc`]: std::sync::Arc
 #[clippy::has_significant_drop]
 pub struct OwnedMutexGuard<T: ?Sized> {
-    // When changing the fields in this struct, make sure to update the
-    // `skip_drop` method.
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
     lock: Arc<Mutex<T>>,
 }
-
 /// A handle to a held `Mutex` that has had a function applied to it via [`MutexGuard::map`].
 ///
 /// This can be used to hold a subfield of the protected data.
@@ -188,16 +178,12 @@ pub struct OwnedMutexGuard<T: ?Sized> {
 #[clippy::has_significant_drop]
 #[must_use = "if unused the Mutex will immediately unlock"]
 pub struct MappedMutexGuard<'a, T: ?Sized> {
-    // When changing the fields in this struct, make sure to update the
-    // `skip_drop` method.
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
     s: &'a semaphore::Semaphore,
     data: *mut T,
-    // Needed to tell the borrow checker that we are holding a `&mut T`
     marker: PhantomData<&'a mut T>,
 }
-
 /// A owned handle to a held `Mutex` that has had a function applied to it via
 /// [`OwnedMutexGuard::map`].
 ///
@@ -207,23 +193,19 @@ pub struct MappedMutexGuard<'a, T: ?Sized> {
 #[clippy::has_significant_drop]
 #[must_use = "if unused the Mutex will immediately unlock"]
 pub struct OwnedMappedMutexGuard<T: ?Sized, U: ?Sized = T> {
-    // When changing the fields in this struct, make sure to update the
-    // `skip_drop` method.
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
     data: *mut U,
     lock: Arc<Mutex<T>>,
 }
-
 /// A helper type used when taking apart a `MutexGuard` without running its
 /// Drop implementation.
-#[allow(dead_code)] // Unused fields are still used in Drop.
+#[allow(dead_code)]
 struct MutexGuardInner<'a, T: ?Sized> {
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
     lock: &'a Mutex<T>,
 }
-
 /// A helper type used when taking apart a `OwnedMutexGuard` without running
 /// its Drop implementation.
 struct OwnedMutexGuardInner<T: ?Sized> {
@@ -231,50 +213,58 @@ struct OwnedMutexGuardInner<T: ?Sized> {
     resource_span: tracing::Span,
     lock: Arc<Mutex<T>>,
 }
-
 /// A helper type used when taking apart a `MappedMutexGuard` without running
 /// its Drop implementation.
-#[allow(dead_code)] // Unused fields are still used in Drop.
+#[allow(dead_code)]
 struct MappedMutexGuardInner<'a, T: ?Sized> {
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
     s: &'a semaphore::Semaphore,
     data: *mut T,
 }
-
 /// A helper type used when taking apart a `OwnedMappedMutexGuard` without running
 /// its Drop implementation.
-#[allow(dead_code)] // Unused fields are still used in Drop.
+#[allow(dead_code)]
 struct OwnedMappedMutexGuardInner<T: ?Sized, U: ?Sized> {
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
     data: *mut U,
     lock: Arc<Mutex<T>>,
 }
-
-// As long as T: Send, it's fine to send and share Mutex<T> between threads.
-// If T was not Send, sending and sharing a Mutex<T> would be bad, since you can
-// access T through Mutex<T>.
-unsafe impl<T> Send for Mutex<T> where T: ?Sized + Send {}
-unsafe impl<T> Sync for Mutex<T> where T: ?Sized + Send {}
-unsafe impl<T> Sync for MutexGuard<'_, T> where T: ?Sized + Send + Sync {}
-unsafe impl<T> Sync for OwnedMutexGuard<T> where T: ?Sized + Send + Sync {}
-unsafe impl<'a, T> Sync for MappedMutexGuard<'a, T> where T: ?Sized + Sync + 'a {}
-unsafe impl<'a, T> Send for MappedMutexGuard<'a, T> where T: ?Sized + Send + 'a {}
-
+unsafe impl<T> Send for Mutex<T>
+where
+    T: ?Sized + Send,
+{}
+unsafe impl<T> Sync for Mutex<T>
+where
+    T: ?Sized + Send,
+{}
+unsafe impl<T> Sync for MutexGuard<'_, T>
+where
+    T: ?Sized + Send + Sync,
+{}
+unsafe impl<T> Sync for OwnedMutexGuard<T>
+where
+    T: ?Sized + Send + Sync,
+{}
+unsafe impl<'a, T> Sync for MappedMutexGuard<'a, T>
+where
+    T: ?Sized + Sync + 'a,
+{}
+unsafe impl<'a, T> Send for MappedMutexGuard<'a, T>
+where
+    T: ?Sized + Send + 'a,
+{}
 unsafe impl<T, U> Sync for OwnedMappedMutexGuard<T, U>
 where
     T: ?Sized + Send + Sync,
     U: ?Sized + Send + Sync,
-{
-}
+{}
 unsafe impl<T, U> Send for OwnedMappedMutexGuard<T, U>
 where
     T: ?Sized + Send,
     U: ?Sized + Send,
-{
-}
-
+{}
 /// Error returned from the [`Mutex::try_lock`], [`RwLock::try_read`] and
 /// [`RwLock::try_write`] functions.
 ///
@@ -291,39 +281,44 @@ where
 /// [`RwLock::try_write`]: fn@super::RwLock::try_write
 #[derive(Debug)]
 pub struct TryLockError(pub(super) ());
-
 impl fmt::Display for TryLockError {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "operation would block")
+        panic!("STUB: not implemented");
     }
 }
-
 impl Error for TryLockError {}
-
 #[test]
 #[cfg(not(loom))]
 fn bounds() {
-    fn check_send<T: Send>() {}
-    fn check_unpin<T: Unpin>() {}
-    // This has to take a value, since the async fn's return type is unnameable.
-    fn check_send_sync_val<T: Send + Sync>(_t: T) {}
-    fn check_send_sync<T: Send + Sync>() {}
-    fn check_static<T: 'static>() {}
-    fn check_static_val<T: 'static>(_t: T) {}
-
+    fn check_send<T: Send>() {
+        panic!("STUB: not implemented");
+    }
+    fn check_unpin<T: Unpin>() {
+        panic!("STUB: not implemented");
+    }
+    fn check_send_sync_val<T: Send + Sync>(_t: T) {
+        panic!("STUB: not implemented");
+    }
+    fn check_send_sync<T: Send + Sync>() {
+        panic!("STUB: not implemented");
+    }
+    fn check_static<T: 'static>() {
+        panic!("STUB: not implemented");
+    }
+    fn check_static_val<T: 'static>(_t: T) {
+        panic!("STUB: not implemented");
+    }
     check_send::<MutexGuard<'_, u32>>();
     check_send::<OwnedMutexGuard<u32>>();
     check_unpin::<Mutex<u32>>();
     check_send_sync::<Mutex<u32>>();
     check_static::<OwnedMutexGuard<u32>>();
-
     let mutex = Mutex::new(1);
     check_send_sync_val(mutex.lock());
     let arc_mutex = Arc::new(Mutex::new(1));
     check_send_sync_val(arc_mutex.clone().lock_owned());
     check_static_val(arc_mutex.lock_owned());
 }
-
 impl<T: ?Sized> Mutex<T> {
     /// Creates a new lock in an unlocked state ready for use.
     ///
@@ -339,41 +334,8 @@ impl<T: ?Sized> Mutex<T> {
     where
         T: Sized,
     {
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let resource_span = {
-            let location = std::panic::Location::caller();
-
-            tracing::trace_span!(
-                parent: None,
-                "runtime.resource",
-                concrete_type = "Mutex",
-                kind = "Sync",
-                loc.file = location.file(),
-                loc.line = location.line(),
-                loc.col = location.column(),
-            )
-        };
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let s = resource_span.in_scope(|| {
-            tracing::trace!(
-                target: "runtime::resource::state_update",
-                locked = false,
-            );
-            semaphore::Semaphore::new(1)
-        });
-
-        #[cfg(any(not(tokio_unstable), not(feature = "tracing")))]
-        let s = semaphore::Semaphore::new(1);
-
-        Self {
-            c: UnsafeCell::new(t),
-            s,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new lock in an unlocked state ready for use.
     ///
     /// When using the `tracing` [unstable feature], a `Mutex` created with
@@ -403,7 +365,6 @@ impl<T: ?Sized> Mutex<T> {
             resource_span: tracing::Span::none(),
         }
     }
-
     /// Locks this mutex, causing the current task to yield until the lock has
     /// been acquired.  When the lock has been acquired, function returns a
     /// [`MutexGuard`].
@@ -432,39 +393,8 @@ impl<T: ?Sized> Mutex<T> {
     /// # }
     /// ```
     pub async fn lock(&self) -> MutexGuard<'_, T> {
-        let acquire_fut = async {
-            self.acquire().await;
-
-            MutexGuard {
-                lock: self,
-                #[cfg(all(tokio_unstable, feature = "tracing"))]
-                resource_span: self.resource_span.clone(),
-            }
-        };
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let acquire_fut = trace::async_op(
-            move || acquire_fut,
-            self.resource_span.clone(),
-            "Mutex::lock",
-            "poll",
-            false,
-        );
-
-        #[allow(clippy::let_and_return)] // this lint triggers when disabling tracing
-        let guard = acquire_fut.await;
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        self.resource_span.in_scope(|| {
-            tracing::trace!(
-                target: "runtime::resource::state_update",
-                locked = true,
-            );
-        });
-
-        guard
+        panic!("STUB: not implemented");
     }
-
     /// Blockingly locks this `Mutex`. When the lock has been acquired, function returns a
     /// [`MutexGuard`].
     ///
@@ -518,9 +448,8 @@ impl<T: ?Sized> Mutex<T> {
     #[cfg(feature = "sync")]
     #[cfg_attr(docsrs, doc(alias = "lock_blocking"))]
     pub fn blocking_lock(&self) -> MutexGuard<'_, T> {
-        crate::future::block_on(self.lock())
+        panic!("STUB: not implemented");
     }
-
     /// Blockingly locks this `Mutex`. When the lock has been acquired, function returns an
     /// [`OwnedMutexGuard`].
     ///
@@ -576,9 +505,8 @@ impl<T: ?Sized> Mutex<T> {
     #[track_caller]
     #[cfg(feature = "sync")]
     pub fn blocking_lock_owned(self: Arc<Self>) -> OwnedMutexGuard<T> {
-        crate::future::block_on(self.lock_owned())
+        panic!("STUB: not implemented");
     }
-
     /// Locks this mutex, causing the current task to yield until the lock has
     /// been acquired. When the lock has been acquired, this returns an
     /// [`OwnedMutexGuard`].
@@ -616,52 +544,11 @@ impl<T: ?Sized> Mutex<T> {
     ///
     /// [`Arc`]: std::sync::Arc
     pub async fn lock_owned(self: Arc<Self>) -> OwnedMutexGuard<T> {
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let resource_span = self.resource_span.clone();
-
-        let acquire_fut = async {
-            self.acquire().await;
-
-            OwnedMutexGuard {
-                #[cfg(all(tokio_unstable, feature = "tracing"))]
-                resource_span: self.resource_span.clone(),
-                lock: self,
-            }
-        };
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let acquire_fut = trace::async_op(
-            move || acquire_fut,
-            resource_span,
-            "Mutex::lock_owned",
-            "poll",
-            false,
-        );
-
-        #[allow(clippy::let_and_return)] // this lint triggers when disabling tracing
-        let guard = acquire_fut.await;
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        guard.resource_span.in_scope(|| {
-            tracing::trace!(
-                target: "runtime::resource::state_update",
-                locked = true,
-            );
-        });
-
-        guard
+        panic!("STUB: not implemented");
     }
-
     async fn acquire(&self) {
-        crate::trace::async_trace_leaf().await;
-
-        self.s.acquire(1).await.unwrap_or_else(|_| {
-            // The semaphore was closed. but, we never explicitly close it, and
-            // we own it exclusively, which means that this can never happen.
-            unreachable!()
-        });
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to acquire the lock, and returns [`TryLockError`] if the
     /// lock is currently held somewhere else.
     ///
@@ -680,28 +567,8 @@ impl<T: ?Sized> Mutex<T> {
     /// # }
     /// ```
     pub fn try_lock(&self) -> Result<MutexGuard<'_, T>, TryLockError> {
-        match self.s.try_acquire(1) {
-            Ok(()) => {
-                let guard = MutexGuard {
-                    lock: self,
-                    #[cfg(all(tokio_unstable, feature = "tracing"))]
-                    resource_span: self.resource_span.clone(),
-                };
-
-                #[cfg(all(tokio_unstable, feature = "tracing"))]
-                self.resource_span.in_scope(|| {
-                    tracing::trace!(
-                        target: "runtime::resource::state_update",
-                        locked = true,
-                    );
-                });
-
-                Ok(guard)
-            }
-            Err(_) => Err(TryLockError(())),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns a mutable reference to the underlying data.
     ///
     /// Since this call borrows the `Mutex` mutably, no actual locking needs to
@@ -720,9 +587,8 @@ impl<T: ?Sized> Mutex<T> {
     /// }
     /// ```
     pub fn get_mut(&mut self) -> &mut T {
-        self.c.get_mut()
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to acquire the lock, and returns [`TryLockError`] if the lock
     /// is currently held somewhere else.
     ///
@@ -748,28 +614,8 @@ impl<T: ?Sized> Mutex<T> {
     /// # Ok(())
     /// # }
     pub fn try_lock_owned(self: Arc<Self>) -> Result<OwnedMutexGuard<T>, TryLockError> {
-        match self.s.try_acquire(1) {
-            Ok(()) => {
-                let guard = OwnedMutexGuard {
-                    #[cfg(all(tokio_unstable, feature = "tracing"))]
-                    resource_span: self.resource_span.clone(),
-                    lock: self,
-                };
-
-                #[cfg(all(tokio_unstable, feature = "tracing"))]
-                guard.resource_span.in_scope(|| {
-                    tracing::trace!(
-                        target: "runtime::resource::state_update",
-                        locked = true,
-                    );
-                });
-
-                Ok(guard)
-            }
-            Err(_) => Err(TryLockError(())),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Consumes the mutex, returning the underlying data.
     /// # Examples
     ///
@@ -788,53 +634,34 @@ impl<T: ?Sized> Mutex<T> {
     where
         T: Sized,
     {
-        self.c.into_inner()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> From<T> for Mutex<T> {
     fn from(s: T) -> Self {
-        Self::new(s)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Default for Mutex<T>
 where
     T: Default,
 {
     fn default() -> Self {
-        Self::new(T::default())
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized> std::fmt::Debug for Mutex<T>
 where
     T: std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut d = f.debug_struct("Mutex");
-        match self.try_lock() {
-            Ok(inner) => d.field("data", &&*inner),
-            Err(_) => d.field("data", &format_args!("<locked>")),
-        };
-        d.finish()
+        panic!("STUB: not implemented");
     }
 }
-
-// === impl MutexGuard ===
-
 impl<'a, T: ?Sized> MutexGuard<'a, T> {
     fn skip_drop(self) -> MutexGuardInner<'a, T> {
-        let me = mem::ManuallyDrop::new(self);
-        // SAFETY: This duplicates the `resource_span` and then forgets the
-        // original. In the end, we have not duplicated or forgotten any values.
-        MutexGuardInner {
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: unsafe { std::ptr::read(&me.resource_span) },
-            lock: me.lock,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Makes a new [`MappedMutexGuard`] for a component of the locked data.
     ///
     /// This operation cannot fail as the [`MutexGuard`] passed in already locked the mutex.
@@ -871,17 +698,8 @@ impl<'a, T: ?Sized> MutexGuard<'a, T> {
         U: ?Sized,
         F: FnOnce(&mut T) -> &mut U,
     {
-        let data = f(&mut *this) as *mut U;
-        let inner = this.skip_drop();
-        MappedMutexGuard {
-            s: &inner.lock.s,
-            data,
-            marker: PhantomData,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: inner.resource_span,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to make a new [`MappedMutexGuard`] for a component of the locked data. The
     /// original guard is returned if the closure returns `None`.
     ///
@@ -920,20 +738,8 @@ impl<'a, T: ?Sized> MutexGuard<'a, T> {
         U: ?Sized,
         F: FnOnce(&mut T) -> Option<&mut U>,
     {
-        let data = match f(&mut *this) {
-            Some(data) => data as *mut U,
-            None => return Err(this),
-        };
-        let inner = this.skip_drop();
-        Ok(MappedMutexGuard {
-            s: &inner.lock.s,
-            data,
-            marker: PhantomData,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: inner.resource_span,
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Returns a reference to the original `Mutex`.
     ///
     /// ```
@@ -957,65 +763,39 @@ impl<'a, T: ?Sized> MutexGuard<'a, T> {
     /// ```
     #[inline]
     pub fn mutex(this: &Self) -> &'a Mutex<T> {
-        this.lock
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized> Drop for MutexGuard<'_, T> {
     fn drop(&mut self) {
-        self.lock.s.release(1);
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        self.resource_span.in_scope(|| {
-            tracing::trace!(
-                target: "runtime::resource::state_update",
-                locked = false,
-            );
-        });
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized> Deref for MutexGuard<'_, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.lock.c.get() }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized> DerefMut for MutexGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.lock.c.get() }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized + fmt::Debug> fmt::Debug for MutexGuard<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized + fmt::Display> fmt::Display for MutexGuard<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
-// === impl OwnedMutexGuard ===
-
 impl<T: ?Sized> OwnedMutexGuard<T> {
     fn skip_drop(self) -> OwnedMutexGuardInner<T> {
-        let me = mem::ManuallyDrop::new(self);
-        // SAFETY: This duplicates the values in every field of the guard, then
-        // forgets the originals, so in the end no value is duplicated.
-        unsafe {
-            OwnedMutexGuardInner {
-                lock: ptr::read(&me.lock),
-                #[cfg(all(tokio_unstable, feature = "tracing"))]
-                resource_span: ptr::read(&me.resource_span),
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Makes a new [`OwnedMappedMutexGuard`] for a component of the locked data.
     ///
     /// This operation cannot fail as the [`OwnedMutexGuard`] passed in already locked the mutex.
@@ -1053,16 +833,8 @@ impl<T: ?Sized> OwnedMutexGuard<T> {
         U: ?Sized,
         F: FnOnce(&mut T) -> &mut U,
     {
-        let data = f(&mut *this) as *mut U;
-        let inner = this.skip_drop();
-        OwnedMappedMutexGuard {
-            data,
-            lock: inner.lock,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: inner.resource_span,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to make a new [`OwnedMappedMutexGuard`] for a component of the locked data. The
     /// original guard is returned if the closure returns `None`.
     ///
@@ -1097,24 +869,16 @@ impl<T: ?Sized> OwnedMutexGuard<T> {
     /// [`OwnedMutexGuard`]: struct@OwnedMutexGuard
     /// [`OwnedMappedMutexGuard`]: struct@OwnedMappedMutexGuard
     #[inline]
-    pub fn try_map<U, F>(mut this: Self, f: F) -> Result<OwnedMappedMutexGuard<T, U>, Self>
+    pub fn try_map<U, F>(
+        mut this: Self,
+        f: F,
+    ) -> Result<OwnedMappedMutexGuard<T, U>, Self>
     where
         U: ?Sized,
         F: FnOnce(&mut T) -> Option<&mut U>,
     {
-        let data = match f(&mut *this) {
-            Some(data) => data as *mut U,
-            None => return Err(this),
-        };
-        let inner = this.skip_drop();
-        Ok(OwnedMappedMutexGuard {
-            data,
-            lock: inner.lock,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: inner.resource_span,
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Returns a reference to the original `Arc<Mutex>`.
     ///
     /// ```
@@ -1139,62 +903,39 @@ impl<T: ?Sized> OwnedMutexGuard<T> {
     /// ```
     #[inline]
     pub fn mutex(this: &Self) -> &Arc<Mutex<T>> {
-        &this.lock
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized> Drop for OwnedMutexGuard<T> {
     fn drop(&mut self) {
-        self.lock.s.release(1);
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        self.resource_span.in_scope(|| {
-            tracing::trace!(
-                target: "runtime::resource::state_update",
-                locked = false,
-            );
-        });
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized> Deref for OwnedMutexGuard<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.lock.c.get() }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized> DerefMut for OwnedMutexGuard<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.lock.c.get() }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized + fmt::Debug> fmt::Debug for OwnedMutexGuard<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized + fmt::Display> fmt::Display for OwnedMutexGuard<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
-// === impl MappedMutexGuard ===
-
 impl<'a, T: ?Sized> MappedMutexGuard<'a, T> {
     fn skip_drop(self) -> MappedMutexGuardInner<'a, T> {
-        let me = mem::ManuallyDrop::new(self);
-        MappedMutexGuardInner {
-            s: me.s,
-            data: me.data,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: unsafe { std::ptr::read(&me.resource_span) },
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Makes a new [`MappedMutexGuard`] for a component of the locked data.
     ///
     /// This operation cannot fail as the [`MappedMutexGuard`] passed in already locked the mutex.
@@ -1208,17 +949,8 @@ impl<'a, T: ?Sized> MappedMutexGuard<'a, T> {
     where
         F: FnOnce(&mut T) -> &mut U,
     {
-        let data = f(&mut *this) as *mut U;
-        let inner = this.skip_drop();
-        MappedMutexGuard {
-            s: inner.s,
-            data,
-            marker: PhantomData,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: inner.resource_span,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to make a new [`MappedMutexGuard`] for a component of the locked data. The
     /// original guard is returned if the closure returns `None`.
     ///
@@ -1233,77 +965,39 @@ impl<'a, T: ?Sized> MappedMutexGuard<'a, T> {
     where
         F: FnOnce(&mut T) -> Option<&mut U>,
     {
-        let data = match f(&mut *this) {
-            Some(data) => data as *mut U,
-            None => return Err(this),
-        };
-        let inner = this.skip_drop();
-        Ok(MappedMutexGuard {
-            s: inner.s,
-            data,
-            marker: PhantomData,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: inner.resource_span,
-        })
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T: ?Sized> Drop for MappedMutexGuard<'a, T> {
     fn drop(&mut self) {
-        self.s.release(1);
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        self.resource_span.in_scope(|| {
-            tracing::trace!(
-                target: "runtime::resource::state_update",
-                locked = false,
-            );
-        });
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T: ?Sized> Deref for MappedMutexGuard<'a, T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.data }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T: ?Sized> DerefMut for MappedMutexGuard<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.data }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T: ?Sized + fmt::Debug> fmt::Debug for MappedMutexGuard<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T: ?Sized + fmt::Display> fmt::Display for MappedMutexGuard<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
-// === impl OwnedMappedMutexGuard ===
-
 impl<T: ?Sized, U: ?Sized> OwnedMappedMutexGuard<T, U> {
     fn skip_drop(self) -> OwnedMappedMutexGuardInner<T, U> {
-        let me = mem::ManuallyDrop::new(self);
-        // SAFETY: This duplicates the values in every field of the guard, then
-        // forgets the originals, so in the end no value is duplicated.
-        unsafe {
-            OwnedMappedMutexGuardInner {
-                data: me.data,
-                lock: ptr::read(&me.lock),
-                #[cfg(all(tokio_unstable, feature = "tracing"))]
-                resource_span: ptr::read(&me.resource_span),
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Makes a new [`OwnedMappedMutexGuard`] for a component of the locked data.
     ///
     /// This operation cannot fail as the [`OwnedMappedMutexGuard`] passed in already locked the mutex.
@@ -1317,16 +1011,8 @@ impl<T: ?Sized, U: ?Sized> OwnedMappedMutexGuard<T, U> {
     where
         F: FnOnce(&mut U) -> &mut S,
     {
-        let data = f(&mut *this) as *mut S;
-        let inner = this.skip_drop();
-        OwnedMappedMutexGuard {
-            data,
-            lock: inner.lock,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: inner.resource_span,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to make a new [`OwnedMappedMutexGuard`] for a component of the locked data. The
     /// original guard is returned if the closure returns `None`.
     ///
@@ -1338,59 +1024,39 @@ impl<T: ?Sized, U: ?Sized> OwnedMappedMutexGuard<T, U> {
     /// [`OwnedMutexGuard`]: struct@OwnedMutexGuard
     /// [`OwnedMappedMutexGuard`]: struct@OwnedMappedMutexGuard
     #[inline]
-    pub fn try_map<S, F>(mut this: Self, f: F) -> Result<OwnedMappedMutexGuard<T, S>, Self>
+    pub fn try_map<S, F>(
+        mut this: Self,
+        f: F,
+    ) -> Result<OwnedMappedMutexGuard<T, S>, Self>
     where
         F: FnOnce(&mut U) -> Option<&mut S>,
     {
-        let data = match f(&mut *this) {
-            Some(data) => data as *mut S,
-            None => return Err(this),
-        };
-        let inner = this.skip_drop();
-        Ok(OwnedMappedMutexGuard {
-            data,
-            lock: inner.lock,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: inner.resource_span,
-        })
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized, U: ?Sized> Drop for OwnedMappedMutexGuard<T, U> {
     fn drop(&mut self) {
-        self.lock.s.release(1);
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        self.resource_span.in_scope(|| {
-            tracing::trace!(
-                target: "runtime::resource::state_update",
-                locked = false,
-            );
-        });
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized, U: ?Sized> Deref for OwnedMappedMutexGuard<T, U> {
     type Target = U;
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.data }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized, U: ?Sized> DerefMut for OwnedMappedMutexGuard<T, U> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.data }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized, U: ?Sized + fmt::Debug> fmt::Debug for OwnedMappedMutexGuard<T, U> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized, U: ?Sized + fmt::Display> fmt::Display for OwnedMappedMutexGuard<T, U> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }

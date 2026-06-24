@@ -2,7 +2,6 @@ use crate::sync::rwlock::RwLock;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::{fmt, mem, ops, ptr};
-
 /// Owned RAII structure used to release the shared read access of a lock when
 /// dropped.
 ///
@@ -13,38 +12,23 @@ use std::{fmt, mem, ops, ptr};
 /// [`RwLock`]: struct@crate::sync::RwLock
 #[clippy::has_significant_drop]
 pub struct OwnedRwLockReadGuard<T: ?Sized, U: ?Sized = T> {
-    // When changing the fields in this struct, make sure to update the
-    // `skip_drop` method.
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     pub(super) resource_span: tracing::Span,
     pub(super) lock: Arc<RwLock<T>>,
     pub(super) data: *const U,
     pub(super) _p: PhantomData<T>,
 }
-
-#[allow(dead_code)] // Unused fields are still used in Drop.
+#[allow(dead_code)]
 struct Inner<T: ?Sized, U: ?Sized> {
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
     lock: Arc<RwLock<T>>,
     data: *const U,
 }
-
 impl<T: ?Sized, U: ?Sized> OwnedRwLockReadGuard<T, U> {
     fn skip_drop(self) -> Inner<T, U> {
-        let me = mem::ManuallyDrop::new(self);
-        // SAFETY: This duplicates the values in every field of the guard, then
-        // forgets the originals, so in the end no value is duplicated.
-        unsafe {
-            Inner {
-                #[cfg(all(tokio_unstable, feature = "tracing"))]
-                resource_span: ptr::read(&me.resource_span),
-                lock: ptr::read(&me.lock),
-                data: me.data,
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Makes a new `OwnedRwLockReadGuard` for a component of the locked data.
     /// This operation cannot fail as the `OwnedRwLockReadGuard` passed in
     /// already locked the data.
@@ -77,18 +61,8 @@ impl<T: ?Sized, U: ?Sized> OwnedRwLockReadGuard<T, U> {
     where
         F: FnOnce(&U) -> &V,
     {
-        let data = f(&*this) as *const V;
-        let this = this.skip_drop();
-
-        OwnedRwLockReadGuard {
-            lock: this.lock,
-            data,
-            _p: PhantomData,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: this.resource_span,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to make a new [`OwnedRwLockReadGuard`] for a component of the
     /// locked data. The original guard is returned if the closure returns
     /// `None`.
@@ -120,25 +94,15 @@ impl<T: ?Sized, U: ?Sized> OwnedRwLockReadGuard<T, U> {
     /// # }
     /// ```
     #[inline]
-    pub fn try_map<F, V: ?Sized>(this: Self, f: F) -> Result<OwnedRwLockReadGuard<T, V>, Self>
+    pub fn try_map<F, V: ?Sized>(
+        this: Self,
+        f: F,
+    ) -> Result<OwnedRwLockReadGuard<T, V>, Self>
     where
         F: FnOnce(&U) -> Option<&V>,
     {
-        let data = match f(&*this) {
-            Some(data) => data as *const V,
-            None => return Err(this),
-        };
-        let this = this.skip_drop();
-
-        Ok(OwnedRwLockReadGuard {
-            lock: this.lock,
-            data,
-            _p: PhantomData,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: this.resource_span,
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Returns a reference to the original `Arc<RwLock>`.
     ///
     /// # Examples
@@ -162,47 +126,33 @@ impl<T: ?Sized, U: ?Sized> OwnedRwLockReadGuard<T, U> {
     /// # }
     /// ```
     pub fn rwlock(this: &Self) -> &Arc<RwLock<T>> {
-        &this.lock
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized, U: ?Sized> ops::Deref for OwnedRwLockReadGuard<T, U> {
     type Target = U;
-
     fn deref(&self) -> &U {
-        unsafe { &*self.data }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized, U: ?Sized> fmt::Debug for OwnedRwLockReadGuard<T, U>
 where
     U: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized, U: ?Sized> fmt::Display for OwnedRwLockReadGuard<T, U>
 where
     U: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&**self, f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: ?Sized, U: ?Sized> Drop for OwnedRwLockReadGuard<T, U> {
     fn drop(&mut self) {
-        self.lock.s.release(1);
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        self.resource_span.in_scope(|| {
-            tracing::trace!(
-            target: "runtime::resource::state_update",
-            current_readers = 1,
-            current_readers.op = "sub",
-            )
-        });
+        panic!("STUB: not implemented");
     }
 }

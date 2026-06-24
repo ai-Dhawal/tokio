@@ -4,23 +4,17 @@
 //! "ctrl-break", "ctrl-logoff", "ctrl-shutdown", and "ctrl-close"
 //! notifications. These events are listened for via the `SetConsoleCtrlHandler`
 //! function which receives the corresponding `windows_sys` event type.
-
 #![cfg(any(windows, docsrs))]
 #![cfg_attr(docsrs, doc(cfg(all(windows, feature = "signal"))))]
-
 use crate::signal::RxFuture;
 use std::io;
 use std::task::{Context, Poll};
-
 #[cfg(windows)]
 #[path = "windows/sys.rs"]
 mod imp;
-
-// For building documentation on Unix machines when the `docsrs` flag is set.
 #[cfg(not(windows))]
 #[path = "windows/stub.rs"]
 mod imp;
-
 /// Creates a new listener which receives "ctrl-c" notifications sent to the
 /// process.
 ///
@@ -44,11 +38,8 @@ mod imp;
 /// }
 /// ```
 pub fn ctrl_c() -> io::Result<CtrlC> {
-    Ok(CtrlC {
-        inner: self::imp::ctrl_c()?,
-    })
+    panic!("STUB: not implemented");
 }
-
 /// Represents a listener which receives "ctrl-c" notifications sent to the process
 /// via `SetConsoleCtrlHandler`.
 ///
@@ -65,7 +56,6 @@ pub fn ctrl_c() -> io::Result<CtrlC> {
 pub struct CtrlC {
     inner: RxFuture,
 }
-
 impl CtrlC {
     /// Receives the next signal notification event.
     ///
@@ -91,10 +81,8 @@ impl CtrlC {
     /// }
     /// ```
     pub async fn recv(&mut self) -> Option<()> {
-        self.inner.recv().await;
-        Some(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls to receive the next signal notification event, outside of an
     /// `async` context.
     ///
@@ -125,10 +113,9 @@ impl CtrlC {
     /// }
     /// ```
     pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
-        self.inner.poll_recv(cx).map(Some)
+        panic!("STUB: not implemented");
     }
 }
-
 /// Represents a listener which receives "ctrl-break" notifications sent to the process
 /// via `SetConsoleCtrlHandler`.
 ///
@@ -145,7 +132,6 @@ impl CtrlC {
 pub struct CtrlBreak {
     inner: RxFuture,
 }
-
 impl CtrlBreak {
     /// Receives the next signal notification event.
     ///
@@ -170,10 +156,8 @@ impl CtrlBreak {
     /// }
     /// ```
     pub async fn recv(&mut self) -> Option<()> {
-        self.inner.recv().await;
-        Some(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls to receive the next signal notification event, outside of an
     /// `async` context.
     ///
@@ -204,10 +188,9 @@ impl CtrlBreak {
     /// }
     /// ```
     pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
-        self.inner.poll_recv(cx).map(Some)
+        panic!("STUB: not implemented");
     }
 }
-
 /// Creates a new listener which receives "ctrl-break" notifications sent to the
 /// process.
 ///
@@ -229,11 +212,8 @@ impl CtrlBreak {
 /// }
 /// ```
 pub fn ctrl_break() -> io::Result<CtrlBreak> {
-    Ok(CtrlBreak {
-        inner: self::imp::ctrl_break()?,
-    })
+    panic!("STUB: not implemented");
 }
-
 /// Creates a new listener which receives "ctrl-close" notifications sent to the
 /// process.
 ///
@@ -257,11 +237,8 @@ pub fn ctrl_break() -> io::Result<CtrlBreak> {
 /// }
 /// ```
 pub fn ctrl_close() -> io::Result<CtrlClose> {
-    Ok(CtrlClose {
-        inner: self::imp::ctrl_close()?,
-    })
+    panic!("STUB: not implemented");
 }
-
 /// Represents a listener which receives "ctrl-close" notifications sent to the process
 /// via `SetConsoleCtrlHandler`.
 ///
@@ -274,7 +251,6 @@ pub fn ctrl_close() -> io::Result<CtrlClose> {
 pub struct CtrlClose {
     inner: RxFuture,
 }
-
 impl CtrlClose {
     /// Receives the next signal notification event.
     ///
@@ -299,10 +275,8 @@ impl CtrlClose {
     /// }
     /// ```
     pub async fn recv(&mut self) -> Option<()> {
-        self.inner.recv().await;
-        Some(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls to receive the next signal notification event, outside of an
     /// `async` context.
     ///
@@ -333,10 +307,9 @@ impl CtrlClose {
     /// }
     /// ```
     pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
-        self.inner.poll_recv(cx).map(Some)
+        panic!("STUB: not implemented");
     }
 }
-
 /// Creates a new listener which receives "ctrl-shutdown" notifications sent to the
 /// process.
 ///
@@ -357,11 +330,8 @@ impl CtrlClose {
 /// }
 /// ```
 pub fn ctrl_shutdown() -> io::Result<CtrlShutdown> {
-    Ok(CtrlShutdown {
-        inner: self::imp::ctrl_shutdown()?,
-    })
+    panic!("STUB: not implemented");
 }
-
 /// Represents a listener which receives "ctrl-shutdown" notifications sent to the process
 /// via `SetConsoleCtrlHandler`.
 ///
@@ -374,7 +344,6 @@ pub fn ctrl_shutdown() -> io::Result<CtrlShutdown> {
 pub struct CtrlShutdown {
     inner: RxFuture,
 }
-
 impl CtrlShutdown {
     /// Receives the next signal notification event.
     ///
@@ -399,10 +368,8 @@ impl CtrlShutdown {
     /// }
     /// ```
     pub async fn recv(&mut self) -> Option<()> {
-        self.inner.recv().await;
-        Some(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls to receive the next signal notification event, outside of an
     /// `async` context.
     ///
@@ -433,10 +400,9 @@ impl CtrlShutdown {
     /// }
     /// ```
     pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
-        self.inner.poll_recv(cx).map(Some)
+        panic!("STUB: not implemented");
     }
 }
-
 /// Creates a new listener which receives "ctrl-logoff" notifications sent to the
 /// process.
 ///
@@ -457,11 +423,8 @@ impl CtrlShutdown {
 /// }
 /// ```
 pub fn ctrl_logoff() -> io::Result<CtrlLogoff> {
-    Ok(CtrlLogoff {
-        inner: self::imp::ctrl_logoff()?,
-    })
+    panic!("STUB: not implemented");
 }
-
 /// Represents a listener which receives "ctrl-logoff" notifications sent to the process
 /// via `SetConsoleCtrlHandler`.
 ///
@@ -474,7 +437,6 @@ pub fn ctrl_logoff() -> io::Result<CtrlLogoff> {
 pub struct CtrlLogoff {
     inner: RxFuture,
 }
-
 impl CtrlLogoff {
     /// Receives the next signal notification event.
     ///
@@ -499,10 +461,8 @@ impl CtrlLogoff {
     /// }
     /// ```
     pub async fn recv(&mut self) -> Option<()> {
-        self.inner.recv().await;
-        Some(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls to receive the next signal notification event, outside of an
     /// `async` context.
     ///
@@ -533,6 +493,6 @@ impl CtrlLogoff {
     /// }
     /// ```
     pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
-        self.inner.poll_recv(cx).map(Some)
+        panic!("STUB: not implemented");
     }
 }

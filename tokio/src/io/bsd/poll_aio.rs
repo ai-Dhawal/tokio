@@ -1,5 +1,4 @@
 //! Use POSIX AIO futures with Tokio.
-
 use crate::io::interest::Interest;
 use crate::runtime::io::{ReadyEvent, Registration};
 use crate::runtime::scheduler;
@@ -12,7 +11,6 @@ use std::ops::{Deref, DerefMut};
 use std::os::fd::{AsFd, BorrowedFd};
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::task::{ready, Context, Poll};
-
 /// Like [`mio::event::Source`], but for POSIX AIO only.
 ///
 /// Tokio's consumer must pass an implementor of this trait to create a
@@ -27,27 +25,18 @@ pub trait AioSource {
     /// source may end up notifying the wrong file.
     #[deprecated(since = "1.52.0", note = "use register_borrowed instead")]
     fn register(&mut self, _kq: RawFd, _token: usize) {
-        // This default implementation exists so new AioSource implementors that implement the
-        // register_borrowed method can compile without the need to implement register.
         unimplemented!("Use AioSource::register_borrowed instead")
     }
-
     /// Registers this AIO event source with Tokio's reactor.
     fn register_borrowed(&mut self, kq: BorrowedFd<'_>, token: usize) {
-        // This default implementation serves to provide backwards compatibility with AioSource
-        // implementors written before 1.52.0 that only implemented the unsafe `register` method.
-        #[allow(deprecated)]
-        self.register(kq.as_raw_fd(), token)
+        #[allow(deprecated)] self.register(kq.as_raw_fd(), token)
     }
-
     /// Deregisters this AIO event source with Tokio's reactor.
     fn deregister(&mut self);
 }
-
 /// Wraps the user's AioSource in order to implement mio::event::Source, which
 /// is what the rest of the crate wants.
 struct MioSource<T>(T);
-
 impl<T: AioSource> Source for MioSource<T> {
     fn register(
         &mut self,
@@ -55,30 +44,20 @@ impl<T: AioSource> Source for MioSource<T> {
         token: Token,
         interests: mio::Interest,
     ) -> io::Result<()> {
-        assert!(interests.is_aio() || interests.is_lio());
-        self.0
-            .register_borrowed(registry.as_fd(), usize::from(token));
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     fn deregister(&mut self, _registry: &Registry) -> io::Result<()> {
-        self.0.deregister();
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     fn reregister(
         &mut self,
         registry: &Registry,
         token: Token,
         interests: mio::Interest,
     ) -> io::Result<()> {
-        assert!(interests.is_aio() || interests.is_lio());
-        self.0
-            .register_borrowed(registry.as_fd(), usize::from(token));
-        Ok(())
+        panic!("STUB: not implemented");
     }
 }
-
 /// Associates a POSIX AIO control block with the reactor that drives it.
 ///
 /// `Aio`'s wrapped type must implement [`AioSource`] to be driven
@@ -101,20 +80,10 @@ impl<T: AioSource> Source for MioSource<T> {
 /// `Aio` is only available for that operating system.
 ///
 /// [`lio_listio`]: https://pubs.opengroup.org/onlinepubs/9699919799/functions/lio_listio.html
-// Note: Unlike every other kqueue event source, POSIX AIO registers events not
-// via kevent(2) but when the aiocb is submitted to the kernel via aio_read,
-// aio_write, etc.  It needs the kqueue's file descriptor to do that.  So
-// AsyncFd can't be used for POSIX AIO.
-//
-// Note that Aio doesn't implement Drop.  There's no need.  Unlike other
-// kqueue sources, simply dropping the object effectively deregisters it.
 pub struct Aio<E> {
     io: MioSource<E>,
     registration: Registration,
 }
-
-// ===== impl Aio =====
-
 impl<E: AioSource> Aio<E> {
     /// Creates a new `Aio` suitable for use with POSIX AIO functions.
     ///
@@ -123,9 +92,8 @@ impl<E: AioSource> Aio<E> {
     /// Tokio runtime, otherwise runtime can be set explicitly with
     /// [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn new_for_aio(io: E) -> io::Result<Self> {
-        Self::new_with_interest(io, Interest::AIO)
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `Aio` suitable for use with [`lio_listio`].
     ///
     /// It will be associated with the default reactor.  The runtime is usually
@@ -135,16 +103,11 @@ impl<E: AioSource> Aio<E> {
     ///
     /// [`lio_listio`]: https://pubs.opengroup.org/onlinepubs/9699919799/functions/lio_listio.html
     pub fn new_for_lio(io: E) -> io::Result<Self> {
-        Self::new_with_interest(io, Interest::LIO)
+        panic!("STUB: not implemented");
     }
-
     fn new_with_interest(io: E, interest: Interest) -> io::Result<Self> {
-        let mut io = MioSource(io);
-        let handle = scheduler::Handle::current();
-        let registration = Registration::new_with_interest_and_handle(&mut io, interest, handle)?;
-        Ok(Self { io, registration })
+        panic!("STUB: not implemented");
     }
-
     /// Indicates to Tokio that the source is no longer ready.  The internal
     /// readiness flag will be cleared, and tokio will wait for the next
     /// edge-triggered readiness notification from the OS.
@@ -163,14 +126,12 @@ impl<E: AioSource> Aio<E> {
     ///
     /// [`lio_listio`]: https://pubs.opengroup.org/onlinepubs/9699919799/functions/lio_listio.html
     pub fn clear_ready(&self, ev: AioEvent) {
-        self.registration.clear_readiness(ev.0)
+        panic!("STUB: not implemented");
     }
-
     /// Destroy the [`Aio`] and return its inner source.
     pub fn into_inner(self) -> E {
-        self.io.0
+        panic!("STUB: not implemented");
     }
-
     /// Polls for readiness.  Either AIO or LIO counts.
     ///
     /// This method returns:
@@ -186,31 +147,25 @@ impl<E: AioSource> Aio<E> {
     /// completes. Note that on multiple calls to `poll_ready`, only the `Waker` from the
     /// `Context` passed to the most recent call is scheduled to receive a wakeup.
     pub fn poll_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<AioEvent>> {
-        let ev = ready!(self.registration.poll_read_ready(cx))?;
-        Poll::Ready(Ok(AioEvent(ev)))
+        panic!("STUB: not implemented");
     }
 }
-
 impl<E: AioSource> Deref for Aio<E> {
     type Target = E;
-
     fn deref(&self) -> &E {
-        &self.io.0
+        panic!("STUB: not implemented");
     }
 }
-
 impl<E: AioSource> DerefMut for Aio<E> {
     fn deref_mut(&mut self) -> &mut E {
-        &mut self.io.0
+        panic!("STUB: not implemented");
     }
 }
-
 impl<E: AioSource + fmt::Debug> fmt::Debug for Aio<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Aio").field("io", &self.io.0).finish()
+        panic!("STUB: not implemented");
     }
 }
-
 /// Opaque data returned by [`Aio::poll_ready`].
 ///
 /// It can be fed back to [`Aio::clear_ready`].

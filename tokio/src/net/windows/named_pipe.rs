@@ -1,7 +1,6 @@
 //! Tokio support for [Windows named pipes].
 //!
 //! [Windows named pipes]: https://docs.microsoft.com/en-us/windows/win32/ipc/named-pipes
-
 use std::ffi::c_void;
 use std::ffi::OsStr;
 use std::io::{self, Read, Write};
@@ -9,15 +8,13 @@ use std::pin::Pin;
 use std::ptr;
 use std::ptr::null_mut;
 use std::task::{Context, Poll};
-
 use crate::io::{AsyncRead, AsyncWrite, Interest, PollEvented, ReadBuf, Ready};
-use crate::os::windows::io::{AsHandle, AsRawHandle, BorrowedHandle, FromRawHandle, RawHandle};
-
+use crate::os::windows::io::{
+    AsHandle, AsRawHandle, BorrowedHandle, FromRawHandle, RawHandle,
+};
 cfg_io_util! {
     use bytes::BufMut;
 }
-
-// Hide imports which are not used when generating documentation.
 #[cfg(windows)]
 mod doc {
     pub(super) use crate::os::windows::ffi::OsStrExt;
@@ -29,17 +26,13 @@ mod doc {
     }
     pub(super) use mio::windows as mio_windows;
 }
-
-// NB: none of these shows up in public API, so don't document them.
 #[cfg(not(windows))]
 mod doc {
     pub(super) mod mio_windows {
         pub type NamedPipe = crate::doc::NotDefinedHere;
     }
 }
-
 use self::doc::*;
-
 /// A [Windows named pipe] server.
 ///
 /// Accepting client connections involves creating a server with
@@ -105,7 +98,6 @@ use self::doc::*;
 pub struct NamedPipeServer {
     io: PollEvented<mio_windows::NamedPipe>,
 }
-
 impl NamedPipeServer {
     /// Constructs a new named pipe server from the specified raw handle.
     ///
@@ -126,13 +118,8 @@ impl NamedPipeServer {
     /// [Tokio Runtime]: crate::runtime::Runtime
     /// [enabled I/O]: crate::runtime::Builder::enable_io
     pub unsafe fn from_raw_handle(handle: RawHandle) -> io::Result<Self> {
-        let named_pipe = unsafe { mio_windows::NamedPipe::from_raw_handle(handle) };
-
-        Ok(Self {
-            io: PollEvented::new(named_pipe)?,
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Retrieves information about the named pipe the server is associated
     /// with.
     ///
@@ -155,10 +142,8 @@ impl NamedPipeServer {
     /// # Ok(()) }
     /// ```
     pub fn info(&self) -> io::Result<PipeInfo> {
-        // Safety: we're ensuring the lifetime of the named pipe.
-        unsafe { named_pipe_info(self.io.as_raw_handle()) }
+        panic!("STUB: not implemented");
     }
-
     /// Enables a named pipe server process to wait for a client process to
     /// connect to an instance of a named pipe. A client process connects by
     /// creating a named pipe with the same name.
@@ -190,17 +175,8 @@ impl NamedPipeServer {
     /// # Ok(()) }
     /// ```
     pub async fn connect(&self) -> io::Result<()> {
-        match self.io.connect() {
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
-                self.io
-                    .registration()
-                    .async_io(Interest::WRITABLE, || self.io.connect())
-                    .await
-            }
-            x => x,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Disconnects the server end of a named pipe instance from a client
     /// process.
     ///
@@ -231,9 +207,8 @@ impl NamedPipeServer {
     /// # Ok(()) }
     /// ```
     pub fn disconnect(&self) -> io::Result<()> {
-        self.io.disconnect()
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states.
     ///
     /// This function is usually paired with `try_read()` or `try_write()`. It
@@ -303,10 +278,8 @@ impl NamedPipeServer {
     /// }
     /// ```
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        let event = self.io.registration().readiness(interest).await?;
-        Ok(event.ready)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the pipe to become readable.
     ///
     /// This function is equivalent to `ready(Interest::READABLE)` and is usually
@@ -353,10 +326,8 @@ impl NamedPipeServer {
     /// }
     /// ```
     pub async fn readable(&self) -> io::Result<()> {
-        self.ready(Interest::READABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for read readiness.
     ///
     /// If the pipe is not currently ready for reading, this method will
@@ -386,9 +357,8 @@ impl NamedPipeServer {
     ///
     /// [`readable`]: method@Self::readable
     pub fn poll_read_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_read_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read data from the pipe into the provided buffer, returning how
     /// many bytes were read.
     ///
@@ -455,11 +425,8 @@ impl NamedPipeServer {
     /// }
     /// ```
     pub fn try_read(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || (&*self.io).read(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read data from the pipe into the provided buffers, returning
     /// how many bytes were read.
     ///
@@ -532,92 +499,57 @@ impl NamedPipeServer {
     ///     Ok(())
     /// }
     /// ```
-    pub fn try_read_vectored(&self, bufs: &mut [io::IoSliceMut<'_>]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || (&*self.io).read_vectored(bufs))
+    pub fn try_read_vectored(
+        &self,
+        bufs: &mut [io::IoSliceMut<'_>],
+    ) -> io::Result<usize> {
+        panic!("STUB: not implemented");
     }
-
     cfg_io_util! {
-        /// Tries to read data from the stream into the provided buffer, advancing the
-        /// buffer's internal cursor, returning how many bytes were read.
-        ///
-        /// Receives any pending data from the pipe but does not wait for new data
-        /// to arrive. On success, returns the number of bytes read. Because
-        /// `try_read_buf()` is non-blocking, the buffer does not have to be stored by
-        /// the async task and can exist entirely on the stack.
-        ///
-        /// Usually, [`readable()`] or [`ready()`] is used with this function.
-        ///
-        /// [`readable()`]: NamedPipeServer::readable()
-        /// [`ready()`]: NamedPipeServer::ready()
-        ///
-        /// # Return
-        ///
-        /// If data is successfully read, `Ok(n)` is returned, where `n` is the
-        /// number of bytes read. `Ok(0)` indicates the stream's read half is closed
-        /// and will no longer yield data. If the stream is not ready to read data
-        /// `Err(io::ErrorKind::WouldBlock)` is returned.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// use tokio::net::windows::named_pipe;
-        /// use std::error::Error;
-        /// use std::io;
-        ///
-        /// const PIPE_NAME: &str = r"\\.\pipe\tokio-named-pipe-client-readable";
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> Result<(), Box<dyn Error>> {
-        ///     let server = named_pipe::ServerOptions::new().create(PIPE_NAME)?;
-        ///
-        ///     loop {
-        ///         // Wait for the pipe to be readable
-        ///         server.readable().await?;
-        ///
-        ///         let mut buf = Vec::with_capacity(4096);
-        ///
-        ///         // Try to read data, this may still fail with `WouldBlock`
-        ///         // if the readiness event is a false positive.
-        ///         match server.try_read_buf(&mut buf) {
-        ///             Ok(0) => break,
-        ///             Ok(n) => {
-        ///                 println!("read {} bytes", n);
-        ///             }
-        ///             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-        ///                 continue;
-        ///             }
-        ///             Err(e) => {
-        ///                 return Err(e.into());
-        ///             }
-        ///         }
-        ///     }
-        ///
-        ///     Ok(())
-        /// }
-        /// ```
-        pub fn try_read_buf<B: BufMut>(&self, buf: &mut B) -> io::Result<usize> {
-            self.io.registration().try_io(Interest::READABLE, || {
-                use std::io::Read;
-
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                // Safety: We trust `NamedPipeServer::read` to have filled up `n` bytes in the
-                // buffer.
-                let n = (&*self.io).read(dst)?;
-
-                unsafe {
-                    buf.advance_mut(n);
-                }
-
-                Ok(n)
-            })
-        }
+        #[doc =
+        " Tries to read data from the stream into the provided buffer, advancing the"]
+        #[doc = " buffer's internal cursor, returning how many bytes were read."] #[doc =
+        ""] #[doc =
+        " Receives any pending data from the pipe but does not wait for new data"] #[doc
+        = " to arrive. On success, returns the number of bytes read. Because"] #[doc =
+        " `try_read_buf()` is non-blocking, the buffer does not have to be stored by"]
+        #[doc = " the async task and can exist entirely on the stack."] #[doc = ""] #[doc
+        = " Usually, [`readable()`] or [`ready()`] is used with this function."] #[doc =
+        ""] #[doc = " [`readable()`]: NamedPipeServer::readable()"] #[doc =
+        " [`ready()`]: NamedPipeServer::ready()"] #[doc = ""] #[doc = " # Return"] #[doc
+        = ""] #[doc =
+        " If data is successfully read, `Ok(n)` is returned, where `n` is the"] #[doc =
+        " number of bytes read. `Ok(0)` indicates the stream's read half is closed"]
+        #[doc =
+        " and will no longer yield data. If the stream is not ready to read data"] #[doc
+        = " `Err(io::ErrorKind::WouldBlock)` is returned."] #[doc = ""] #[doc =
+        " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+        " use tokio::net::windows::named_pipe;"] #[doc = " use std::error::Error;"] #[doc
+        = " use std::io;"] #[doc = ""] #[doc =
+        " const PIPE_NAME: &str = r\"\\\\.\\pipe\\tokio-named-pipe-client-readable\";"]
+        #[doc = ""] #[doc = " #[tokio::main]"] #[doc =
+        " async fn main() -> Result<(), Box<dyn Error>> {"] #[doc =
+        "     let server = named_pipe::ServerOptions::new().create(PIPE_NAME)?;"] #[doc =
+        ""] #[doc = "     loop {"] #[doc =
+        "         // Wait for the pipe to be readable"] #[doc =
+        "         server.readable().await?;"] #[doc = ""] #[doc =
+        "         let mut buf = Vec::with_capacity(4096);"] #[doc = ""] #[doc =
+        "         // Try to read data, this may still fail with `WouldBlock`"] #[doc =
+        "         // if the readiness event is a false positive."] #[doc =
+        "         match server.try_read_buf(&mut buf) {"] #[doc =
+        "             Ok(0) => break,"] #[doc = "             Ok(n) => {"] #[doc =
+        "                 println!(\"read {} bytes\", n);"] #[doc = "             }"]
+        #[doc = "             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {"]
+        #[doc = "                 continue;"] #[doc = "             }"] #[doc =
+        "             Err(e) => {"] #[doc = "                 return Err(e.into());"]
+        #[doc = "             }"] #[doc = "         }"] #[doc = "     }"] #[doc = ""]
+        #[doc = "     Ok(())"] #[doc = " }"] #[doc = " ```"] pub fn try_read_buf < B :
+        BufMut > (& self, buf : & mut B) -> io::Result < usize > { self.io.registration()
+        .try_io(Interest::READABLE, || { use std::io::Read; let dst = buf.chunk_mut();
+        let dst = unsafe { & mut * (dst as * mut _ as * mut [std::mem::MaybeUninit < u8
+        >] as * mut [u8]) }; let n = (&* self.io).read(dst) ?; unsafe { buf
+        .advance_mut(n); } Ok(n) }) }
     }
-
     /// Waits for the pipe to become writable.
     ///
     /// This function is equivalent to `ready(Interest::WRITABLE)` and is usually
@@ -660,10 +592,8 @@ impl NamedPipeServer {
     /// }
     /// ```
     pub async fn writable(&self) -> io::Result<()> {
-        self.ready(Interest::WRITABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for write readiness.
     ///
     /// If the pipe is not currently ready for writing, this method will
@@ -693,9 +623,8 @@ impl NamedPipeServer {
     ///
     /// [`writable`]: method@Self::writable
     pub fn poll_write_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_write_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write a buffer to the pipe, returning how many bytes were
     /// written.
     ///
@@ -747,11 +676,8 @@ impl NamedPipeServer {
     /// }
     /// ```
     pub fn try_write(&self, buf: &[u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || (&*self.io).write(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write several buffers to the pipe, returning how many bytes
     /// were written.
     ///
@@ -809,11 +735,8 @@ impl NamedPipeServer {
     /// }
     /// ```
     pub fn try_write_vectored(&self, buf: &[io::IoSlice<'_>]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || (&*self.io).write_vectored(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read or write from the pipe using a user-provided IO operation.
     ///
     /// If the pipe is ready, the provided closure is called. The closure
@@ -851,9 +774,8 @@ impl NamedPipeServer {
         interest: Interest,
         f: impl FnOnce() -> io::Result<R>,
     ) -> io::Result<R> {
-        self.io.registration().try_io(interest, f)
+        panic!("STUB: not implemented");
     }
-
     /// Reads or writes from the pipe using a user-provided IO operation.
     ///
     /// The readiness of the pipe is awaited and when the pipe is ready,
@@ -884,58 +806,53 @@ impl NamedPipeServer {
         interest: Interest,
         f: impl FnMut() -> io::Result<R>,
     ) -> io::Result<R> {
-        self.io.registration().async_io(interest, f).await
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncRead for NamedPipeServer {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        unsafe { self.io.poll_read(cx, buf) }
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for NamedPipeServer {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        self.io.poll_write(cx, buf)
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        self.io.poll_write_vectored(cx, bufs)
+        panic!("STUB: not implemented");
     }
-
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Ok(()))
+        panic!("STUB: not implemented");
     }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.poll_flush(cx)
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRawHandle for NamedPipeServer {
     fn as_raw_handle(&self) -> RawHandle {
-        self.io.as_raw_handle()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsHandle for NamedPipeServer {
     fn as_handle(&self) -> BorrowedHandle<'_> {
-        unsafe { BorrowedHandle::borrow_raw(self.as_raw_handle()) }
+        panic!("STUB: not implemented");
     }
 }
-
 /// A [Windows named pipe] client.
 ///
 /// Constructed using [`ClientOptions::open`].
@@ -978,7 +895,6 @@ impl AsHandle for NamedPipeServer {
 pub struct NamedPipeClient {
     io: PollEvented<mio_windows::NamedPipe>,
 }
-
 impl NamedPipeClient {
     /// Constructs a new named pipe client from the specified raw handle.
     ///
@@ -999,13 +915,8 @@ impl NamedPipeClient {
     /// [Tokio Runtime]: crate::runtime::Runtime
     /// [enabled I/O]: crate::runtime::Builder::enable_io
     pub unsafe fn from_raw_handle(handle: RawHandle) -> io::Result<Self> {
-        let named_pipe = unsafe { mio_windows::NamedPipe::from_raw_handle(handle) };
-
-        Ok(Self {
-            io: PollEvented::new(named_pipe)?,
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Retrieves information about the named pipe the client is associated
     /// with.
     ///
@@ -1026,10 +937,8 @@ impl NamedPipeClient {
     /// # Ok(()) }
     /// ```
     pub fn info(&self) -> io::Result<PipeInfo> {
-        // Safety: we're ensuring the lifetime of the named pipe.
-        unsafe { named_pipe_info(self.io.as_raw_handle()) }
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states.
     ///
     /// This function is usually paired with `try_read()` or `try_write()`. It
@@ -1098,10 +1007,8 @@ impl NamedPipeClient {
     /// }
     /// ```
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        let event = self.io.registration().readiness(interest).await?;
-        Ok(event.ready)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the pipe to become readable.
     ///
     /// This function is equivalent to `ready(Interest::READABLE)` and is usually
@@ -1147,10 +1054,8 @@ impl NamedPipeClient {
     /// }
     /// ```
     pub async fn readable(&self) -> io::Result<()> {
-        self.ready(Interest::READABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for read readiness.
     ///
     /// If the pipe is not currently ready for reading, this method will
@@ -1180,9 +1085,8 @@ impl NamedPipeClient {
     ///
     /// [`readable`]: method@Self::readable
     pub fn poll_read_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_read_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read data from the pipe into the provided buffer, returning how
     /// many bytes were read.
     ///
@@ -1248,11 +1152,8 @@ impl NamedPipeClient {
     /// }
     /// ```
     pub fn try_read(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || (&*self.io).read(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read data from the pipe into the provided buffers, returning
     /// how many bytes were read.
     ///
@@ -1324,92 +1225,57 @@ impl NamedPipeClient {
     ///     Ok(())
     /// }
     /// ```
-    pub fn try_read_vectored(&self, bufs: &mut [io::IoSliceMut<'_>]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || (&*self.io).read_vectored(bufs))
+    pub fn try_read_vectored(
+        &self,
+        bufs: &mut [io::IoSliceMut<'_>],
+    ) -> io::Result<usize> {
+        panic!("STUB: not implemented");
     }
-
     cfg_io_util! {
-        /// Tries to read data from the stream into the provided buffer, advancing the
-        /// buffer's internal cursor, returning how many bytes were read.
-        ///
-        /// Receives any pending data from the pipe but does not wait for new data
-        /// to arrive. On success, returns the number of bytes read. Because
-        /// `try_read_buf()` is non-blocking, the buffer does not have to be stored by
-        /// the async task and can exist entirely on the stack.
-        ///
-        /// Usually, [`readable()`] or [`ready()`] is used with this function.
-        ///
-        /// [`readable()`]: NamedPipeClient::readable()
-        /// [`ready()`]: NamedPipeClient::ready()
-        ///
-        /// # Return
-        ///
-        /// If data is successfully read, `Ok(n)` is returned, where `n` is the
-        /// number of bytes read. `Ok(0)` indicates the stream's read half is closed
-        /// and will no longer yield data. If the stream is not ready to read data
-        /// `Err(io::ErrorKind::WouldBlock)` is returned.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// use tokio::net::windows::named_pipe;
-        /// use std::error::Error;
-        /// use std::io;
-        ///
-        /// const PIPE_NAME: &str = r"\\.\pipe\tokio-named-pipe-client-readable";
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> Result<(), Box<dyn Error>> {
-        ///     let client = named_pipe::ClientOptions::new().open(PIPE_NAME)?;
-        ///
-        ///     loop {
-        ///         // Wait for the pipe to be readable
-        ///         client.readable().await?;
-        ///
-        ///         let mut buf = Vec::with_capacity(4096);
-        ///
-        ///         // Try to read data, this may still fail with `WouldBlock`
-        ///         // if the readiness event is a false positive.
-        ///         match client.try_read_buf(&mut buf) {
-        ///             Ok(0) => break,
-        ///             Ok(n) => {
-        ///                 println!("read {} bytes", n);
-        ///             }
-        ///             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-        ///                 continue;
-        ///             }
-        ///             Err(e) => {
-        ///                 return Err(e.into());
-        ///             }
-        ///         }
-        ///     }
-        ///
-        ///     Ok(())
-        /// }
-        /// ```
-        pub fn try_read_buf<B: BufMut>(&self, buf: &mut B) -> io::Result<usize> {
-            self.io.registration().try_io(Interest::READABLE, || {
-                use std::io::Read;
-
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                // Safety: We trust `NamedPipeClient::read` to have filled up `n` bytes in the
-                // buffer.
-                let n = (&*self.io).read(dst)?;
-
-                unsafe {
-                    buf.advance_mut(n);
-                }
-
-                Ok(n)
-            })
-        }
+        #[doc =
+        " Tries to read data from the stream into the provided buffer, advancing the"]
+        #[doc = " buffer's internal cursor, returning how many bytes were read."] #[doc =
+        ""] #[doc =
+        " Receives any pending data from the pipe but does not wait for new data"] #[doc
+        = " to arrive. On success, returns the number of bytes read. Because"] #[doc =
+        " `try_read_buf()` is non-blocking, the buffer does not have to be stored by"]
+        #[doc = " the async task and can exist entirely on the stack."] #[doc = ""] #[doc
+        = " Usually, [`readable()`] or [`ready()`] is used with this function."] #[doc =
+        ""] #[doc = " [`readable()`]: NamedPipeClient::readable()"] #[doc =
+        " [`ready()`]: NamedPipeClient::ready()"] #[doc = ""] #[doc = " # Return"] #[doc
+        = ""] #[doc =
+        " If data is successfully read, `Ok(n)` is returned, where `n` is the"] #[doc =
+        " number of bytes read. `Ok(0)` indicates the stream's read half is closed"]
+        #[doc =
+        " and will no longer yield data. If the stream is not ready to read data"] #[doc
+        = " `Err(io::ErrorKind::WouldBlock)` is returned."] #[doc = ""] #[doc =
+        " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+        " use tokio::net::windows::named_pipe;"] #[doc = " use std::error::Error;"] #[doc
+        = " use std::io;"] #[doc = ""] #[doc =
+        " const PIPE_NAME: &str = r\"\\\\.\\pipe\\tokio-named-pipe-client-readable\";"]
+        #[doc = ""] #[doc = " #[tokio::main]"] #[doc =
+        " async fn main() -> Result<(), Box<dyn Error>> {"] #[doc =
+        "     let client = named_pipe::ClientOptions::new().open(PIPE_NAME)?;"] #[doc =
+        ""] #[doc = "     loop {"] #[doc =
+        "         // Wait for the pipe to be readable"] #[doc =
+        "         client.readable().await?;"] #[doc = ""] #[doc =
+        "         let mut buf = Vec::with_capacity(4096);"] #[doc = ""] #[doc =
+        "         // Try to read data, this may still fail with `WouldBlock`"] #[doc =
+        "         // if the readiness event is a false positive."] #[doc =
+        "         match client.try_read_buf(&mut buf) {"] #[doc =
+        "             Ok(0) => break,"] #[doc = "             Ok(n) => {"] #[doc =
+        "                 println!(\"read {} bytes\", n);"] #[doc = "             }"]
+        #[doc = "             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {"]
+        #[doc = "                 continue;"] #[doc = "             }"] #[doc =
+        "             Err(e) => {"] #[doc = "                 return Err(e.into());"]
+        #[doc = "             }"] #[doc = "         }"] #[doc = "     }"] #[doc = ""]
+        #[doc = "     Ok(())"] #[doc = " }"] #[doc = " ```"] pub fn try_read_buf < B :
+        BufMut > (& self, buf : & mut B) -> io::Result < usize > { self.io.registration()
+        .try_io(Interest::READABLE, || { use std::io::Read; let dst = buf.chunk_mut();
+        let dst = unsafe { & mut * (dst as * mut _ as * mut [std::mem::MaybeUninit < u8
+        >] as * mut [u8]) }; let n = (&* self.io).read(dst) ?; unsafe { buf
+        .advance_mut(n); } Ok(n) }) }
     }
-
     /// Waits for the pipe to become writable.
     ///
     /// This function is equivalent to `ready(Interest::WRITABLE)` and is usually
@@ -1451,10 +1317,8 @@ impl NamedPipeClient {
     /// }
     /// ```
     pub async fn writable(&self) -> io::Result<()> {
-        self.ready(Interest::WRITABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for write readiness.
     ///
     /// If the pipe is not currently ready for writing, this method will
@@ -1484,9 +1348,8 @@ impl NamedPipeClient {
     ///
     /// [`writable`]: method@Self::writable
     pub fn poll_write_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_write_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write a buffer to the pipe, returning how many bytes were
     /// written.
     ///
@@ -1537,11 +1400,8 @@ impl NamedPipeClient {
     /// }
     /// ```
     pub fn try_write(&self, buf: &[u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || (&*self.io).write(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write several buffers to the pipe, returning how many bytes
     /// were written.
     ///
@@ -1598,11 +1458,8 @@ impl NamedPipeClient {
     /// }
     /// ```
     pub fn try_write_vectored(&self, buf: &[io::IoSlice<'_>]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || (&*self.io).write_vectored(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read or write from the pipe using a user-provided IO operation.
     ///
     /// If the pipe is ready, the provided closure is called. The closure
@@ -1640,9 +1497,8 @@ impl NamedPipeClient {
         interest: Interest,
         f: impl FnOnce() -> io::Result<R>,
     ) -> io::Result<R> {
-        self.io.registration().try_io(interest, f)
+        panic!("STUB: not implemented");
     }
-
     /// Reads or writes from the pipe using a user-provided IO operation.
     ///
     /// The readiness of the pipe is awaited and when the pipe is ready,
@@ -1673,58 +1529,53 @@ impl NamedPipeClient {
         interest: Interest,
         f: impl FnMut() -> io::Result<R>,
     ) -> io::Result<R> {
-        self.io.registration().async_io(interest, f).await
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncRead for NamedPipeClient {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        unsafe { self.io.poll_read(cx, buf) }
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for NamedPipeClient {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        self.io.poll_write(cx, buf)
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        self.io.poll_write_vectored(cx, bufs)
+        panic!("STUB: not implemented");
     }
-
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Ok(()))
+        panic!("STUB: not implemented");
     }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.poll_flush(cx)
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRawHandle for NamedPipeClient {
     fn as_raw_handle(&self) -> RawHandle {
-        self.io.as_raw_handle()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsHandle for NamedPipeClient {
     fn as_handle(&self) -> BorrowedHandle<'_> {
-        unsafe { BorrowedHandle::borrow_raw(self.as_raw_handle()) }
+        panic!("STUB: not implemented");
     }
 }
-
 /// A builder structure for construct a named pipe with named pipe-specific
 /// options. This is required to use for named pipe servers who wants to modify
 /// pipe-related options.
@@ -1732,23 +1583,19 @@ impl AsHandle for NamedPipeClient {
 /// See [`ServerOptions::create`].
 #[derive(Debug, Clone)]
 pub struct ServerOptions {
-    // dwOpenMode
     access_inbound: bool,
     access_outbound: bool,
     first_pipe_instance: bool,
     write_dac: bool,
     write_owner: bool,
     access_system_security: bool,
-    // dwPipeMode
     pipe_mode: PipeMode,
     reject_remote_clients: bool,
-    // other options
     max_instances: u32,
     out_buffer_size: u32,
     in_buffer_size: u32,
     default_timeout: u32,
 }
-
 impl ServerOptions {
     /// Creates a new named pipe builder with the default settings.
     ///
@@ -1762,22 +1609,8 @@ impl ServerOptions {
     /// # Ok(()) }
     /// ```
     pub fn new() -> ServerOptions {
-        ServerOptions {
-            access_inbound: true,
-            access_outbound: true,
-            first_pipe_instance: false,
-            write_dac: false,
-            write_owner: false,
-            access_system_security: false,
-            pipe_mode: PipeMode::Byte,
-            reject_remote_clients: true,
-            max_instances: windows_sys::PIPE_UNLIMITED_INSTANCES,
-            out_buffer_size: 65536,
-            in_buffer_size: 65536,
-            default_timeout: 0,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// The pipe mode.
     ///
     /// The default pipe mode is [`PipeMode::Byte`]. See [`PipeMode`] for
@@ -1787,10 +1620,8 @@ impl ServerOptions {
     ///
     /// [`dwPipeMode`]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea
     pub fn pipe_mode(&mut self, pipe_mode: PipeMode) -> &mut Self {
-        self.pipe_mode = pipe_mode;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// The flow of data in the pipe goes from client to server only.
     ///
     /// This corresponds to setting [`PIPE_ACCESS_INBOUND`].
@@ -1883,10 +1714,8 @@ impl ServerOptions {
     /// # Ok(()) }
     /// ```
     pub fn access_inbound(&mut self, allowed: bool) -> &mut Self {
-        self.access_inbound = allowed;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// The flow of data in the pipe goes from server to client only.
     ///
     /// This corresponds to setting [`PIPE_ACCESS_OUTBOUND`].
@@ -1981,10 +1810,8 @@ impl ServerOptions {
     /// # Ok(()) }
     /// ```
     pub fn access_outbound(&mut self, allowed: bool) -> &mut Self {
-        self.access_outbound = allowed;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// If you attempt to create multiple instances of a pipe with this flag
     /// set, creation of the first server instance succeeds, but creation of any
     /// subsequent instances will fail with
@@ -2049,10 +1876,8 @@ impl ServerOptions {
     /// [`create`]: ServerOptions::create
     /// [`FILE_FLAG_FIRST_PIPE_INSTANCE`]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea#pipe_first_pipe_instance
     pub fn first_pipe_instance(&mut self, first: bool) -> &mut Self {
-        self.first_pipe_instance = first;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Requests permission to modify the pipe's discretionary access control list.
     ///
     /// This corresponds to setting [`WRITE_DAC`] in dwOpenMode.
@@ -2131,30 +1956,24 @@ impl ServerOptions {
     ///
     /// [`WRITE_DAC`]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea
     pub fn write_dac(&mut self, requested: bool) -> &mut Self {
-        self.write_dac = requested;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Requests permission to modify the pipe's owner.
     ///
     /// This corresponds to setting [`WRITE_OWNER`] in dwOpenMode.
     ///
     /// [`WRITE_OWNER`]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea
     pub fn write_owner(&mut self, requested: bool) -> &mut Self {
-        self.write_owner = requested;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Requests permission to modify the pipe's system access control list.
     ///
     /// This corresponds to setting [`ACCESS_SYSTEM_SECURITY`] in dwOpenMode.
     ///
     /// [`ACCESS_SYSTEM_SECURITY`]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea
     pub fn access_system_security(&mut self, requested: bool) -> &mut Self {
-        self.access_system_security = requested;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Indicates whether this server can accept remote clients or not. Remote
     /// clients are disabled by default.
     ///
@@ -2162,10 +1981,8 @@ impl ServerOptions {
     ///
     /// [`PIPE_REJECT_REMOTE_CLIENTS`]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea#pipe_reject_remote_clients
     pub fn reject_remote_clients(&mut self, reject: bool) -> &mut Self {
-        self.reject_remote_clients = reject;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// The maximum number of instances that can be created for this pipe. The
     /// first instance of the pipe can specify this value; the same number must
     /// be specified for other instances of the pipe. Acceptable values are in
@@ -2222,31 +2039,24 @@ impl ServerOptions {
     /// ```
     #[track_caller]
     pub fn max_instances(&mut self, instances: usize) -> &mut Self {
-        assert!(instances < 255, "cannot specify more than 254 instances");
-        self.max_instances = instances as u32;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// The number of bytes to reserve for the output buffer.
     ///
     /// This corresponds to specifying [`nOutBufferSize`].
     ///
     /// [`nOutBufferSize`]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea
     pub fn out_buffer_size(&mut self, buffer: u32) -> &mut Self {
-        self.out_buffer_size = buffer;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// The number of bytes to reserve for the input buffer.
     ///
     /// This corresponds to specifying [`nInBufferSize`].
     ///
     /// [`nInBufferSize`]: https://docs.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea
     pub fn in_buffer_size(&mut self, buffer: u32) -> &mut Self {
-        self.in_buffer_size = buffer;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Creates the named pipe identified by `addr` for use as a server.
     ///
     /// This uses the [`CreateNamedPipe`] function.
@@ -2273,11 +2083,8 @@ impl ServerOptions {
     /// # Ok(()) }
     /// ```
     pub fn create(&self, addr: impl AsRef<OsStr>) -> io::Result<NamedPipeServer> {
-        // Safety: We're calling create_with_security_attributes_raw w/ a null
-        // pointer which disables it.
-        unsafe { self.create_with_security_attributes_raw(addr, ptr::null_mut()) }
+        panic!("STUB: not implemented");
     }
-
     /// Creates the named pipe identified by `addr` for use as a server.
     ///
     /// This is the same as [`create`] except that it supports providing the raw
@@ -2306,65 +2113,9 @@ impl ServerOptions {
         addr: impl AsRef<OsStr>,
         attrs: *mut c_void,
     ) -> io::Result<NamedPipeServer> {
-        let addr = encode_addr(addr);
-
-        let pipe_mode = {
-            let mut mode = if matches!(self.pipe_mode, PipeMode::Message) {
-                windows_sys::PIPE_TYPE_MESSAGE | windows_sys::PIPE_READMODE_MESSAGE
-            } else {
-                windows_sys::PIPE_TYPE_BYTE | windows_sys::PIPE_READMODE_BYTE
-            };
-            if self.reject_remote_clients {
-                mode |= windows_sys::PIPE_REJECT_REMOTE_CLIENTS;
-            } else {
-                mode |= windows_sys::PIPE_ACCEPT_REMOTE_CLIENTS;
-            }
-            mode
-        };
-        let open_mode = {
-            let mut mode = windows_sys::FILE_FLAG_OVERLAPPED;
-            if self.access_inbound {
-                mode |= windows_sys::PIPE_ACCESS_INBOUND;
-            }
-            if self.access_outbound {
-                mode |= windows_sys::PIPE_ACCESS_OUTBOUND;
-            }
-            if self.first_pipe_instance {
-                mode |= windows_sys::FILE_FLAG_FIRST_PIPE_INSTANCE;
-            }
-            if self.write_dac {
-                mode |= windows_sys::WRITE_DAC;
-            }
-            if self.write_owner {
-                mode |= windows_sys::WRITE_OWNER;
-            }
-            if self.access_system_security {
-                mode |= windows_sys::ACCESS_SYSTEM_SECURITY;
-            }
-            mode
-        };
-
-        let h = unsafe {
-            windows_sys::CreateNamedPipeW(
-                addr.as_ptr(),
-                open_mode,
-                pipe_mode,
-                self.max_instances,
-                self.out_buffer_size,
-                self.in_buffer_size,
-                self.default_timeout,
-                attrs as *mut _,
-            )
-        };
-
-        if h == windows_sys::INVALID_HANDLE_VALUE {
-            return Err(io::Error::last_os_error());
-        }
-
-        unsafe { NamedPipeServer::from_raw_handle(h as _) }
+        panic!("STUB: not implemented");
     }
 }
-
 /// A builder suitable for building and interacting with named pipes from the
 /// client side.
 ///
@@ -2376,7 +2127,6 @@ pub struct ClientOptions {
     security_qos_flags: u32,
     pipe_mode: PipeMode,
 }
-
 impl ClientOptions {
     /// Creates a new named pipe builder with the default settings.
     ///
@@ -2392,15 +2142,8 @@ impl ClientOptions {
     /// # Ok(()) }
     /// ```
     pub fn new() -> Self {
-        Self {
-            generic_read: true,
-            generic_write: true,
-            security_qos_flags: windows_sys::SECURITY_IDENTIFICATION
-                | windows_sys::SECURITY_SQOS_PRESENT,
-            pipe_mode: PipeMode::Byte,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// If the client supports reading data. This is enabled by default.
     ///
     /// This corresponds to setting [`GENERIC_READ`] in the call to [`CreateFile`].
@@ -2408,10 +2151,8 @@ impl ClientOptions {
     /// [`GENERIC_READ`]: https://docs.microsoft.com/en-us/windows/win32/secauthz/generic-access-rights
     /// [`CreateFile`]: https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
     pub fn read(&mut self, allowed: bool) -> &mut Self {
-        self.generic_read = allowed;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// If the created pipe supports writing data. This is enabled by default.
     ///
     /// This corresponds to setting [`GENERIC_WRITE`] in the call to [`CreateFile`].
@@ -2419,10 +2160,8 @@ impl ClientOptions {
     /// [`GENERIC_WRITE`]: https://docs.microsoft.com/en-us/windows/win32/secauthz/generic-access-rights
     /// [`CreateFile`]: https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
     pub fn write(&mut self, allowed: bool) -> &mut Self {
-        self.generic_write = allowed;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets qos flags which are combined with other flags and attributes in the
     /// call to [`CreateFile`].
     ///
@@ -2445,20 +2184,15 @@ impl ClientOptions {
     /// [`SECURITY_IDENTIFICATION`]: https://docs.rs/windows-sys/latest/windows_sys/Win32/Storage/FileSystem/constant.SECURITY_IDENTIFICATION.html
     /// [Impersonation Levels]: https://docs.microsoft.com/en-us/windows/win32/api/winnt/ne-winnt-security_impersonation_level
     pub fn security_qos_flags(&mut self, flags: u32) -> &mut Self {
-        // See: https://github.com/rust-lang/rust/pull/58216
-        self.security_qos_flags = flags | windows_sys::SECURITY_SQOS_PRESENT;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// The pipe mode.
     ///
     /// The default pipe mode is [`PipeMode::Byte`]. See [`PipeMode`] for
     /// documentation of what each mode means.
     pub fn pipe_mode(&mut self, pipe_mode: PipeMode) -> &mut Self {
-        self.pipe_mode = pipe_mode;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Opens the named pipe identified by `addr`.
     ///
     /// This opens the client using [`CreateFile`] with the
@@ -2510,11 +2244,8 @@ impl ClientOptions {
     /// # Ok(()) }
     /// ```
     pub fn open(&self, addr: impl AsRef<OsStr>) -> io::Result<NamedPipeClient> {
-        // Safety: We're calling open_with_security_attributes_raw w/ a null
-        // pointer which disables it.
-        unsafe { self.open_with_security_attributes_raw(addr, ptr::null_mut()) }
+        panic!("STUB: not implemented");
     }
-
     /// Opens the named pipe identified by `addr`.
     ///
     /// This is the same as [`open`] except that it supports providing the raw
@@ -2535,58 +2266,12 @@ impl ClientOptions {
         addr: impl AsRef<OsStr>,
         attrs: *mut c_void,
     ) -> io::Result<NamedPipeClient> {
-        let addr = encode_addr(addr);
-
-        let desired_access = {
-            let mut access = 0;
-            if self.generic_read {
-                access |= windows_sys::GENERIC_READ;
-            }
-            if self.generic_write {
-                access |= windows_sys::GENERIC_WRITE;
-            }
-            access
-        };
-
-        // NB: We could use a platform specialized `OpenOptions` here, but since
-        // we have access to windows_sys it ultimately doesn't hurt to use
-        // `CreateFile` explicitly since it allows the use of our already
-        // well-structured wide `addr` to pass into CreateFileW.
-        let h = unsafe {
-            windows_sys::CreateFileW(
-                addr.as_ptr(),
-                desired_access,
-                0,
-                attrs as *mut _,
-                windows_sys::OPEN_EXISTING,
-                self.get_flags(),
-                null_mut(),
-            )
-        };
-
-        if h == windows_sys::INVALID_HANDLE_VALUE {
-            return Err(io::Error::last_os_error());
-        }
-
-        if matches!(self.pipe_mode, PipeMode::Message) {
-            let mode = windows_sys::PIPE_READMODE_MESSAGE;
-            let result = unsafe {
-                windows_sys::SetNamedPipeHandleState(h, &mode, ptr::null_mut(), ptr::null_mut())
-            };
-
-            if result == 0 {
-                return Err(io::Error::last_os_error());
-            }
-        }
-
-        unsafe { NamedPipeClient::from_raw_handle(h as _) }
+        panic!("STUB: not implemented");
     }
-
     fn get_flags(&self) -> u32 {
-        self.security_qos_flags | windows_sys::FILE_FLAG_OVERLAPPED
+        panic!("STUB: not implemented");
     }
 }
-
 /// The pipe mode of a named pipe.
 ///
 /// Set through [`ServerOptions::pipe_mode`].
@@ -2611,7 +2296,6 @@ pub enum PipeMode {
     /// [`PIPE_TYPE_MESSAGE`]: https://docs.rs/windows-sys/latest/windows_sys/Win32/System/Pipes/constant.PIPE_TYPE_MESSAGE.html
     Message,
 }
-
 /// Indicates the end of a named pipe.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
@@ -2629,7 +2313,6 @@ pub enum PipeEnd {
     /// [`PIPE_SERVER_END`]: https://docs.rs/windows-sys/latest/windows_sys/Win32/System/Pipes/constant.PIPE_SERVER_END.html
     Server,
 }
-
 /// Information about a named pipe.
 ///
 /// Constructed through [`NamedPipeServer::info`] or [`NamedPipeClient::info`].
@@ -2647,53 +2330,11 @@ pub struct PipeInfo {
     /// The number of bytes to reserve for the input buffer.
     pub in_buffer_size: u32,
 }
-
 /// Encodes an address so that it is a null-terminated wide string.
 fn encode_addr(addr: impl AsRef<OsStr>) -> Box<[u16]> {
-    let len = addr.as_ref().encode_wide().count();
-    let mut vec = Vec::with_capacity(len + 1);
-    vec.extend(addr.as_ref().encode_wide());
-    vec.push(0);
-    vec.into_boxed_slice()
+    panic!("STUB: not implemented");
 }
-
 /// Internal function to get the info out of a raw named pipe.
 unsafe fn named_pipe_info(handle: RawHandle) -> io::Result<PipeInfo> {
-    let mut flags = 0;
-    let mut out_buffer_size = 0;
-    let mut in_buffer_size = 0;
-    let mut max_instances = 0;
-
-    let result = unsafe {
-        windows_sys::GetNamedPipeInfo(
-            handle as _,
-            &mut flags,
-            &mut out_buffer_size,
-            &mut in_buffer_size,
-            &mut max_instances,
-        )
-    };
-
-    if result == 0 {
-        return Err(io::Error::last_os_error());
-    }
-
-    let mut end = PipeEnd::Client;
-    let mut mode = PipeMode::Byte;
-
-    if flags & windows_sys::PIPE_SERVER_END != 0 {
-        end = PipeEnd::Server;
-    }
-
-    if flags & windows_sys::PIPE_TYPE_MESSAGE != 0 {
-        mode = PipeMode::Message;
-    }
-
-    Ok(PipeInfo {
-        end,
-        mode,
-        out_buffer_size,
-        in_buffer_size,
-        max_instances,
-    })
+    panic!("STUB: not implemented");
 }

@@ -1,10 +1,8 @@
 use crate::io::AsyncRead;
-
 use std::io;
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-
 /// Reads bytes asynchronously.
 ///
 /// This trait is analogous to [`std::io::BufRead`], but integrates with
@@ -42,8 +40,10 @@ pub trait AsyncBufRead: AsyncRead {
     ///
     /// [`poll_read`]: AsyncRead::poll_read
     /// [`consume`]: AsyncBufRead::consume
-    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<&[u8]>>;
-
+    fn poll_fill_buf(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<&[u8]>>;
     /// Tells this buffer that `amt` bytes have been consumed from the buffer,
     /// so they should no longer be returned in calls to [`poll_read`].
     ///
@@ -61,57 +61,54 @@ pub trait AsyncBufRead: AsyncRead {
     /// [`poll_fill_buf`]: AsyncBufRead::poll_fill_buf
     fn consume(self: Pin<&mut Self>, amt: usize);
 }
-
 macro_rules! deref_async_buf_read {
     () => {
-        fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<&[u8]>> {
-            Pin::new(&mut **self.get_mut()).poll_fill_buf(cx)
-        }
-
-        fn consume(mut self: Pin<&mut Self>, amt: usize) {
-            Pin::new(&mut **self).consume(amt)
-        }
+        fn poll_fill_buf(self : Pin <& mut Self >, cx : & mut Context <'_ >) -> Poll <
+        io::Result <& [u8] >> { Pin::new(& mut ** self.get_mut()).poll_fill_buf(cx) } fn
+        consume(mut self : Pin <& mut Self >, amt : usize) { Pin::new(& mut ** self)
+        .consume(amt) }
     };
 }
-
 impl<T: ?Sized + AsyncBufRead + Unpin> AsyncBufRead for Box<T> {
     deref_async_buf_read!();
 }
-
 impl<T: ?Sized + AsyncBufRead + Unpin> AsyncBufRead for &mut T {
     deref_async_buf_read!();
 }
-
 impl<P> AsyncBufRead for Pin<P>
 where
     P: DerefMut,
     P::Target: AsyncBufRead,
 {
-    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<&[u8]>> {
-        crate::util::pin_as_deref_mut(self).poll_fill_buf(cx)
+    fn poll_fill_buf(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<&[u8]>> {
+        panic!("STUB: not implemented");
     }
-
     fn consume(self: Pin<&mut Self>, amt: usize) {
-        crate::util::pin_as_deref_mut(self).consume(amt);
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncBufRead for &[u8] {
-    fn poll_fill_buf(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<&[u8]>> {
-        Poll::Ready(Ok(*self))
+    fn poll_fill_buf(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<io::Result<&[u8]>> {
+        panic!("STUB: not implemented");
     }
-
     fn consume(mut self: Pin<&mut Self>, amt: usize) {
-        *self = &self[amt..];
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: AsRef<[u8]> + Unpin> AsyncBufRead for io::Cursor<T> {
-    fn poll_fill_buf(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<&[u8]>> {
-        Poll::Ready(io::BufRead::fill_buf(self.get_mut()))
+    fn poll_fill_buf(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<io::Result<&[u8]>> {
+        panic!("STUB: not implemented");
     }
-
     fn consume(self: Pin<&mut Self>, amt: usize) {
-        io::BufRead::consume(self.get_mut(), amt);
+        panic!("STUB: not implemented");
     }
 }

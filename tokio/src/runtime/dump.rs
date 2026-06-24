@@ -1,12 +1,9 @@
 //! Snapshots of runtime state.
 //!
 //! See [`Handle::dump`][crate::runtime::Handle::dump].
-
 use crate::task::Id;
 use std::{fmt, future::Future, path::Path};
-
 pub use crate::runtime::task::trace::{trace_with, Root, TraceMeta};
-
 /// A snapshot of a runtime's state.
 ///
 /// See [`Handle::dump`][crate::runtime::Handle::dump].
@@ -14,7 +11,6 @@ pub use crate::runtime::task::trace::{trace_with, Root, TraceMeta};
 pub struct Dump {
     tasks: Tasks,
 }
-
 /// Snapshots of tasks.
 ///
 /// See [`Handle::dump`][crate::runtime::Handle::dump].
@@ -22,7 +18,6 @@ pub struct Dump {
 pub struct Tasks {
     tasks: Vec<Task>,
 }
-
 /// A snapshot of a task.
 ///
 /// See [`Handle::dump`][crate::runtime::Handle::dump].
@@ -31,18 +26,14 @@ pub struct Task {
     id: Id,
     trace: Trace,
 }
-
 /// Represents an address that should not be dereferenced.
 ///
 /// This type exists to get the auto traits correct, the public API
 /// uses raw pointers to make life easier for users.
 #[derive(Copy, Clone, Debug)]
 struct Address(*mut std::ffi::c_void);
-
-// Safe since Address should not be dereferenced
 unsafe impl Send for Address {}
 unsafe impl Sync for Address {}
-
 /// A backtrace symbol.
 ///
 /// This struct provides accessors for backtrace symbols, similar to [`backtrace::BacktraceSymbol`].
@@ -55,56 +46,40 @@ pub struct BacktraceSymbol {
     lineno: Option<u32>,
     colno: Option<u32>,
 }
-
 impl BacktraceSymbol {
     pub(crate) fn from_backtrace_symbol(sym: &backtrace::BacktraceSymbol) -> Self {
-        let name = sym.name();
-        Self {
-            name: name.as_ref().map(|name| name.as_bytes().into()),
-            name_demangled: name.map(|name| format!("{name}").into()),
-            addr: sym.addr().map(Address),
-            filename: sym.filename().map(From::from),
-            lineno: sym.lineno(),
-            colno: sym.colno(),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Return the raw name of the symbol.
     pub fn name_raw(&self) -> Option<&[u8]> {
-        self.name.as_deref()
+        panic!("STUB: not implemented");
     }
-
     /// Return the demangled name of the symbol.
     pub fn name_demangled(&self) -> Option<&str> {
-        self.name_demangled.as_deref()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the starting address of this symbol.
     pub fn addr(&self) -> Option<*mut std::ffi::c_void> {
-        self.addr.map(|addr| addr.0)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the file name where this function was defined. If debuginfo
     /// is missing, this is likely to return None.
     pub fn filename(&self) -> Option<&Path> {
-        self.filename.as_deref()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the line number for where this symbol is currently executing.
     ///
     /// If debuginfo is missing, this is likely to return `None`.
     pub fn lineno(&self) -> Option<u32> {
-        self.lineno
+        panic!("STUB: not implemented");
     }
-
     /// Returns the column number for where this symbol is currently executing.
     ///
     /// If debuginfo is missing, this is likely to return `None`.
     pub fn colno(&self) -> Option<u32> {
-        self.colno
+        panic!("STUB: not implemented");
     }
 }
-
 /// A backtrace frame.
 ///
 /// This struct represents one stack frame in a captured backtrace, similar to [`backtrace::BacktraceFrame`].
@@ -114,42 +89,32 @@ pub struct BacktraceFrame {
     symbol_address: Address,
     symbols: Box<[BacktraceSymbol]>,
 }
-
 impl BacktraceFrame {
-    pub(crate) fn from_resolved_backtrace_frame(frame: &backtrace::BacktraceFrame) -> Self {
-        Self {
-            ip: Address(frame.ip()),
-            symbol_address: Address(frame.symbol_address()),
-            symbols: frame
-                .symbols()
-                .iter()
-                .map(BacktraceSymbol::from_backtrace_symbol)
-                .collect(),
-        }
+    pub(crate) fn from_resolved_backtrace_frame(
+        frame: &backtrace::BacktraceFrame,
+    ) -> Self {
+        panic!("STUB: not implemented");
     }
-
     /// Return the instruction pointer of this frame.
     ///
     /// See the ABI docs for your platform for the exact meaning.
     pub fn ip(&self) -> *mut std::ffi::c_void {
-        self.ip.0
+        panic!("STUB: not implemented");
     }
-
     /// Returns the starting symbol address of the frame of this function.
     pub fn symbol_address(&self) -> *mut std::ffi::c_void {
-        self.symbol_address.0
+        panic!("STUB: not implemented");
     }
-
     /// Return an iterator over the symbols of this backtrace frame.
     ///
     /// Due to inlining, it is possible for there to be multiple [`BacktraceSymbol`] items relating
     /// to a single frame. The first symbol listed is the "innermost function",
     /// whereas the last symbol is the outermost (last caller).
     pub fn symbols(&self) -> impl Iterator<Item = &BacktraceSymbol> {
-        self.symbols.iter()
+        panic!("STUB: not implemented");
+        #[allow(unreachable_code)] std::iter::empty::<&BacktraceSymbol>()
     }
 }
-
 /// A captured backtrace.
 ///
 /// This struct provides access to each backtrace frame, similar to [`backtrace::Backtrace`].
@@ -157,15 +122,14 @@ impl BacktraceFrame {
 pub struct Backtrace {
     frames: Box<[BacktraceFrame]>,
 }
-
 impl Backtrace {
     /// Return the frames in this backtrace, innermost (in a task dump,
     /// likely to be a leaf future's poll function) first.
     pub fn frames(&self) -> impl Iterator<Item = &BacktraceFrame> {
-        self.frames.iter()
+        panic!("STUB: not implemented");
+        #[allow(unreachable_code)] std::iter::empty::<&BacktraceFrame>()
     }
 }
-
 /// An execution trace of a task's last poll.
 ///
 /// <div class="warning">
@@ -188,7 +152,6 @@ impl Backtrace {
 pub struct Trace {
     inner: super::task::trace::Trace,
 }
-
 impl Trace {
     /// Resolve and return a list of backtraces that are involved in polls in this trace.
     ///
@@ -200,23 +163,8 @@ impl Trace {
     /// [`poll`]: std::future::Future::poll
     /// [`join!`]: macro@join
     pub fn resolve_backtraces(&self) -> Vec<Backtrace> {
-        self.inner
-            .backtraces()
-            .iter()
-            .map(|backtrace| {
-                let mut backtrace = backtrace::Backtrace::from(backtrace.clone());
-                backtrace.resolve();
-                Backtrace {
-                    frames: backtrace
-                        .frames()
-                        .iter()
-                        .map(BacktraceFrame::from_resolved_backtrace_frame)
-                        .collect(),
-                }
-            })
-            .collect()
+        panic!("STUB: not implemented");
     }
-
     /// Runs the function `f` in tracing mode, and returns its result along with the resulting [`Trace`].
     ///
     /// This is normally called with `f` being the poll function of a future, and will give you a backtrace
@@ -268,10 +216,8 @@ impl Trace {
     where
         F: FnOnce() -> R,
     {
-        let (res, trace) = super::task::trace::Trace::capture(f);
-        (res, Trace { inner: trace })
+        panic!("STUB: not implemented");
     }
-
     /// Create a root for stack traces captured using [`Trace::capture`]. Stack frames above
     /// the root will not be captured.
     ///
@@ -281,38 +227,29 @@ impl Trace {
     where
         F: Future,
     {
-        crate::runtime::task::trace::Trace::root(f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl Dump {
     pub(crate) fn new(tasks: Vec<Task>) -> Self {
-        Self {
-            tasks: Tasks { tasks },
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Tasks in this snapshot.
     pub fn tasks(&self) -> &Tasks {
-        &self.tasks
+        panic!("STUB: not implemented");
     }
 }
-
 impl Tasks {
     /// Iterate over tasks.
     pub fn iter(&self) -> impl Iterator<Item = &Task> {
-        self.tasks.iter()
+        panic!("STUB: not implemented");
+        #[allow(unreachable_code)] std::iter::empty::<&Task>()
     }
 }
-
 impl Task {
     pub(crate) fn new(id: Id, trace: super::task::trace::Trace) -> Self {
-        Self {
-            id,
-            trace: Trace { inner: trace },
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns a [task ID] that uniquely identifies this task relative to other
     /// tasks spawned at the time of the dump.
     ///
@@ -325,17 +262,15 @@ impl Task {
     #[cfg(tokio_unstable)]
     #[cfg_attr(docsrs, doc(cfg(tokio_unstable)))]
     pub fn id(&self) -> Id {
-        self.id
+        panic!("STUB: not implemented");
     }
-
     /// A trace of this task's state.
     pub fn trace(&self) -> &Trace {
-        &self.trace
+        panic!("STUB: not implemented");
     }
 }
-
 impl fmt::Display for Trace {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.inner.fmt(f)
+        panic!("STUB: not implemented");
     }
 }

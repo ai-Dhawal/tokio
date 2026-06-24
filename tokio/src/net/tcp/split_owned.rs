@@ -7,10 +7,8 @@
 //! Compared to the generic split of `AsyncRead + AsyncWrite`, this specialized
 //! split has no associated overhead and enforces all invariants at the type
 //! level.
-
 use crate::io::{AsyncRead, AsyncWrite, Interest, ReadBuf, Ready};
 use crate::net::TcpStream;
-
 use std::error::Error;
 use std::future::poll_fn;
 use std::net::{Shutdown, SocketAddr};
@@ -18,11 +16,9 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::{fmt, io};
-
 cfg_io_util! {
     use bytes::BufMut;
 }
-
 /// Owned read half of a [`TcpStream`], created by [`into_split`].
 ///
 /// Reading from an `OwnedReadHalf` is usually done using the convenience methods found
@@ -35,7 +31,6 @@ cfg_io_util! {
 pub struct OwnedReadHalf {
     inner: Arc<TcpStream>,
 }
-
 /// Owned write half of a [`TcpStream`], created by [`into_split`].
 ///
 /// Note that in the [`AsyncWrite`] implementation of this type, [`poll_shutdown`] will
@@ -55,49 +50,25 @@ pub struct OwnedWriteHalf {
     inner: Arc<TcpStream>,
     shutdown_on_drop: bool,
 }
-
 pub(crate) fn split_owned(stream: TcpStream) -> (OwnedReadHalf, OwnedWriteHalf) {
-    let arc = Arc::new(stream);
-    let read = OwnedReadHalf {
-        inner: Arc::clone(&arc),
-    };
-    let write = OwnedWriteHalf {
-        inner: arc,
-        shutdown_on_drop: true,
-    };
-    (read, write)
+    panic!("STUB: not implemented");
 }
-
 pub(crate) fn reunite(
     read: OwnedReadHalf,
     write: OwnedWriteHalf,
 ) -> Result<TcpStream, ReuniteError> {
-    if Arc::ptr_eq(&read.inner, &write.inner) {
-        write.forget();
-        // This unwrap cannot fail as the api does not allow creating more than two Arcs,
-        // and we just dropped the other half.
-        Ok(Arc::try_unwrap(read.inner).expect("TcpStream: try_unwrap failed in reunite"))
-    } else {
-        Err(ReuniteError(read, write))
-    }
+    panic!("STUB: not implemented");
 }
-
 /// Error indicating that two halves were not from the same socket, and thus could
 /// not be reunited.
 #[derive(Debug)]
 pub struct ReuniteError(pub OwnedReadHalf, pub OwnedWriteHalf);
-
 impl fmt::Display for ReuniteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "tried to reunite halves that are not from the same socket"
-        )
+        panic!("STUB: not implemented");
     }
 }
-
 impl Error for ReuniteError {}
-
 impl OwnedReadHalf {
     /// Attempts to put the two halves of a `TcpStream` back together and
     /// recover the original socket. Succeeds only if the two halves
@@ -105,9 +76,8 @@ impl OwnedReadHalf {
     ///
     /// [`into_split`]: TcpStream::into_split()
     pub fn reunite(self, other: OwnedWriteHalf) -> Result<TcpStream, ReuniteError> {
-        reunite(self, other)
+        panic!("STUB: not implemented");
     }
-
     /// Attempt to receive data on the socket, without removing that data from
     /// the queue, registering the current task for wakeup if data is not yet
     /// available.
@@ -147,9 +117,8 @@ impl OwnedReadHalf {
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<usize>> {
-        self.inner.poll_peek(cx, buf)
+        panic!("STUB: not implemented");
     }
-
     /// Receives data on the socket from the remote address to which it is
     /// connected, without removing that data from the queue. On success,
     /// returns the number of bytes peeked.
@@ -190,10 +159,8 @@ impl OwnedReadHalf {
     /// [`read`]: fn@crate::io::AsyncReadExt::read
     /// [`AsyncReadExt`]: trait@crate::io::AsyncReadExt
     pub async fn peek(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let mut buf = ReadBuf::new(buf);
-        poll_fn(|cx| self.poll_peek(cx, &mut buf)).await
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states.
     ///
     /// This function is usually paired with [`try_read()`]. It can be used instead
@@ -218,9 +185,8 @@ impl OwnedReadHalf {
     /// consumed by an attempt to read or write that fails with `WouldBlock` or
     /// `Poll::Pending`.
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        self.inner.ready(interest).await
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the socket to become readable.
     ///
     /// This function is equivalent to `ready(Interest::READABLE)` and is usually
@@ -235,9 +201,8 @@ impl OwnedReadHalf {
     /// consumed by an attempt to read that fails with `WouldBlock` or
     /// `Poll::Pending`.
     pub async fn readable(&self) -> io::Result<()> {
-        self.inner.readable().await
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read data from the stream into the provided buffer, returning how
     /// many bytes were read.
     ///
@@ -262,9 +227,8 @@ impl OwnedReadHalf {
     /// If the stream is not ready to read data,
     /// `Err(io::ErrorKind::WouldBlock)` is returned.
     pub fn try_read(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.inner.try_read(buf)
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read data from the stream into the provided buffers, returning
     /// how many bytes were read.
     ///
@@ -290,56 +254,51 @@ impl OwnedReadHalf {
     /// number of bytes read. `Ok(0)` indicates the stream's read half is closed
     /// and will no longer yield data. If the stream is not ready to read data
     /// `Err(io::ErrorKind::WouldBlock)` is returned.
-    pub fn try_read_vectored(&self, bufs: &mut [io::IoSliceMut<'_>]) -> io::Result<usize> {
-        self.inner.try_read_vectored(bufs)
+    pub fn try_read_vectored(
+        &self,
+        bufs: &mut [io::IoSliceMut<'_>],
+    ) -> io::Result<usize> {
+        panic!("STUB: not implemented");
     }
-
     cfg_io_util! {
-        /// Tries to read data from the stream into the provided buffer, advancing the
-        /// buffer's internal cursor, returning how many bytes were read.
-        ///
-        /// Receives any pending data from the socket but does not wait for new data
-        /// to arrive. On success, returns the number of bytes read. Because
-        /// `try_read_buf()` is non-blocking, the buffer does not have to be stored by
-        /// the async task and can exist entirely on the stack.
-        ///
-        /// Usually, [`readable()`] or [`ready()`] is used with this function.
-        ///
-        /// [`readable()`]: Self::readable()
-        /// [`ready()`]: Self::ready()
-        ///
-        /// # Return
-        ///
-        /// If data is successfully read, `Ok(n)` is returned, where `n` is the
-        /// number of bytes read. `Ok(0)` indicates the stream's read half is closed
-        /// and will no longer yield data. If the stream is not ready to read data
-        /// `Err(io::ErrorKind::WouldBlock)` is returned.
-        pub fn try_read_buf<B: BufMut>(&self, buf: &mut B) -> io::Result<usize> {
-            self.inner.try_read_buf(buf)
-        }
+        #[doc =
+        " Tries to read data from the stream into the provided buffer, advancing the"]
+        #[doc = " buffer's internal cursor, returning how many bytes were read."] #[doc =
+        ""] #[doc =
+        " Receives any pending data from the socket but does not wait for new data"]
+        #[doc = " to arrive. On success, returns the number of bytes read. Because"]
+        #[doc =
+        " `try_read_buf()` is non-blocking, the buffer does not have to be stored by"]
+        #[doc = " the async task and can exist entirely on the stack."] #[doc = ""] #[doc
+        = " Usually, [`readable()`] or [`ready()`] is used with this function."] #[doc =
+        ""] #[doc = " [`readable()`]: Self::readable()"] #[doc =
+        " [`ready()`]: Self::ready()"] #[doc = ""] #[doc = " # Return"] #[doc = ""] #[doc
+        = " If data is successfully read, `Ok(n)` is returned, where `n` is the"] #[doc =
+        " number of bytes read. `Ok(0)` indicates the stream's read half is closed"]
+        #[doc =
+        " and will no longer yield data. If the stream is not ready to read data"] #[doc
+        = " `Err(io::ErrorKind::WouldBlock)` is returned."] pub fn try_read_buf < B :
+        BufMut > (& self, buf : & mut B) -> io::Result < usize > { self.inner
+        .try_read_buf(buf) }
     }
-
     /// Returns the remote address that this stream is connected to.
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
-        self.inner.peer_addr()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the local address that this stream is bound to.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.inner.local_addr()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncRead for OwnedReadHalf {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        self.inner.poll_read_priv(cx, buf)
+        panic!("STUB: not implemented");
     }
 }
-
 impl OwnedWriteHalf {
     /// Attempts to put the two halves of a `TcpStream` back together and
     /// recover the original socket. Succeeds only if the two halves
@@ -347,17 +306,14 @@ impl OwnedWriteHalf {
     ///
     /// [`into_split`]: TcpStream::into_split()
     pub fn reunite(self, other: OwnedReadHalf) -> Result<TcpStream, ReuniteError> {
-        reunite(other, self)
+        panic!("STUB: not implemented");
     }
-
     /// Destroys the write half, but don't close the write half of the stream
     /// until the read half is dropped. If the read half has already been
     /// dropped, this closes the stream.
     pub fn forget(mut self) {
-        self.shutdown_on_drop = false;
-        drop(self);
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states.
     ///
     /// This function is usually paired with [`try_write()`]. It can be used instead
@@ -382,9 +338,8 @@ impl OwnedWriteHalf {
     /// consumed by an attempt to read or write that fails with `WouldBlock` or
     /// `Poll::Pending`.
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        self.inner.ready(interest).await
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the socket to become writable.
     ///
     /// This function is equivalent to `ready(Interest::WRITABLE)` and is usually
@@ -397,9 +352,8 @@ impl OwnedWriteHalf {
     /// consumed by an attempt to write that fails with `WouldBlock` or
     /// `Poll::Pending`.
     pub async fn writable(&self) -> io::Result<()> {
-        self.inner.writable().await
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write a buffer to the stream, returning how many bytes were
     /// written.
     ///
@@ -414,9 +368,8 @@ impl OwnedWriteHalf {
     /// number of bytes written. If the stream is not ready to write data,
     /// `Err(io::ErrorKind::WouldBlock)` is returned.
     pub fn try_write(&self, buf: &[u8]) -> io::Result<usize> {
-        self.inner.try_write(buf)
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write several buffers to the stream, returning how many bytes
     /// were written.
     ///
@@ -435,73 +388,55 @@ impl OwnedWriteHalf {
     /// number of bytes written. If the stream is not ready to write data,
     /// `Err(io::ErrorKind::WouldBlock)` is returned.
     pub fn try_write_vectored(&self, bufs: &[io::IoSlice<'_>]) -> io::Result<usize> {
-        self.inner.try_write_vectored(bufs)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the remote address that this stream is connected to.
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
-        self.inner.peer_addr()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the local address that this stream is bound to.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.inner.local_addr()
+        panic!("STUB: not implemented");
     }
 }
-
 impl Drop for OwnedWriteHalf {
     fn drop(&mut self) {
-        if self.shutdown_on_drop {
-            let _ = self.inner.shutdown_std(Shutdown::Write);
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for OwnedWriteHalf {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        self.inner.poll_write_priv(cx, buf)
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        self.inner.poll_write_vectored_priv(cx, bufs)
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        self.inner.is_write_vectored()
+        panic!("STUB: not implemented");
     }
-
     #[inline]
     fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        // tcp flush is a no-op
-        Poll::Ready(Ok(()))
+        panic!("STUB: not implemented");
     }
-
-    // `poll_shutdown` on a write half shutdowns the stream in the "write" direction.
     fn poll_shutdown(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let res = self.inner.shutdown_std(Shutdown::Write);
-        if res.is_ok() {
-            Pin::into_inner(self).shutdown_on_drop = false;
-        }
-        res.into()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRef<TcpStream> for OwnedReadHalf {
     fn as_ref(&self) -> &TcpStream {
-        &self.inner
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRef<TcpStream> for OwnedWriteHalf {
     fn as_ref(&self) -> &TcpStream {
-        &self.inner
+        panic!("STUB: not implemented");
     }
 }

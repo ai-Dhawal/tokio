@@ -1,280 +1,131 @@
 macro_rules! doc {
     ($try_join:item) => {
-        /// Waits on multiple concurrent branches, returning when **all** branches
-        /// complete with `Ok(_)` or on the first `Err(_)`.
-        ///
-        /// The `try_join!` macro must be used inside of async functions, closures, and
-        /// blocks.
-        ///
-        /// Similar to [`join!`], the `try_join!` macro takes a list of async
-        /// expressions and evaluates them concurrently on the same task. Each async
-        /// expression evaluates to a future and the futures from each expression are
-        /// multiplexed on the current task. The `try_join!` macro returns when **all**
-        /// branches return with `Ok` or when the **first** branch returns with `Err`.
-        ///
-        /// [`join!`]: macro@join
-        ///
-        /// # Notes
-        ///
-        /// The supplied futures are stored inline and do not require allocating a
-        /// `Vec`.
-        ///
-        /// ## Runtime characteristics
-        ///
-        /// By running all async expressions on the current task, the expressions are
-        /// able to run **concurrently** but not in **parallel**. This means all
-        /// expressions are run on the same thread and if one branch blocks the thread,
-        /// all other expressions will be unable to continue. If parallelism is
-        /// required, spawn each async expression using [`tokio::spawn`] and pass the
-        /// join handle to `try_join!`.
-        ///
-        /// [`tokio::spawn`]: crate::spawn
-        ///
-        /// ## Fairness
-        ///
-        /// By default, `try_join!`'s generated future rotates which
-        /// contained future is polled first whenever it is woken.
-        ///
-        /// This behavior can be overridden by adding `biased;` to the beginning of the
-        /// macro usage. See the examples for details. This will cause `try_join` to poll
-        /// the futures in the order they appear from top to bottom.
-        ///
-        /// You may want this if your futures may interact in a way where known polling order is significant.
-        ///
-        /// But there is an important caveat to this mode. It becomes your responsibility
-        /// to ensure that the polling order of your futures is fair. If for example you
-        /// are joining a stream and a shutdown future, and the stream has a
-        /// huge volume of messages that takes a long time to finish processing per poll, you should
-        /// place the shutdown future earlier in the `try_join!` list to ensure that it is
-        /// always polled, and will not be delayed due to the stream future taking a long time to return
-        /// `Poll::Pending`.
-        ///
-        /// # Examples
-        ///
-        /// Basic `try_join` with two branches.
-        ///
-        /// ```
-        /// async fn do_stuff_async() -> Result<(), &'static str> {
-        ///     // async work
-        /// # Ok(())
-        /// }
-        ///
-        /// async fn more_async_work() -> Result<(), &'static str> {
-        ///     // more here
-        /// # Ok(())
-        /// }
-        ///
-        /// # #[tokio::main(flavor = "current_thread")]
-        /// # async fn main() {
-        /// let res = tokio::try_join!(
-        ///     do_stuff_async(),
-        ///     more_async_work());
-        ///
-        /// match res {
-        ///     Ok((first, second)) => {
-        ///         // do something with the values
-        ///     }
-        ///     Err(err) => {
-        ///         println!("processing failed; error = {}", err);
-        ///     }
-        /// }
-        /// # }
-        /// ```
-        ///
-        /// Using `try_join!` with spawned tasks.
-        ///
-        /// ```
-        /// use tokio::task::JoinHandle;
-        ///
-        /// async fn do_stuff_async() -> Result<(), &'static str> {
-        ///     // async work
-        /// # Err("failed")
-        /// }
-        ///
-        /// async fn more_async_work() -> Result<(), &'static str> {
-        ///     // more here
-        /// # Ok(())
-        /// }
-        ///
-        /// async fn flatten<T>(handle: JoinHandle<Result<T, &'static str>>) -> Result<T, &'static str> {
-        ///     match handle.await {
-        ///         Ok(Ok(result)) => Ok(result),
-        ///         Ok(Err(err)) => Err(err),
-        ///         Err(err) => Err("handling failed"),
-        ///     }
-        /// }
-        ///
-        /// # #[tokio::main(flavor = "current_thread")]
-        /// # async fn main() {
-        /// let handle1 = tokio::spawn(do_stuff_async());
-        /// let handle2 = tokio::spawn(more_async_work());
-        /// match tokio::try_join!(flatten(handle1), flatten(handle2)) {
-        ///     Ok(val) => {
-        ///         // do something with the values
-        ///     }
-        ///     Err(err) => {
-        ///         println!("Failed with {}.", err);
-        ///         # assert_eq!(err, "failed");
-        ///     }
-        /// }
-        /// # }
-        /// ```
-        /// Using the `biased;` mode to control polling order.
-        ///
-        /// ```
-        /// async fn do_stuff_async() -> Result<(), &'static str> {
-        ///     // async work
-        /// # Ok(())
-        /// }
-        ///
-        /// async fn more_async_work() -> Result<(), &'static str> {
-        ///     // more here
-        /// # Ok(())
-        /// }
-        ///
-        /// # #[tokio::main(flavor = "current_thread")]
-        /// # async fn main() {
-        /// let res = tokio::try_join!(
-        ///     biased;
-        ///     do_stuff_async(),
-        ///     more_async_work()
-        /// );
-        ///
-        /// match res {
-        ///     Ok((first, second)) => {
-        ///         // do something with the values
-        ///     }
-        ///     Err(err) => {
-        ///         println!("processing failed; error = {}", err);
-        ///     }
-        /// }
-        /// # }
-        /// ```
-        #[macro_export]
-        #[cfg_attr(docsrs, doc(cfg(feature = "macros")))]
-        $try_join
+        #[doc =
+        " Waits on multiple concurrent branches, returning when **all** branches"] #[doc
+        = " complete with `Ok(_)` or on the first `Err(_)`."] #[doc = ""] #[doc =
+        " The `try_join!` macro must be used inside of async functions, closures, and"]
+        #[doc = " blocks."] #[doc = ""] #[doc =
+        " Similar to [`join!`], the `try_join!` macro takes a list of async"] #[doc =
+        " expressions and evaluates them concurrently on the same task. Each async"]
+        #[doc =
+        " expression evaluates to a future and the futures from each expression are"]
+        #[doc =
+        " multiplexed on the current task. The `try_join!` macro returns when **all**"]
+        #[doc =
+        " branches return with `Ok` or when the **first** branch returns with `Err`."]
+        #[doc = ""] #[doc = " [`join!`]: macro@join"] #[doc = ""] #[doc = " # Notes"]
+        #[doc = ""] #[doc =
+        " The supplied futures are stored inline and do not require allocating a"] #[doc
+        = " `Vec`."] #[doc = ""] #[doc = " ## Runtime characteristics"] #[doc = ""] #[doc
+        = " By running all async expressions on the current task, the expressions are"]
+        #[doc = " able to run **concurrently** but not in **parallel**. This means all"]
+        #[doc =
+        " expressions are run on the same thread and if one branch blocks the thread,"]
+        #[doc = " all other expressions will be unable to continue. If parallelism is"]
+        #[doc =
+        " required, spawn each async expression using [`tokio::spawn`] and pass the"]
+        #[doc = " join handle to `try_join!`."] #[doc = ""] #[doc =
+        " [`tokio::spawn`]: crate::spawn"] #[doc = ""] #[doc = " ## Fairness"] #[doc =
+        ""] #[doc = " By default, `try_join!`'s generated future rotates which"] #[doc =
+        " contained future is polled first whenever it is woken."] #[doc = ""] #[doc =
+        " This behavior can be overridden by adding `biased;` to the beginning of the"]
+        #[doc =
+        " macro usage. See the examples for details. This will cause `try_join` to poll"]
+        #[doc = " the futures in the order they appear from top to bottom."] #[doc = ""]
+        #[doc =
+        " You may want this if your futures may interact in a way where known polling order is significant."]
+        #[doc = ""] #[doc =
+        " But there is an important caveat to this mode. It becomes your responsibility"]
+        #[doc =
+        " to ensure that the polling order of your futures is fair. If for example you"]
+        #[doc = " are joining a stream and a shutdown future, and the stream has a"]
+        #[doc =
+        " huge volume of messages that takes a long time to finish processing per poll, you should"]
+        #[doc =
+        " place the shutdown future earlier in the `try_join!` list to ensure that it is"]
+        #[doc =
+        " always polled, and will not be delayed due to the stream future taking a long time to return"]
+        #[doc = " `Poll::Pending`."] #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc
+        = " Basic `try_join` with two branches."] #[doc = ""] #[doc = " ```"] #[doc =
+        " async fn do_stuff_async() -> Result<(), &'static str> {"] #[doc =
+        "     // async work"] #[doc = " # Ok(())"] #[doc = " }"] #[doc = ""] #[doc =
+        " async fn more_async_work() -> Result<(), &'static str> {"] #[doc =
+        "     // more here"] #[doc = " # Ok(())"] #[doc = " }"] #[doc = ""] #[doc =
+        " # #[tokio::main(flavor = \"current_thread\")]"] #[doc = " # async fn main() {"]
+        #[doc = " let res = tokio::try_join!("] #[doc = "     do_stuff_async(),"] #[doc =
+        "     more_async_work());"] #[doc = ""] #[doc = " match res {"] #[doc =
+        "     Ok((first, second)) => {"] #[doc =
+        "         // do something with the values"] #[doc = "     }"] #[doc =
+        "     Err(err) => {"] #[doc =
+        "         println!(\"processing failed; error = {}\", err);"] #[doc = "     }"]
+        #[doc = " }"] #[doc = " # }"] #[doc = " ```"] #[doc = ""] #[doc =
+        " Using `try_join!` with spawned tasks."] #[doc = ""] #[doc = " ```"] #[doc =
+        " use tokio::task::JoinHandle;"] #[doc = ""] #[doc =
+        " async fn do_stuff_async() -> Result<(), &'static str> {"] #[doc =
+        "     // async work"] #[doc = " # Err(\"failed\")"] #[doc = " }"] #[doc = ""]
+        #[doc = " async fn more_async_work() -> Result<(), &'static str> {"] #[doc =
+        "     // more here"] #[doc = " # Ok(())"] #[doc = " }"] #[doc = ""] #[doc =
+        " async fn flatten<T>(handle: JoinHandle<Result<T, &'static str>>) -> Result<T, &'static str> {"]
+        #[doc = "     match handle.await {"] #[doc =
+        "         Ok(Ok(result)) => Ok(result),"] #[doc =
+        "         Ok(Err(err)) => Err(err),"] #[doc =
+        "         Err(err) => Err(\"handling failed\"),"] #[doc = "     }"] #[doc = " }"]
+        #[doc = ""] #[doc = " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+        " # async fn main() {"] #[doc = " let handle1 = tokio::spawn(do_stuff_async());"]
+        #[doc = " let handle2 = tokio::spawn(more_async_work());"] #[doc =
+        " match tokio::try_join!(flatten(handle1), flatten(handle2)) {"] #[doc =
+        "     Ok(val) => {"] #[doc = "         // do something with the values"] #[doc =
+        "     }"] #[doc = "     Err(err) => {"] #[doc =
+        "         println!(\"Failed with {}.\", err);"] #[doc =
+        "         # assert_eq!(err, \"failed\");"] #[doc = "     }"] #[doc = " }"] #[doc
+        = " # }"] #[doc = " ```"] #[doc =
+        " Using the `biased;` mode to control polling order."] #[doc = ""] #[doc =
+        " ```"] #[doc = " async fn do_stuff_async() -> Result<(), &'static str> {"] #[doc
+        = "     // async work"] #[doc = " # Ok(())"] #[doc = " }"] #[doc = ""] #[doc =
+        " async fn more_async_work() -> Result<(), &'static str> {"] #[doc =
+        "     // more here"] #[doc = " # Ok(())"] #[doc = " }"] #[doc = ""] #[doc =
+        " # #[tokio::main(flavor = \"current_thread\")]"] #[doc = " # async fn main() {"]
+        #[doc = " let res = tokio::try_join!("] #[doc = "     biased;"] #[doc =
+        "     do_stuff_async(),"] #[doc = "     more_async_work()"] #[doc = " );"] #[doc
+        = ""] #[doc = " match res {"] #[doc = "     Ok((first, second)) => {"] #[doc =
+        "         // do something with the values"] #[doc = "     }"] #[doc =
+        "     Err(err) => {"] #[doc =
+        "         println!(\"processing failed; error = {}\", err);"] #[doc = "     }"]
+        #[doc = " }"] #[doc = " # }"] #[doc = " ```"] #[macro_export] #[cfg_attr(docsrs,
+        doc(cfg(feature = "macros")))] $try_join
     };
 }
-
 #[cfg(doc)]
-doc! {macro_rules! try_join {
-    ($(biased;)? $($future:expr),*) => { unimplemented!() }
-}}
-
+doc! {
+    macro_rules! try_join { ($(biased;)? $($future : expr),*) => { unimplemented!() } }
+}
 #[cfg(not(doc))]
-doc! {macro_rules! try_join {
-    (@ {
-        // Type of rotator that controls which inner future to start with
-        // when polling our output future.
-        rotator_select=$rotator_select:ty;
-
-        // One `_` for each branch in the `try_join!` macro. This is not used once
-        // normalization is complete.
-        ( $($count:tt)* )
-
-        // The expression `0+1+1+ ... +1` equal to the number of branches.
-        ( $($total:tt)* )
-
-        // Normalized try_join! branches
-        $( ( $($skip:tt)* ) $e:expr, )*
-
-    }) => {{
-        // Safety: nothing must be moved out of `futures`. This is to satisfy
-        // the requirement of `Pin::new_unchecked` called below.
-        //
-        // We can't use the `pin!` macro for this because `futures` is a tuple
-        // and the standard library provides no way to pin-project to the fields
-        // of a tuple.
-        let mut futures = ( $( $crate::macros::support::maybe_done($e), )* );
-
-        // This assignment makes sure that the `poll_fn` closure only has a
-        // reference to the futures, instead of taking ownership of them. This
-        // mitigates the issue described in
-        // <https://internals.rust-lang.org/t/surprising-soundness-trouble-around-pollfn/17484>
-        let mut futures = &mut futures;
-
-        // Each time the future created by poll_fn is polled, if not using biased mode,
-        // a different future is polled first to ensure every future passed to try_join!
-        // can make progress even if one of the futures consumes the whole budget.
-        let mut rotator = <$rotator_select as $crate::macros::support::RotatorSelect>::Rotator::<{$($total)*}>::default();
-
-        $crate::macros::support::poll_fn(move |cx| {
-            const COUNT: u32 = $($total)*;
-
-            let mut is_pending = false;
-            let mut to_run = COUNT;
-
-            // The number of futures that will be skipped in the first loop iteration.
-            let mut skip = rotator.num_skip();
-
-            // This loop runs twice and the first `skip` futures
-            // are not polled in the first iteration.
-            loop {
-            $(
-                if skip == 0 {
-                    if to_run == 0 {
-                        // Every future has been polled
-                        break;
-                    }
-                    to_run -= 1;
-
-                    // Extract the future for this branch from the tuple.
-                    let ( $($skip,)* fut, .. ) = &mut *futures;
-
-                    // Safety: future is stored on the stack above
-                    // and never moved.
-                    let mut fut = unsafe { $crate::macros::support::Pin::new_unchecked(fut) };
-
-                    // Try polling
-                    if $crate::macros::support::Future::poll(fut.as_mut(), cx).is_pending() {
-                        is_pending = true;
-                    } else if fut.as_mut().output_mut().expect("expected completed future").is_err() {
-                        return $crate::macros::support::Poll::Ready($crate::macros::support::Result::Err(fut.take_output().expect("expected completed future").err().unwrap()))
-                    }
-                } else {
-                    // Future skipped, one less future to skip in the next iteration
-                    skip -= 1;
-                }
-            )*
-            }
-
-            if is_pending {
-                $crate::macros::support::Poll::Pending
-            } else {
-                $crate::macros::support::Poll::Ready($crate::macros::support::Result::Ok(($({
-                    // Extract the future for this branch from the tuple.
-                    let ( $($skip,)* fut, .. ) = &mut futures;
-
-                    // Safety: future is stored on the stack above
-                    // and never moved.
-                    let mut fut = unsafe { $crate::macros::support::Pin::new_unchecked(fut) };
-
-                    fut
-                        .take_output()
-                        .expect("expected completed future")
-                        .ok()
-                        .expect("expected Ok(_)")
-                },)*)))
-            }
-        }).await
-    }};
-
-    // ===== Normalize =====
-
-    (@ { rotator_select=$rotator_select:ty;  ( $($s:tt)* ) ( $($n:tt)* ) $($t:tt)* } $e:expr, $($r:tt)* ) => {
-      $crate::try_join!(@{ rotator_select=$rotator_select; ($($s)* _) ($($n)* + 1) $($t)* ($($s)*) $e, } $($r)*)
-    };
-
-    // ===== Entry point =====
-    ( biased; $($e:expr),+ $(,)?) => {
-        $crate::try_join!(@{ rotator_select=$crate::macros::support::SelectBiased;  () (0) } $($e,)*)
-    };
-
-    ( $($e:expr),+ $(,)?) => {
-        $crate::try_join!(@{ rotator_select=$crate::macros::support::SelectNormal; () (0) } $($e,)*)
-    };
-
-    (biased;) => { async { Ok(()) }.await };
-
-    () => { async { Ok(()) }.await }
-}}
+doc! {
+    macro_rules! try_join { (@ { rotator_select =$rotator_select : ty; ($($count : tt)*)
+    ($($total : tt)*) $(($($skip : tt)*) $e : expr,)* }) => { { let mut futures =
+    ($($crate::macros::support::maybe_done($e),)*); let mut futures = & mut futures; let
+    mut rotator = <$rotator_select as $crate::macros::support::RotatorSelect
+    >::Rotator::< { $($total)* } >::default(); $crate::macros::support::poll_fn(move | cx
+    | { const COUNT : u32 = $($total)*; let mut is_pending = false; let mut to_run =
+    COUNT; let mut skip = rotator.num_skip(); loop { $(if skip == 0 { if to_run == 0 {
+    break; } to_run -= 1; let ($($skip,)* fut, ..) = & mut * futures; let mut fut =
+    unsafe { $crate::macros::support::Pin::new_unchecked(fut) }; if
+    $crate::macros::support::Future::poll(fut.as_mut(), cx).is_pending() { is_pending =
+    true; } else if fut.as_mut().output_mut().expect("expected completed future")
+    .is_err() { return
+    $crate::macros::support::Poll::Ready($crate::macros::support::Result::Err(fut
+    .take_output().expect("expected completed future").err().unwrap())) } } else { skip
+    -= 1; })* } if is_pending { $crate::macros::support::Poll::Pending } else {
+    $crate::macros::support::Poll::Ready($crate::macros::support::Result::Ok(($({ let
+    ($($skip,)* fut, ..) = & mut futures; let mut fut = unsafe {
+    $crate::macros::support::Pin::new_unchecked(fut) }; fut.take_output()
+    .expect("expected completed future").ok().expect("expected Ok(_)") },)*))) } }).
+    await } }; (@ { rotator_select =$rotator_select : ty; ($($s : tt)*) ($($n : tt)*)
+    $($t : tt)* } $e : expr, $($r : tt)*) => { $crate::try_join!(@ { rotator_select
+    =$rotator_select; ($($s)* _) ($($n)* + 1) $($t)* ($($s)*) $e, } $($r)*) }; (biased;
+    $($e : expr),+ $(,)?) => { $crate::try_join!(@ { rotator_select
+    =$crate::macros::support::SelectBiased; () (0) } $($e,)*) }; ($($e : expr),+ $(,)?)
+    => { $crate::try_join!(@ { rotator_select =$crate::macros::support::SelectNormal; ()
+    (0) } $($e,)*) }; (biased;) => { async { Ok(()) } . await }; () => { async { Ok(()) }
+    . await } }
+}

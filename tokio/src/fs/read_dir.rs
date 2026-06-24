@@ -1,5 +1,4 @@
 use crate::fs::asyncify;
-
 use std::collections::VecDeque;
 use std::ffi::OsString;
 use std::fs::{FileType, Metadata};
@@ -9,7 +8,6 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{ready, Context, Poll};
-
 #[cfg(test)]
 use super::mocks::spawn_blocking;
 #[cfg(test)]
@@ -18,9 +16,7 @@ use super::mocks::JoinHandle;
 use crate::blocking::spawn_blocking;
 #[cfg(not(test))]
 use crate::blocking::JoinHandle;
-
 const CHUNK_SIZE: usize = 32;
-
 /// Returns a stream over the entries within a directory.
 ///
 /// This is an async version of [`std::fs::read_dir`].
@@ -30,17 +26,8 @@ const CHUNK_SIZE: usize = 32;
 ///
 /// [`spawn_blocking`]: crate::task::spawn_blocking
 pub async fn read_dir(path: impl AsRef<Path>) -> io::Result<ReadDir> {
-    let path = path.as_ref().to_owned();
-    asyncify(|| -> io::Result<ReadDir> {
-        let mut std = std::fs::read_dir(path)?;
-        let mut buf = VecDeque::with_capacity(CHUNK_SIZE);
-        let remain = ReadDir::next_chunk(&mut buf, &mut std);
-
-        Ok(ReadDir(State::Idle(Some((buf, std, remain)))))
-    })
-    .await
+    panic!("STUB: not implemented");
 }
-
 /// Reads the entries in a directory.
 ///
 /// This struct is returned from the [`read_dir`] function of this module and
@@ -62,13 +49,11 @@ pub async fn read_dir(path: impl AsRef<Path>) -> io::Result<ReadDir> {
 #[derive(Debug)]
 #[must_use = "streams do nothing unless polled"]
 pub struct ReadDir(State);
-
 #[derive(Debug)]
 enum State {
     Idle(Option<(VecDeque<io::Result<DirEntry>>, std::fs::ReadDir, bool)>),
     Pending(JoinHandle<(VecDeque<io::Result<DirEntry>>, std::fs::ReadDir, bool)>),
 }
-
 impl ReadDir {
     /// Returns the next entry in the directory stream.
     ///
@@ -76,10 +61,8 @@ impl ReadDir {
     ///
     /// This method is cancel safe.
     pub async fn next_entry(&mut self) -> io::Result<Option<DirEntry>> {
-        use std::future::poll_fn;
-        poll_fn(|cx| self.poll_next_entry(cx)).await
+        panic!("STUB: not implemented");
     }
-
     /// Polls for the next directory entry in the stream.
     ///
     /// This method returns:
@@ -98,94 +81,32 @@ impl ReadDir {
     /// Note that on multiple calls to `poll_next_entry`, only the `Waker` from
     /// the `Context` passed to the most recent call is scheduled to receive a
     /// wakeup.
-    pub fn poll_next_entry(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<Option<DirEntry>>> {
-        loop {
-            match self.0 {
-                State::Idle(ref mut data) => {
-                    let (buf, _, ref remain) = data.as_mut().unwrap();
-
-                    if let Some(ent) = buf.pop_front() {
-                        return Poll::Ready(ent.map(Some));
-                    } else if !remain {
-                        return Poll::Ready(Ok(None));
-                    }
-
-                    let (mut buf, mut std, _) = data.take().unwrap();
-
-                    self.0 = State::Pending(spawn_blocking(move || {
-                        let remain = ReadDir::next_chunk(&mut buf, &mut std);
-                        (buf, std, remain)
-                    }));
-                }
-                State::Pending(ref mut rx) => {
-                    self.0 = State::Idle(Some(ready!(Pin::new(rx).poll(cx))?));
-                }
-            }
-        }
+    pub fn poll_next_entry(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<Option<DirEntry>>> {
+        panic!("STUB: not implemented");
     }
-
-    fn next_chunk(buf: &mut VecDeque<io::Result<DirEntry>>, std: &mut std::fs::ReadDir) -> bool {
-        for _ in 0..CHUNK_SIZE {
-            let ret = match std.next() {
-                Some(ret) => ret,
-                None => return false,
-            };
-
-            let success = ret.is_ok();
-
-            buf.push_back(ret.map(|std| DirEntry {
-                #[cfg(not(any(
-                    target_os = "solaris",
-                    target_os = "illumos",
-                    target_os = "haiku",
-                    target_os = "vxworks",
-                    target_os = "aix",
-                    target_os = "nto",
-                    target_os = "vita",
-                )))]
-                file_type: std.file_type().ok(),
-                std: Arc::new(std),
-            }));
-
-            if !success {
-                break;
-            }
-        }
-
-        true
+    fn next_chunk(
+        buf: &mut VecDeque<io::Result<DirEntry>>,
+        std: &mut std::fs::ReadDir,
+    ) -> bool {
+        panic!("STUB: not implemented");
     }
 }
-
 feature! {
-    #![unix]
-
-    use std::os::unix::fs::DirEntryExt;
-
-    impl DirEntry {
-        /// Returns the underlying `d_ino` field in the contained `dirent`
-        /// structure.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// use tokio::fs;
-        ///
-        /// # #[tokio::main]
-        /// # async fn main() -> std::io::Result<()> {
-        /// let mut entries = fs::read_dir(".").await?;
-        /// while let Some(entry) = entries.next_entry().await? {
-        ///     // Here, `entry` is a `DirEntry`.
-        ///     println!("{:?}: {}", entry.file_name(), entry.ino());
-        /// }
-        /// # Ok(())
-        /// # }
-        /// ```
-        pub fn ino(&self) -> u64 {
-            self.as_inner().ino()
-        }
-    }
+    #![unix] use std::os::unix::fs::DirEntryExt; impl DirEntry { #[doc =
+    " Returns the underlying `d_ino` field in the contained `dirent`"] #[doc =
+    " structure."] #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc = " ```"] #[doc =
+    " use tokio::fs;"] #[doc = ""] #[doc = " # #[tokio::main]"] #[doc =
+    " # async fn main() -> std::io::Result<()> {"] #[doc =
+    " let mut entries = fs::read_dir(\".\").await?;"] #[doc =
+    " while let Some(entry) = entries.next_entry().await? {"] #[doc =
+    "     // Here, `entry` is a `DirEntry`."] #[doc =
+    "     println!(\"{:?}: {}\", entry.file_name(), entry.ino());"] #[doc = " }"] #[doc =
+    " # Ok(())"] #[doc = " # }"] #[doc = " ```"] pub fn ino(& self) -> u64 { self
+    .as_inner().ino() } }
 }
-
 /// Entries returned by the [`ReadDir`] stream.
 ///
 /// [`ReadDir`]: struct@ReadDir
@@ -198,19 +119,22 @@ feature! {
 /// path or possibly other metadata through per-platform extension traits.
 #[derive(Debug)]
 pub struct DirEntry {
-    #[cfg(not(any(
-        target_os = "solaris",
-        target_os = "illumos",
-        target_os = "haiku",
-        target_os = "vxworks",
-        target_os = "aix",
-        target_os = "nto",
-        target_os = "vita",
-    )))]
+    #[cfg(
+        not(
+            any(
+                target_os = "solaris",
+                target_os = "illumos",
+                target_os = "haiku",
+                target_os = "vxworks",
+                target_os = "aix",
+                target_os = "nto",
+                target_os = "vita",
+            )
+        )
+    )]
     file_type: Option<FileType>,
     std: Arc<std::fs::DirEntry>,
 }
-
 impl DirEntry {
     /// Returns the full path to the file that this entry represents.
     ///
@@ -242,9 +166,8 @@ impl DirEntry {
     ///
     /// The exact text, of course, depends on what files you have in `.`.
     pub fn path(&self) -> PathBuf {
-        self.std.path()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the bare file name of this directory entry without any other
     /// leading path component.
     ///
@@ -263,9 +186,8 @@ impl DirEntry {
     /// # }
     /// ```
     pub fn file_name(&self) -> OsString {
-        self.std.file_name()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the metadata for the file that this entry points at.
     ///
     /// This function will not traverse symlinks if this entry points at a
@@ -297,10 +219,8 @@ impl DirEntry {
     /// # }
     /// ```
     pub async fn metadata(&self) -> io::Result<Metadata> {
-        let std = self.std.clone();
-        asyncify(move || std.metadata()).await
+        panic!("STUB: not implemented");
     }
-
     /// Returns the file type for the file that this entry points at.
     ///
     /// This function will not traverse symlinks if this entry points at a
@@ -332,26 +252,11 @@ impl DirEntry {
     /// # }
     /// ```
     pub async fn file_type(&self) -> io::Result<FileType> {
-        #[cfg(not(any(
-            target_os = "solaris",
-            target_os = "illumos",
-            target_os = "haiku",
-            target_os = "vxworks",
-            target_os = "aix",
-            target_os = "nto",
-            target_os = "vita",
-        )))]
-        if let Some(file_type) = self.file_type {
-            return Ok(file_type);
-        }
-
-        let std = self.std.clone();
-        asyncify(move || std.file_type()).await
+        panic!("STUB: not implemented");
     }
-
     /// Returns a reference to the underlying `std::fs::DirEntry`.
     #[cfg(unix)]
     pub(super) fn as_inner(&self) -> &std::fs::DirEntry {
-        &self.std
+        panic!("STUB: not implemented");
     }
 }

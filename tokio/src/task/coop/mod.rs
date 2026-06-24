@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "full"), allow(dead_code))]
 #![cfg_attr(not(feature = "rt"), allow(unreachable_pub))]
-
 //! Utilities for improved cooperative scheduling.
 //!
 //! ### Cooperative scheduling
@@ -57,50 +56,19 @@
 //! ```
 //! [`poll`]: method@std::future::Future::poll
 //! [`task::unconstrained`]: crate::task::unconstrained()
-
 cfg_rt! {
-    mod consume_budget;
-    pub use consume_budget::consume_budget;
-
-    mod unconstrained;
-    pub use unconstrained::{unconstrained, Unconstrained};
+    mod consume_budget; pub use consume_budget::consume_budget; mod unconstrained; pub
+    use unconstrained:: { unconstrained, Unconstrained };
 }
-
-// ```ignore
-// # use tokio_stream::{Stream, StreamExt};
-// async fn drop_all<I: Stream + Unpin>(mut input: I) {
-//     while let Some(_) = input.next().await {
-//         tokio::coop::proceed().await;
-//     }
-// }
-// ```
-//
-// The `proceed` future will coordinate with the executor to make sure that
-// every so often control is yielded back to the executor so it can run other
-// tasks.
-//
-// # Placing yield points
-//
-// Voluntary yield points should be placed _after_ at least some work has been
-// done. If they are not, a future sufficiently deep in the task hierarchy may
-// end up _never_ getting to run because of the number of yield points that
-// inevitably appear before it is reached. In general, you will want yield
-// points to only appear in "leaf" futures -- those that do not themselves poll
-// other futures. By doing this, you avoid double-counting each iteration of
-// the outer future against the cooperating budget.
-
 use crate::runtime::context;
-
 /// Opaque type tracking the amount of "work" a task may still do before
 /// yielding back to the scheduler.
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Budget(Option<u8>);
-
 pub(crate) struct BudgetDecrement {
     success: bool,
     hit_zero: bool,
 }
-
 impl Budget {
     /// Budget assigned to a task on each poll.
     ///
@@ -115,58 +83,30 @@ impl Budget {
     const fn initial() -> Budget {
         Budget(Some(128))
     }
-
     /// Returns an unconstrained budget. Operations will not be limited.
     pub(crate) const fn unconstrained() -> Budget {
         Budget(None)
     }
-
     fn has_remaining(self) -> bool {
-        self.0.map_or(true, |budget| budget > 0)
+        panic!("STUB: not implemented");
     }
 }
-
 /// Runs the given closure with a cooperative task budget. When the function
 /// returns, the budget is reset to the value prior to calling the function.
 #[inline(always)]
 pub(crate) fn budget<R>(f: impl FnOnce() -> R) -> R {
-    with_budget(Budget::initial(), f)
+    panic!("STUB: not implemented");
 }
-
 /// Runs the given closure with an unconstrained task budget. When the function returns, the budget
 /// is reset to the value prior to calling the function.
 #[inline(always)]
 pub(crate) fn with_unconstrained<R>(f: impl FnOnce() -> R) -> R {
-    with_budget(Budget::unconstrained(), f)
+    panic!("STUB: not implemented");
 }
-
 #[inline(always)]
 fn with_budget<R>(budget: Budget, f: impl FnOnce() -> R) -> R {
-    struct ResetGuard {
-        prev: Budget,
-    }
-
-    impl Drop for ResetGuard {
-        fn drop(&mut self) {
-            let _ = context::budget(|cell| {
-                cell.set(self.prev);
-            });
-        }
-    }
-
-    #[allow(unused_variables)]
-    let maybe_guard = context::budget(|cell| {
-        let prev = cell.get();
-        cell.set(budget);
-
-        ResetGuard { prev }
-    });
-
-    // The function is called regardless even if the budget is not successfully
-    // set due to the thread-local being destroyed.
-    f()
+    panic!("STUB: not implemented");
 }
-
 /// Returns `true` if there is still budget left on the task.
 ///
 /// # Examples
@@ -221,352 +161,194 @@ fn with_budget<R>(budget: Budget, f: impl FnOnce() -> R) -> R {
 #[inline(always)]
 #[cfg_attr(docsrs, doc(cfg(feature = "rt")))]
 pub fn has_budget_remaining() -> bool {
-    // If the current budget cannot be accessed due to the thread-local being
-    // shutdown, then we assume there is budget remaining.
-    context::budget(|cell| cell.get().has_remaining()).unwrap_or(true)
+    panic!("STUB: not implemented");
 }
-
 cfg_rt_multi_thread! {
-    /// Sets the current task's budget.
-    pub(crate) fn set(budget: Budget) {
-        let _ = context::budget(|cell| cell.set(budget));
-    }
+    #[doc = " Sets the current task's budget."] pub (crate) fn set(budget : Budget) { let
+    _ = context::budget(| cell | cell.set(budget)); }
 }
-
 cfg_rt! {
-    /// Forcibly removes the budgeting constraints early.
-    ///
-    /// Returns the remaining budget
-    pub(crate) fn stop() -> Budget {
-        context::budget(|cell| {
-            let prev = cell.get();
-            cell.set(Budget::unconstrained());
-            prev
-        }).unwrap_or(Budget::unconstrained())
-    }
+    #[doc = " Forcibly removes the budgeting constraints early."] #[doc = ""] #[doc =
+    " Returns the remaining budget"] pub (crate) fn stop() -> Budget { context::budget(|
+    cell | { let prev = cell.get(); cell.set(Budget::unconstrained()); prev })
+    .unwrap_or(Budget::unconstrained()) }
 }
-
 cfg_coop! {
-    use pin_project_lite::pin_project;
-    use std::cell::Cell;
-    use std::future::Future;
-    use std::marker::PhantomData;
-    use std::pin::Pin;
-    use std::task::{ready, Context, Poll};
-
-    /// Value returned by the [`poll_proceed`] method.
-    #[derive(Debug)]
-    #[must_use]
-    pub struct RestoreOnPending(Cell<Budget>, PhantomData<*mut ()>);
-
-    impl RestoreOnPending {
-        fn new(budget: Budget) -> Self {
-            RestoreOnPending(
-                Cell::new(budget),
-                PhantomData,
-            )
-        }
-
-        /// Signals that the task that obtained this `RestoreOnPending` was able to make
-        /// progress. This prevents the task budget from being restored to the value
-        /// it had prior to obtaining this instance when it is dropped.
-        pub fn made_progress(&self) {
-            self.0.set(Budget::unconstrained());
-        }
-    }
-
-    impl Drop for RestoreOnPending {
-        fn drop(&mut self) {
-            // Don't reset if budget was unconstrained or if we made progress.
-            // They are both represented as the remembered budget being unconstrained.
-            let budget = self.0.get();
-            if !budget.is_unconstrained() {
-                let _ = context::budget(|cell| {
-                    cell.set(budget);
-                });
-            }
-        }
-    }
-
-    /// Decrements the task budget and returns [`Poll::Pending`] if the budget is depleted.
-    /// This indicates that the task should yield to the scheduler. Otherwise, returns
-    /// [`RestoreOnPending`] which can be used to commit the budget consumption.
-    ///
-    /// The returned [`RestoreOnPending`] will revert the budget to its former
-    /// value when dropped unless [`RestoreOnPending::made_progress`]
-    /// is called. It is the caller's responsibility to do so when it _was_ able to
-    /// make progress after the call to [`poll_proceed`].
-    /// Restoring the budget automatically ensures the task can try to make progress in some other
-    /// way.
-    ///
-    /// Note that [`RestoreOnPending`] restores the budget **as it was before [`poll_proceed`]**.
-    /// Therefore, if the budget is _further_ adjusted between when [`poll_proceed`] returns and
-    /// [`RestoreOnPending`] is dropped, those adjustments are erased unless the caller indicates
-    /// that progress was made.
-    ///
-    /// # Examples
-    ///
-    /// This example wraps the `futures::channel::mpsc::UnboundedReceiver` to
-    /// cooperate with the Tokio scheduler. Each time a value is received, task budget
-    /// is consumed. If no budget is available, the task yields to the scheduler.
-    ///
-    /// ```
-    /// use std::pin::Pin;
-    /// use std::task::{ready, Context, Poll};
-    /// use tokio::task::coop;
-    /// use futures::stream::{Stream, StreamExt};
-    /// use futures::channel::mpsc::UnboundedReceiver;
-    ///
-    /// struct CoopUnboundedReceiver<T> {
-    ///    receiver: UnboundedReceiver<T>,
-    /// }
-    ///
-    /// impl<T> Stream for CoopUnboundedReceiver<T> {
-    ///     type Item = T;
-    ///     fn poll_next(
-    ///         mut self: Pin<&mut Self>,
-    ///         cx: &mut Context<'_>
-    ///     ) -> Poll<Option<T>> {
-    ///         let coop = ready!(coop::poll_proceed(cx));
-    ///         match self.receiver.poll_next_unpin(cx) {
-    ///             Poll::Ready(v) => {
-    ///                 // We received a value, so consume budget.
-    ///                 coop.made_progress();
-    ///                 Poll::Ready(v)
-    ///             }
-    ///             Poll::Pending => Poll::Pending,
-    ///        }
-    ///     }
-    /// }
-    /// ```
-    #[inline]
-    pub fn poll_proceed(cx: &mut Context<'_>) -> Poll<RestoreOnPending> {
-        context::budget(|cell| {
-            let mut budget = cell.get();
-
-            let decrement = budget.decrement();
-
-            if decrement.success {
-                let restore = RestoreOnPending::new(cell.get());
-                cell.set(budget);
-
-                // avoid double counting
-                if decrement.hit_zero {
-                    inc_budget_forced_yield_count();
-                }
-
-                Poll::Ready(restore)
-            } else {
-                register_waker(cx);
-                Poll::Pending
-            }
-        }).unwrap_or(Poll::Ready(RestoreOnPending::new(Budget::unconstrained())))
-    }
-
-    /// Returns `Poll::Ready` if the current task has budget to consume, and `Poll::Pending` otherwise.
-    ///
-    /// Note that in contrast to `poll_proceed`, this method does not consume any budget and is used when
-    /// polling for budget availability.
-    #[inline]
-    pub(crate) fn poll_budget_available(cx: &mut Context<'_>) -> Poll<()> {
-        if has_budget_remaining() {
-            Poll::Ready(())
-        } else {
-            register_waker(cx);
-
-            Poll::Pending
-        }
-    }
-
-    cfg_rt! {
-        cfg_unstable_metrics! {
-            #[inline(always)]
-            fn inc_budget_forced_yield_count() {
-                let _ = context::with_current(|handle| {
-                    handle.scheduler_metrics().inc_budget_forced_yield_count();
-                });
-            }
-        }
-
-        cfg_not_unstable_metrics! {
-            #[inline(always)]
-            fn inc_budget_forced_yield_count() {}
-        }
-
-        fn register_waker(cx: &mut Context<'_>) {
-            context::defer(cx.waker());
-        }
-    }
-
-    cfg_not_rt! {
-        #[inline(always)]
-        fn inc_budget_forced_yield_count() {}
-
-        fn register_waker(cx: &mut Context<'_>) {
-            cx.waker().wake_by_ref()
-        }
-    }
-
-    impl Budget {
-        /// Decrements the budget. Returns `true` if successful. Decrementing fails
-        /// when there is not enough remaining budget.
-        fn decrement(&mut self) -> BudgetDecrement {
-            if let Some(num) = &mut self.0 {
-                if *num > 0 {
-                    *num -= 1;
-
-                    let hit_zero = *num == 0;
-
-                    BudgetDecrement { success: true, hit_zero }
-                } else {
-                    BudgetDecrement { success: false, hit_zero: false }
-                }
-            } else {
-                BudgetDecrement { success: true, hit_zero: false }
-            }
-        }
-
-        fn is_unconstrained(self) -> bool {
-            self.0.is_none()
-        }
-    }
-
-    pin_project! {
-        /// Future wrapper to ensure cooperative scheduling created by [`cooperative`].
-        #[must_use = "futures do nothing unless polled"]
-        pub struct Coop<F: Future> {
-            #[pin]
-            pub(crate) fut: F,
-        }
-    }
-
-    impl<F: Future> Future for Coop<F> {
-        type Output = F::Output;
-
-        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            let coop = ready!(poll_proceed(cx));
-            let me = self.project();
-            if let Poll::Ready(ret) = me.fut.poll(cx) {
-                coop.made_progress();
-                Poll::Ready(ret)
-            } else {
-                Poll::Pending
-            }
-        }
-    }
-
-    /// Creates a wrapper future that makes the inner future cooperate with the Tokio scheduler.
-    ///
-    /// When polled, the wrapper will first call [`poll_proceed`] to consume task budget, and
-    /// immediately yield if the budget has been depleted. If budget was available, the inner future
-    /// is polled. The budget consumption will be made final using [`RestoreOnPending::made_progress`]
-    /// if the inner future resolves to its final value.
-    ///
-    /// # Examples
-    ///
-    /// When you call `recv` on the `Receiver` of a [`tokio::sync::mpsc`](crate::sync::mpsc)
-    /// channel, task budget will automatically be consumed when the next value is returned.
-    /// This makes tasks that use Tokio mpsc channels automatically cooperative.
-    ///
-    /// If you're using [`futures::channel::mpsc`](https://docs.rs/futures/latest/futures/channel/mpsc/index.html)
-    /// instead, automatic task budget consumption will not happen. This example shows how can use
-    /// `cooperative` to make `futures::channel::mpsc` channels cooperate with the scheduler in the
-    /// same way Tokio channels do.
-    ///
-    /// ```
-    /// use tokio::task::coop::cooperative;
-    /// use futures::channel::mpsc::Receiver;
-    /// use futures::stream::StreamExt;
-    ///
-    /// async fn receive_next<T>(receiver: &mut Receiver<T>) -> Option<T> {
-    ///     // Use `StreamExt::next` to obtain a `Future` that resolves to the next value
-    ///     let recv_future = receiver.next();
-    ///     // Wrap it a cooperative wrapper
-    ///     let coop_future = cooperative(recv_future);
-    ///     // And await
-    ///     coop_future.await
-    /// }
-    #[inline]
-    pub fn cooperative<F: Future>(fut: F) -> Coop<F> {
-        Coop { fut }
-    }
+    use pin_project_lite::pin_project; use std::cell::Cell; use std::future::Future; use
+    std::marker::PhantomData; use std::pin::Pin; use std::task:: { ready, Context, Poll
+    }; #[doc = " Value returned by the [`poll_proceed`] method."] #[derive(Debug)]
+    #[must_use] pub struct RestoreOnPending(Cell < Budget >, PhantomData <* mut () >);
+    impl RestoreOnPending { fn new(budget : Budget) -> Self {
+    RestoreOnPending(Cell::new(budget), PhantomData,) } #[doc =
+    " Signals that the task that obtained this `RestoreOnPending` was able to make"]
+    #[doc = " progress. This prevents the task budget from being restored to the value"]
+    #[doc = " it had prior to obtaining this instance when it is dropped."] pub fn
+    made_progress(& self) { self.0.set(Budget::unconstrained()); } } impl Drop for
+    RestoreOnPending { fn drop(& mut self) { let budget = self.0.get(); if ! budget
+    .is_unconstrained() { let _ = context::budget(| cell | { cell.set(budget); }); } } }
+    #[doc =
+    " Decrements the task budget and returns [`Poll::Pending`] if the budget is depleted."]
+    #[doc =
+    " This indicates that the task should yield to the scheduler. Otherwise, returns"]
+    #[doc = " [`RestoreOnPending`] which can be used to commit the budget consumption."]
+    #[doc = ""] #[doc =
+    " The returned [`RestoreOnPending`] will revert the budget to its former"] #[doc =
+    " value when dropped unless [`RestoreOnPending::made_progress`]"] #[doc =
+    " is called. It is the caller's responsibility to do so when it _was_ able to"] #[doc
+    = " make progress after the call to [`poll_proceed`]."] #[doc =
+    " Restoring the budget automatically ensures the task can try to make progress in some other"]
+    #[doc = " way."] #[doc = ""] #[doc =
+    " Note that [`RestoreOnPending`] restores the budget **as it was before [`poll_proceed`]**."]
+    #[doc =
+    " Therefore, if the budget is _further_ adjusted between when [`poll_proceed`] returns and"]
+    #[doc =
+    " [`RestoreOnPending`] is dropped, those adjustments are erased unless the caller indicates"]
+    #[doc = " that progress was made."] #[doc = ""] #[doc = " # Examples"] #[doc = ""]
+    #[doc = " This example wraps the `futures::channel::mpsc::UnboundedReceiver` to"]
+    #[doc =
+    " cooperate with the Tokio scheduler. Each time a value is received, task budget"]
+    #[doc = " is consumed. If no budget is available, the task yields to the scheduler."]
+    #[doc = ""] #[doc = " ```"] #[doc = " use std::pin::Pin;"] #[doc =
+    " use std::task::{ready, Context, Poll};"] #[doc = " use tokio::task::coop;"] #[doc =
+    " use futures::stream::{Stream, StreamExt};"] #[doc =
+    " use futures::channel::mpsc::UnboundedReceiver;"] #[doc = ""] #[doc =
+    " struct CoopUnboundedReceiver<T> {"] #[doc = "    receiver: UnboundedReceiver<T>,"]
+    #[doc = " }"] #[doc = ""] #[doc = " impl<T> Stream for CoopUnboundedReceiver<T> {"]
+    #[doc = "     type Item = T;"] #[doc = "     fn poll_next("] #[doc =
+    "         mut self: Pin<&mut Self>,"] #[doc = "         cx: &mut Context<'_>"] #[doc
+    = "     ) -> Poll<Option<T>> {"] #[doc =
+    "         let coop = ready!(coop::poll_proceed(cx));"] #[doc =
+    "         match self.receiver.poll_next_unpin(cx) {"] #[doc =
+    "             Poll::Ready(v) => {"] #[doc =
+    "                 // We received a value, so consume budget."] #[doc =
+    "                 coop.made_progress();"] #[doc = "                 Poll::Ready(v)"]
+    #[doc = "             }"] #[doc = "             Poll::Pending => Poll::Pending,"]
+    #[doc = "        }"] #[doc = "     }"] #[doc = " }"] #[doc = " ```"] #[inline] pub fn
+    poll_proceed(cx : & mut Context <'_ >) -> Poll < RestoreOnPending > {
+    context::budget(| cell | { let mut budget = cell.get(); let decrement = budget
+    .decrement(); if decrement.success { let restore = RestoreOnPending::new(cell.get());
+    cell.set(budget); if decrement.hit_zero { inc_budget_forced_yield_count(); }
+    Poll::Ready(restore) } else { register_waker(cx); Poll::Pending } })
+    .unwrap_or(Poll::Ready(RestoreOnPending::new(Budget::unconstrained()))) } #[doc =
+    " Returns `Poll::Ready` if the current task has budget to consume, and `Poll::Pending` otherwise."]
+    #[doc = ""] #[doc =
+    " Note that in contrast to `poll_proceed`, this method does not consume any budget and is used when"]
+    #[doc = " polling for budget availability."] #[inline] pub (crate) fn
+    poll_budget_available(cx : & mut Context <'_ >) -> Poll < () > { if
+    has_budget_remaining() { Poll::Ready(()) } else { register_waker(cx); Poll::Pending }
+    } cfg_rt! { cfg_unstable_metrics! { #[inline(always)] fn
+    inc_budget_forced_yield_count() { let _ = context::with_current(| handle | { handle
+    .scheduler_metrics().inc_budget_forced_yield_count(); }); } }
+    cfg_not_unstable_metrics! { #[inline(always)] fn inc_budget_forced_yield_count() {} }
+    fn register_waker(cx : & mut Context <'_ >) { context::defer(cx.waker()); } }
+    cfg_not_rt! { #[inline(always)] fn inc_budget_forced_yield_count() {} fn
+    register_waker(cx : & mut Context <'_ >) { cx.waker().wake_by_ref() } } impl Budget {
+    #[doc = " Decrements the budget. Returns `true` if successful. Decrementing fails"]
+    #[doc = " when there is not enough remaining budget."] fn decrement(& mut self) ->
+    BudgetDecrement { if let Some(num) = & mut self.0 { if * num > 0 { * num -= 1; let
+    hit_zero = * num == 0; BudgetDecrement { success : true, hit_zero } } else {
+    BudgetDecrement { success : false, hit_zero : false } } } else { BudgetDecrement {
+    success : true, hit_zero : false } } } fn is_unconstrained(self) -> bool { self.0
+    .is_none() } } pin_project! { #[doc =
+    " Future wrapper to ensure cooperative scheduling created by [`cooperative`]."]
+    #[must_use = "futures do nothing unless polled"] pub struct Coop < F : Future > {
+    #[pin] pub (crate) fut : F, } } impl < F : Future > Future for Coop < F > { type
+    Output = F::Output; fn poll(self : Pin <& mut Self >, cx : & mut Context <'_ >) ->
+    Poll < Self::Output > { let coop = ready!(poll_proceed(cx)); let me = self.project();
+    if let Poll::Ready(ret) = me.fut.poll(cx) { coop.made_progress(); Poll::Ready(ret) }
+    else { Poll::Pending } } } #[doc =
+    " Creates a wrapper future that makes the inner future cooperate with the Tokio scheduler."]
+    #[doc = ""] #[doc =
+    " When polled, the wrapper will first call [`poll_proceed`] to consume task budget, and"]
+    #[doc =
+    " immediately yield if the budget has been depleted. If budget was available, the inner future"]
+    #[doc =
+    " is polled. The budget consumption will be made final using [`RestoreOnPending::made_progress`]"]
+    #[doc = " if the inner future resolves to its final value."] #[doc = ""] #[doc =
+    " # Examples"] #[doc = ""] #[doc =
+    " When you call `recv` on the `Receiver` of a [`tokio::sync::mpsc`](crate::sync::mpsc)"]
+    #[doc =
+    " channel, task budget will automatically be consumed when the next value is returned."]
+    #[doc = " This makes tasks that use Tokio mpsc channels automatically cooperative."]
+    #[doc = ""] #[doc =
+    " If you're using [`futures::channel::mpsc`](https://docs.rs/futures/latest/futures/channel/mpsc/index.html)"]
+    #[doc =
+    " instead, automatic task budget consumption will not happen. This example shows how can use"]
+    #[doc =
+    " `cooperative` to make `futures::channel::mpsc` channels cooperate with the scheduler in the"]
+    #[doc = " same way Tokio channels do."] #[doc = ""] #[doc = " ```"] #[doc =
+    " use tokio::task::coop::cooperative;"] #[doc =
+    " use futures::channel::mpsc::Receiver;"] #[doc = " use futures::stream::StreamExt;"]
+    #[doc = ""] #[doc =
+    " async fn receive_next<T>(receiver: &mut Receiver<T>) -> Option<T> {"] #[doc =
+    "     // Use `StreamExt::next` to obtain a `Future` that resolves to the next value"]
+    #[doc = "     let recv_future = receiver.next();"] #[doc =
+    "     // Wrap it a cooperative wrapper"] #[doc =
+    "     let coop_future = cooperative(recv_future);"] #[doc = "     // And await"]
+    #[doc = "     coop_future.await"] #[doc = " }"] #[inline] pub fn cooperative < F :
+    Future > (fut : F) -> Coop < F > { Coop { fut } }
 }
-
 #[cfg(all(test, not(loom)))]
 mod test {
     use super::*;
-
     #[cfg(all(target_family = "wasm", not(target_os = "wasi")))]
     use wasm_bindgen_test::wasm_bindgen_test as test;
-
     fn get() -> Budget {
         context::budget(|cell| cell.get()).unwrap_or(Budget::unconstrained())
     }
-
     #[test]
     fn budgeting() {
         use std::future::poll_fn;
         use tokio_test::*;
-
         assert!(get().0.is_none());
-
-        let coop = assert_ready!(task::spawn(()).enter(|cx, _| poll_proceed(cx)));
-
+        let coop = assert_ready!(task::spawn(()).enter(| cx, _ | poll_proceed(cx)));
         assert!(get().0.is_none());
         drop(coop);
         assert!(get().0.is_none());
-
         budget(|| {
             assert_eq!(get().0, Budget::initial().0);
-
-            let coop = assert_ready!(task::spawn(()).enter(|cx, _| poll_proceed(cx)));
+            let coop = assert_ready!(task::spawn(()).enter(| cx, _ | poll_proceed(cx)));
             assert_eq!(get().0.unwrap(), Budget::initial().0.unwrap() - 1);
             drop(coop);
-            // we didn't make progress
             assert_eq!(get().0, Budget::initial().0);
-
-            let coop = assert_ready!(task::spawn(()).enter(|cx, _| poll_proceed(cx)));
+            let coop = assert_ready!(task::spawn(()).enter(| cx, _ | poll_proceed(cx)));
             assert_eq!(get().0.unwrap(), Budget::initial().0.unwrap() - 1);
             coop.made_progress();
             drop(coop);
-            // we _did_ make progress
             assert_eq!(get().0.unwrap(), Budget::initial().0.unwrap() - 1);
-
-            let coop = assert_ready!(task::spawn(()).enter(|cx, _| poll_proceed(cx)));
+            let coop = assert_ready!(task::spawn(()).enter(| cx, _ | poll_proceed(cx)));
             assert_eq!(get().0.unwrap(), Budget::initial().0.unwrap() - 2);
             coop.made_progress();
             drop(coop);
             assert_eq!(get().0.unwrap(), Budget::initial().0.unwrap() - 2);
-
             budget(|| {
                 assert_eq!(get().0, Budget::initial().0);
-
-                let coop = assert_ready!(task::spawn(()).enter(|cx, _| poll_proceed(cx)));
+                let coop = assert_ready!(
+                    task::spawn(()).enter(| cx, _ | poll_proceed(cx))
+                );
                 assert_eq!(get().0.unwrap(), Budget::initial().0.unwrap() - 1);
                 coop.made_progress();
                 drop(coop);
                 assert_eq!(get().0.unwrap(), Budget::initial().0.unwrap() - 1);
             });
-
             assert_eq!(get().0.unwrap(), Budget::initial().0.unwrap() - 2);
         });
-
         assert!(get().0.is_none());
-
         budget(|| {
             let n = get().0.unwrap();
-
             for _ in 0..n {
-                let coop = assert_ready!(task::spawn(()).enter(|cx, _| poll_proceed(cx)));
+                let coop = assert_ready!(
+                    task::spawn(()).enter(| cx, _ | poll_proceed(cx))
+                );
                 coop.made_progress();
             }
-
-            let mut task = task::spawn(poll_fn(|cx| {
-                let coop = std::task::ready!(poll_proceed(cx));
-                coop.made_progress();
-                Poll::Ready(())
-            }));
-
+            let mut task = task::spawn(
+                poll_fn(|cx| {
+                    let coop = std::task::ready!(poll_proceed(cx));
+                    coop.made_progress();
+                    Poll::Ready(())
+                }),
+            );
             assert_pending!(task.poll());
         });
     }

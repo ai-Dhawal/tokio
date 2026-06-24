@@ -3,18 +3,14 @@
 //! See [`Timeout`] documentation for more details.
 //!
 //! [`Timeout`]: struct@Timeout
-
 use crate::{
-    task::coop,
-    time::{error::Elapsed, sleep_until, Duration, Instant, Sleep},
+    task::coop, time::{error::Elapsed, sleep_until, Duration, Instant, Sleep},
     util::trace,
 };
-
 use pin_project_lite::pin_project;
 use std::future::{Future, IntoFuture};
 use std::pin::Pin;
 use std::task::{self, Poll};
-
 /// Requires a `Future` to complete before the specified duration has elapsed.
 ///
 /// If the future completes before the duration has elapsed, then the completed
@@ -87,16 +83,8 @@ pub fn timeout<F>(duration: Duration, future: F) -> Timeout<F::IntoFuture>
 where
     F: IntoFuture,
 {
-    let location = trace::caller_location();
-
-    let deadline = Instant::now().checked_add(duration);
-    let delay = match deadline {
-        Some(deadline) => Sleep::new_timeout(deadline, location),
-        None => Sleep::far_future(location),
-    };
-    Timeout::new_with_delay(future.into_future(), delay)
+    panic!("STUB: not implemented");
 }
-
 /// Requires a `Future` to complete before the specified instant in time.
 ///
 /// If the future completes before the instant is reached, then the completed
@@ -165,85 +153,43 @@ pub fn timeout_at<F>(deadline: Instant, future: F) -> Timeout<F::IntoFuture>
 where
     F: IntoFuture,
 {
-    let delay = sleep_until(deadline);
-    Timeout::new_with_delay(future.into_future(), delay)
+    panic!("STUB: not implemented");
 }
-
 pin_project! {
-    /// Future returned by [`timeout`](timeout) and [`timeout_at`](timeout_at).
-    #[must_use = "futures do nothing unless you `.await` or poll them"]
-    #[derive(Debug)]
-    pub struct Timeout<T> {
-        #[pin]
-        value: T,
-        #[pin]
-        delay: Sleep,
-    }
+    #[doc = " Future returned by [`timeout`](timeout) and [`timeout_at`](timeout_at)."]
+    #[must_use = "futures do nothing unless you `.await` or poll them"] #[derive(Debug)]
+    pub struct Timeout < T > { #[pin] value : T, #[pin] delay : Sleep, }
 }
-
 impl<T> Timeout<T> {
     pub(crate) fn new_with_delay(value: T, delay: Sleep) -> Timeout<T> {
-        Timeout { value, delay }
+        panic!("STUB: not implemented");
     }
-
     /// Gets a reference to the underlying value in this timeout.
     pub fn get_ref(&self) -> &T {
-        &self.value
+        panic!("STUB: not implemented");
     }
-
     /// Gets a mutable reference to the underlying value in this timeout.
     pub fn get_mut(&mut self) -> &mut T {
-        &mut self.value
+        panic!("STUB: not implemented");
     }
-
     /// Consumes this timeout, returning the underlying value.
     pub fn into_inner(self) -> T {
-        self.value
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Future for Timeout<T>
 where
     T: Future,
 {
     type Output = Result<T::Output, Elapsed>;
-
     fn poll(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Self::Output> {
-        let me = self.project();
-
-        let had_budget_before = coop::has_budget_remaining();
-
-        // First, try polling the future
-        if let Poll::Ready(v) = me.value.poll(cx) {
-            return Poll::Ready(Ok(v));
-        }
-
-        poll_delay(had_budget_before, me.delay, cx).map(Err)
+        panic!("STUB: not implemented");
     }
 }
-
-// The T-invariant portion of Timeout::<T>::poll. Pulling this out reduces the
-// amount of code that gets duplicated during monomorphization.
 fn poll_delay(
     had_budget_before: bool,
     delay: Pin<&mut Sleep>,
     cx: &mut task::Context<'_>,
 ) -> Poll<Elapsed> {
-    let delay_poll = || match delay.poll(cx) {
-        Poll::Ready(()) => Poll::Ready(Elapsed::new()),
-        Poll::Pending => Poll::Pending,
-    };
-
-    let has_budget_now = coop::has_budget_remaining();
-
-    if let (true, false) = (had_budget_before, has_budget_now) {
-        // if it is the underlying future that exhausted the budget, we poll
-        // the `delay` with an unconstrained one. This prevents pathological
-        // cases where the underlying future always exhausts the budget and
-        // we never get a chance to evaluate whether the timeout was hit or
-        // not.
-        coop::with_unconstrained(delay_poll)
-    } else {
-        delay_poll()
-    }
+    panic!("STUB: not implemented");
 }

@@ -1,7 +1,5 @@
 use super::{FastRand, RngSeed};
-
 use std::sync::Mutex;
-
 /// A deterministic generator for seeds (and other generators).
 ///
 /// Given the same initial seed, the generator will output the same sequence of seeds.
@@ -16,34 +14,20 @@ pub(crate) struct RngSeedGenerator {
     /// use it across multiple threads.
     state: Mutex<FastRand>,
 }
-
 impl RngSeedGenerator {
     /// Returns a new generator from the provided seed.
     pub(crate) fn new(seed: RngSeed) -> Self {
-        Self {
-            state: Mutex::new(FastRand::from_seed(seed)),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns the next seed in the sequence.
     pub(crate) fn next_seed(&self) -> RngSeed {
-        let mut rng = self
-            .state
-            .lock()
-            .expect("RNG seed generator is internally corrupt");
-
-        let s = rng.fastrand();
-        let r = rng.fastrand();
-
-        RngSeed::from_pair(s, r)
+        panic!("STUB: not implemented");
     }
-
     /// Directly creates a generator using the next seed.
     pub(crate) fn next_generator(&self) -> Self {
-        RngSeedGenerator::new(self.next_seed())
+        panic!("STUB: not implemented");
     }
 }
-
 impl FastRand {
     /// Replaces the state of the random number generator with the provided seed, returning
     /// the seed that represents the previous state of the random number generator.
@@ -51,11 +35,6 @@ impl FastRand {
     /// The random number generator will become equivalent to one created with
     /// the same seed.
     pub(crate) fn replace_seed(&mut self, seed: RngSeed) -> RngSeed {
-        let old_seed = RngSeed::from_pair(self.one, self.two);
-
-        self.one = seed.s;
-        self.two = seed.r;
-
-        old_seed
+        panic!("STUB: not implemented");
     }
 }

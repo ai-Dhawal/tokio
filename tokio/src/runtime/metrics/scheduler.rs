@@ -1,6 +1,5 @@
 use crate::loom::sync::atomic::Ordering::Relaxed;
 use crate::util::metric_atomics::MetricAtomicU64;
-
 /// Retrieves metrics from the Tokio runtime.
 ///
 /// **Note**: This is an [unstable API][unstable]. The public API of this type
@@ -14,22 +13,16 @@ pub(crate) struct SchedulerMetrics {
     pub(super) remote_schedule_count: MetricAtomicU64,
     pub(super) budget_forced_yield_count: MetricAtomicU64,
 }
-
 impl SchedulerMetrics {
     pub(crate) fn new() -> SchedulerMetrics {
-        SchedulerMetrics {
-            remote_schedule_count: MetricAtomicU64::new(0),
-            budget_forced_yield_count: MetricAtomicU64::new(0),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Increment the number of tasks scheduled externally
     pub(crate) fn inc_remote_schedule_count(&self) {
-        self.remote_schedule_count.add(1, Relaxed);
+        panic!("STUB: not implemented");
     }
-
     /// Increment the number of tasks forced to yield due to budget exhaustion
     pub(crate) fn inc_budget_forced_yield_count(&self) {
-        self.budget_forced_yield_count.add(1, Relaxed);
+        panic!("STUB: not implemented");
     }
 }

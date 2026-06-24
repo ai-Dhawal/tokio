@@ -44,46 +44,31 @@
 //! ```
 use crate::sync::watch::Receiver;
 use std::task::{Context, Poll};
-
 #[cfg(feature = "signal")]
 mod ctrl_c;
 #[cfg(feature = "signal")]
 pub use ctrl_c::ctrl_c;
-
 #[cfg(unix)]
 pub(crate) mod registry;
-
 pub mod unix;
 pub mod windows;
-
 mod reusable_box;
 use self::reusable_box::ReusableBoxFuture;
-
 #[derive(Debug)]
 struct RxFuture {
     inner: ReusableBoxFuture<Receiver<()>>,
 }
-
 async fn make_future(mut rx: Receiver<()>) -> Receiver<()> {
-    rx.changed().await.expect("signal sender went away");
-    rx
+    panic!("STUB: not implemented");
 }
-
 impl RxFuture {
     fn new(rx: Receiver<()>) -> Self {
-        Self {
-            inner: ReusableBoxFuture::new(make_future(rx)),
-        }
+        panic!("STUB: not implemented");
     }
-
     async fn recv(&mut self) {
-        use std::future::poll_fn;
-        poll_fn(|cx| self.poll_recv(cx)).await
+        panic!("STUB: not implemented");
     }
-
     fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<()> {
-        self.inner
-            .poll(cx)
-            .map(|rx| self.inner.set(make_future(rx)))
+        panic!("STUB: not implemented");
     }
 }

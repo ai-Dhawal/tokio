@@ -5,7 +5,6 @@ use crate::{
     util::trace::SpawnMeta,
 };
 use std::{future::Future, io, mem};
-
 /// Factory which is used to configure the properties of a new task.
 ///
 /// **Note**: This is an [unstable API][unstable]. The public API of this type
@@ -63,18 +62,15 @@ use std::{future::Future, io, mem};
 pub struct Builder<'a> {
     name: Option<&'a str>,
 }
-
 impl<'a> Builder<'a> {
     /// Creates a new task builder.
     pub fn new() -> Self {
-        Self::default()
+        panic!("STUB: not implemented");
     }
-
     /// Assigns a name to the task which will be spawned.
     pub fn name(&self, name: &'a str) -> Self {
-        Self { name: Some(name) }
+        panic!("STUB: not implemented");
     }
-
     /// Spawns a task with this builder's settings on the current runtime.
     ///
     /// # Panics
@@ -89,14 +85,8 @@ impl<'a> Builder<'a> {
         Fut: Future + Send + 'static,
         Fut::Output: Send + 'static,
     {
-        let fut_size = mem::size_of::<Fut>();
-        Ok(if fut_size > BOX_FUTURE_THRESHOLD {
-            super::spawn::spawn_inner(Box::pin(future), SpawnMeta::new(self.name, fut_size))
-        } else {
-            super::spawn::spawn_inner(future, SpawnMeta::new(self.name, fut_size))
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Spawn a task with this builder's settings on the provided [runtime
     /// handle].
     ///
@@ -105,19 +95,17 @@ impl<'a> Builder<'a> {
     /// [runtime handle]: crate::runtime::Handle
     /// [`Handle::spawn`]: crate::runtime::Handle::spawn
     #[track_caller]
-    pub fn spawn_on<Fut>(self, future: Fut, handle: &Handle) -> io::Result<JoinHandle<Fut::Output>>
+    pub fn spawn_on<Fut>(
+        self,
+        future: Fut,
+        handle: &Handle,
+    ) -> io::Result<JoinHandle<Fut::Output>>
     where
         Fut: Future + Send + 'static,
         Fut::Output: Send + 'static,
     {
-        let fut_size = mem::size_of::<Fut>();
-        Ok(if fut_size > BOX_FUTURE_THRESHOLD {
-            handle.spawn_named(Box::pin(future), SpawnMeta::new(self.name, fut_size))
-        } else {
-            handle.spawn_named(future, SpawnMeta::new(self.name, fut_size))
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Spawns a `!Send` task on the current [`LocalSet`] or [`LocalRuntime`] with
     /// this builder's settings.
     ///
@@ -141,14 +129,8 @@ impl<'a> Builder<'a> {
         Fut: Future + 'static,
         Fut::Output: 'static,
     {
-        let fut_size = mem::size_of::<Fut>();
-        Ok(if fut_size > BOX_FUTURE_THRESHOLD {
-            super::local::spawn_local_inner(Box::pin(future), SpawnMeta::new(self.name, fut_size))
-        } else {
-            super::local::spawn_local_inner(future, SpawnMeta::new(self.name, fut_size))
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Spawns `!Send` a task on the provided [`LocalSet`] with this builder's
     /// settings.
     ///
@@ -166,14 +148,8 @@ impl<'a> Builder<'a> {
         Fut: Future + 'static,
         Fut::Output: 'static,
     {
-        let fut_size = mem::size_of::<Fut>();
-        Ok(if fut_size > BOX_FUTURE_THRESHOLD {
-            local_set.spawn_named(Box::pin(future), SpawnMeta::new(self.name, fut_size))
-        } else {
-            local_set.spawn_named(future, SpawnMeta::new(self.name, fut_size))
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Spawns blocking code on the blocking threadpool.
     ///
     /// # Panics
@@ -191,10 +167,8 @@ impl<'a> Builder<'a> {
         Function: FnOnce() -> Output + Send + 'static,
         Output: Send + 'static,
     {
-        let handle = Handle::current();
-        self.spawn_blocking_on(function, &handle)
+        panic!("STUB: not implemented");
     }
-
     /// Spawns blocking code on the provided [runtime handle]'s blocking threadpool.
     ///
     /// See [`Handle::spawn_blocking`] for more details.
@@ -211,25 +185,6 @@ impl<'a> Builder<'a> {
         Function: FnOnce() -> Output + Send + 'static,
         Output: Send + 'static,
     {
-        use crate::runtime::Mandatory;
-        let fn_size = mem::size_of::<Function>();
-        let (join_handle, spawn_result) = if fn_size > BOX_FUTURE_THRESHOLD {
-            handle.inner.blocking_spawner().spawn_blocking_inner(
-                Box::new(function),
-                Mandatory::NonMandatory,
-                SpawnMeta::new(self.name, fn_size),
-                handle,
-            )
-        } else {
-            handle.inner.blocking_spawner().spawn_blocking_inner(
-                function,
-                Mandatory::NonMandatory,
-                SpawnMeta::new(self.name, fn_size),
-                handle,
-            )
-        };
-
-        spawn_result?;
-        Ok(join_handle)
+        panic!("STUB: not implemented");
     }
 }

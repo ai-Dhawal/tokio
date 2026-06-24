@@ -1,17 +1,14 @@
 use crate::loom::sync::{atomic::AtomicUsize, Arc};
 use crate::sync::mpsc::chan;
 use crate::sync::mpsc::error::{SendError, TryRecvError};
-
 use std::fmt;
 use std::task::{Context, Poll};
-
 /// Send values to the associated `UnboundedReceiver`.
 ///
 /// Instances are created by the [`unbounded_channel`] function.
 pub struct UnboundedSender<T> {
     chan: chan::Tx<T, Semaphore>,
 }
-
 /// An unbounded sender that does not prevent the channel from being closed.
 ///
 /// If all [`UnboundedSender`] instances of a channel were dropped and only
@@ -45,23 +42,16 @@ pub struct UnboundedSender<T> {
 pub struct WeakUnboundedSender<T> {
     chan: Arc<chan::Chan<T, Semaphore>>,
 }
-
 impl<T> Clone for UnboundedSender<T> {
     fn clone(&self) -> Self {
-        UnboundedSender {
-            chan: self.chan.clone(),
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for UnboundedSender<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("UnboundedSender")
-            .field("chan", &self.chan)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 /// Receive values from the associated `UnboundedSender`.
 ///
 /// Instances are created by the [`unbounded_channel`] function.
@@ -73,15 +63,11 @@ pub struct UnboundedReceiver<T> {
     /// The channel receiver
     chan: chan::Rx<T, Semaphore>,
 }
-
 impl<T> fmt::Debug for UnboundedReceiver<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("UnboundedReceiver")
-            .field("chan", &self.chan)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 /// Creates an unbounded mpsc channel for communicating between asynchronous
 /// tasks without backpressure.
 ///
@@ -93,23 +79,15 @@ impl<T> fmt::Debug for UnboundedReceiver<T> {
 /// the channel. Using an `unbounded` channel has the ability of causing the
 /// process to run out of memory. In this case, the process will be aborted.
 pub fn unbounded_channel<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
-    let (tx, rx) = chan::channel(Semaphore(AtomicUsize::new(0)));
-
-    let tx = UnboundedSender::new(tx);
-    let rx = UnboundedReceiver::new(rx);
-
-    (tx, rx)
+    panic!("STUB: not implemented");
 }
-
 /// No capacity
 #[derive(Debug)]
 pub(crate) struct Semaphore(pub(crate) AtomicUsize);
-
 impl<T> UnboundedReceiver<T> {
     pub(crate) fn new(chan: chan::Rx<T, Semaphore>) -> UnboundedReceiver<T> {
-        UnboundedReceiver { chan }
+        panic!("STUB: not implemented");
     }
-
     /// Receives the next value for this receiver.
     ///
     /// This method returns `None` if the channel has been closed and there are
@@ -165,11 +143,8 @@ impl<T> UnboundedReceiver<T> {
     /// # }
     /// ```
     pub async fn recv(&mut self) -> Option<T> {
-        use std::future::poll_fn;
-
-        poll_fn(|cx| self.poll_recv(cx)).await
+        panic!("STUB: not implemented");
     }
-
     /// Receives the next values for this receiver and extends `buffer`.
     ///
     /// This method extends `buffer` by no more than a fixed number of values
@@ -239,10 +214,8 @@ impl<T> UnboundedReceiver<T> {
     /// # }
     /// ```
     pub async fn recv_many(&mut self, buffer: &mut Vec<T>, limit: usize) -> usize {
-        use std::future::poll_fn;
-        poll_fn(|cx| self.chan.recv_many(cx, buffer, limit)).await
+        panic!("STUB: not implemented");
     }
-
     /// Tries to receive the next value for this receiver.
     ///
     /// This method returns the [`Empty`] error if the channel is currently
@@ -284,9 +257,8 @@ impl<T> UnboundedReceiver<T> {
     /// # }
     /// ```
     pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
-        self.chan.try_recv()
+        panic!("STUB: not implemented");
     }
-
     /// Blocking receive to call outside of asynchronous contexts.
     ///
     /// # Panics
@@ -319,9 +291,8 @@ impl<T> UnboundedReceiver<T> {
     #[cfg(feature = "sync")]
     #[cfg_attr(docsrs, doc(alias = "recv_blocking"))]
     pub fn blocking_recv(&mut self) -> Option<T> {
-        crate::future::block_on(self.recv())
+        panic!("STUB: not implemented");
     }
-
     /// Variant of [`Self::recv_many`] for blocking contexts.
     ///
     /// The same conditions as in [`Self::blocking_recv`] apply.
@@ -329,9 +300,8 @@ impl<T> UnboundedReceiver<T> {
     #[cfg(feature = "sync")]
     #[cfg_attr(docsrs, doc(alias = "recv_many_blocking"))]
     pub fn blocking_recv_many(&mut self, buffer: &mut Vec<T>, limit: usize) -> usize {
-        crate::future::block_on(self.recv_many(buffer, limit))
+        panic!("STUB: not implemented");
     }
-
     /// Closes the receiving half of a channel, without dropping it.
     ///
     /// This prevents any further messages from being sent on the channel while
@@ -340,9 +310,8 @@ impl<T> UnboundedReceiver<T> {
     /// To guarantee that no messages are dropped, after calling `close()`,
     /// `recv()` must be called until `None` is returned.
     pub fn close(&mut self) {
-        self.chan.close();
+        panic!("STUB: not implemented");
     }
-
     /// Checks if a channel is closed.
     ///
     /// This method returns `true` if the channel has been closed. The channel is closed
@@ -366,9 +335,8 @@ impl<T> UnboundedReceiver<T> {
     /// # }
     /// ```
     pub fn is_closed(&self) -> bool {
-        self.chan.is_closed()
+        panic!("STUB: not implemented");
     }
-
     /// Checks if a channel is empty.
     ///
     /// This method returns `true` if the channel has no messages.
@@ -388,9 +356,8 @@ impl<T> UnboundedReceiver<T> {
     ///
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.chan.is_empty()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of messages in the channel.
     ///
     /// # Examples
@@ -407,9 +374,8 @@ impl<T> UnboundedReceiver<T> {
     /// # }
     /// ```
     pub fn len(&self) -> usize {
-        self.chan.len()
+        panic!("STUB: not implemented");
     }
-
     /// Polls to receive the next message on this channel.
     ///
     /// This method returns:
@@ -432,9 +398,8 @@ impl<T> UnboundedReceiver<T> {
     /// guarantee that the next call will succeed — it could fail with another
     /// spurious failure.
     pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<T>> {
-        self.chan.recv(cx)
+        panic!("STUB: not implemented");
     }
-
     /// Polls to receive multiple messages on this channel, extending the provided buffer.
     ///
     /// This method returns:
@@ -512,25 +477,21 @@ impl<T> UnboundedReceiver<T> {
         buffer: &mut Vec<T>,
         limit: usize,
     ) -> Poll<usize> {
-        self.chan.recv_many(cx, buffer, limit)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`UnboundedSender`] handles.
     pub fn sender_strong_count(&self) -> usize {
-        self.chan.sender_strong_count()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`WeakUnboundedSender`] handles.
     pub fn sender_weak_count(&self) -> usize {
-        self.chan.sender_weak_count()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> UnboundedSender<T> {
     pub(crate) fn new(chan: chan::Tx<T, Semaphore>) -> UnboundedSender<T> {
-        UnboundedSender { chan }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to send a message on this `UnboundedSender` without blocking.
     ///
     /// This method is not marked as `async` because sending a message to an unbounded channel
@@ -545,45 +506,11 @@ impl<T> UnboundedSender<T> {
     /// [`close`]: UnboundedReceiver::close
     /// [`UnboundedReceiver`]: UnboundedReceiver
     pub fn send(&self, message: T) -> Result<(), SendError<T>> {
-        if !self.inc_num_messages() {
-            return Err(SendError(message));
-        }
-
-        self.chan.send(message);
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     fn inc_num_messages(&self) -> bool {
-        use std::process;
-        use std::sync::atomic::Ordering::{AcqRel, Acquire};
-
-        let mut curr = self.chan.semaphore().0.load(Acquire);
-
-        loop {
-            if curr & 1 == 1 {
-                return false;
-            }
-
-            if curr == usize::MAX ^ 1 {
-                // Overflowed the ref count. There is no safe way to recover, so
-                // abort the process. In practice, this should never happen.
-                process::abort()
-            }
-
-            match self
-                .chan
-                .semaphore()
-                .0
-                .compare_exchange(curr, curr + 2, AcqRel, Acquire)
-            {
-                Ok(_) => return true,
-                Err(actual) => {
-                    curr = actual;
-                }
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Completes when the receiver has dropped.
     ///
     /// This allows the producers to get notified when interest in the produced
@@ -621,9 +548,8 @@ impl<T> UnboundedSender<T> {
     /// # }
     /// ```
     pub async fn closed(&self) {
-        self.chan.closed().await;
+        panic!("STUB: not implemented");
     }
-
     /// Checks if the channel has been closed. This happens when the
     /// [`UnboundedReceiver`] is dropped, or when the
     /// [`UnboundedReceiver::close`] method is called.
@@ -643,9 +569,8 @@ impl<T> UnboundedSender<T> {
     /// assert!(tx2.is_closed());
     /// ```
     pub fn is_closed(&self) -> bool {
-        self.chan.is_closed()
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if senders belong to the same channel.
     ///
     /// # Examples
@@ -659,68 +584,53 @@ impl<T> UnboundedSender<T> {
     /// assert!(!tx3.same_channel(&tx2));
     /// ```
     pub fn same_channel(&self, other: &Self) -> bool {
-        self.chan.same_channel(&other.chan)
+        panic!("STUB: not implemented");
     }
-
     /// Converts the `UnboundedSender` to a [`WeakUnboundedSender`] that does not count
     /// towards RAII semantics, i.e. if all `UnboundedSender` instances of the
     /// channel were dropped and only `WeakUnboundedSender` instances remain,
     /// the channel is closed.
     #[must_use = "Downgrade creates a WeakSender without destroying the original non-weak sender."]
     pub fn downgrade(&self) -> WeakUnboundedSender<T> {
-        WeakUnboundedSender {
-            chan: self.chan.downgrade(),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`UnboundedSender`] handles.
     pub fn strong_count(&self) -> usize {
-        self.chan.strong_count()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`WeakUnboundedSender`] handles.
     pub fn weak_count(&self) -> usize {
-        self.chan.weak_count()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Clone for WeakUnboundedSender<T> {
     fn clone(&self) -> Self {
-        self.chan.increment_weak_count();
-
-        WeakUnboundedSender {
-            chan: self.chan.clone(),
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for WeakUnboundedSender<T> {
     fn drop(&mut self) {
-        self.chan.decrement_weak_count();
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> WeakUnboundedSender<T> {
     /// Tries to convert a `WeakUnboundedSender` into an [`UnboundedSender`].
     /// This will return `Some` if there are other `Sender` instances alive and
     /// the channel wasn't previously dropped, otherwise `None` is returned.
     pub fn upgrade(&self) -> Option<UnboundedSender<T>> {
-        chan::Tx::upgrade(self.chan.clone()).map(UnboundedSender::new)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`UnboundedSender`] handles.
     pub fn strong_count(&self) -> usize {
-        self.chan.strong_count()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`WeakUnboundedSender`] handles.
     pub fn weak_count(&self) -> usize {
-        self.chan.weak_count()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for WeakUnboundedSender<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("WeakUnboundedSender").finish()
+        panic!("STUB: not implemented");
     }
 }

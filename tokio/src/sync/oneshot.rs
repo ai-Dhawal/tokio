@@ -1,5 +1,4 @@
 #![cfg_attr(not(feature = "sync"), allow(dead_code, unreachable_pub))]
-
 //! A one-shot channel is used for sending a single message between
 //! asynchronous tasks. The [`channel`] function is used to create a
 //! [`Sender`] and [`Receiver`] handle pair that form the channel.
@@ -122,13 +121,11 @@
 //! assert_eq!(recv.await, Ok("I got dropped!"));
 //! # }
 //! ```
-
 use crate::loom::cell::UnsafeCell;
 use crate::loom::sync::atomic::AtomicUsize;
 use crate::loom::sync::Arc;
 #[cfg(all(tokio_unstable, feature = "tracing"))]
 use crate::util::trace;
-
 use std::fmt;
 use std::future::Future;
 use std::mem::MaybeUninit;
@@ -136,7 +133,6 @@ use std::pin::Pin;
 use std::sync::atomic::Ordering::{self, AcqRel, Acquire};
 use std::task::Poll::{Pending, Ready};
 use std::task::{ready, Context, Poll, Waker};
-
 /// Sends a value to the associated [`Receiver`].
 ///
 /// A pair of both a [`Sender`] and a [`Receiver`]  are created by the
@@ -224,7 +220,6 @@ pub struct Sender<T> {
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
 }
-
 /// Receives a value from the associated [`Sender`].
 ///
 /// A pair of both a [`Sender`] and a [`Receiver`]  are created by the
@@ -335,62 +330,42 @@ pub struct Receiver<T> {
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     async_op_poll_span: tracing::Span,
 }
-
 pub mod error {
     //! `Oneshot` error types.
-
     use std::fmt;
-
     /// Error returned by the `Future` implementation for `Receiver`.
     ///
     /// This error is returned by the receiver when the sender is dropped without sending.
     #[derive(Debug, Eq, PartialEq, Clone)]
     pub struct RecvError(pub(super) ());
-
     /// Error returned by the `try_recv` function on `Receiver`.
     #[derive(Debug, Eq, PartialEq, Clone)]
     pub enum TryRecvError {
         /// The send half of the channel has not yet sent a value.
         Empty,
-
         /// The send half of the channel was dropped without sending a value.
         Closed,
     }
-
-    // ===== impl RecvError =====
-
     impl fmt::Display for RecvError {
         fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(fmt, "channel closed")
+            panic!("STUB: not implemented");
         }
     }
-
     impl std::error::Error for RecvError {}
-
-    // ===== impl TryRecvError =====
-
     impl fmt::Display for TryRecvError {
         fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-            match self {
-                TryRecvError::Empty => write!(fmt, "channel empty"),
-                TryRecvError::Closed => write!(fmt, "channel closed"),
-            }
+            panic!("STUB: not implemented");
         }
     }
-
     impl std::error::Error for TryRecvError {}
 }
-
 use self::error::*;
-
 struct Inner<T> {
     /// Manages the state of the inner cell.
     state: AtomicUsize,
-
     /// The value. This is set by `Sender` and read by `Receiver`. The state of
     /// the cell is tracked by `state`.
     value: UnsafeCell<Option<T>>,
-
     /// The task to notify when the receiver drops without consuming the value.
     ///
     /// ## Safety
@@ -398,7 +373,6 @@ struct Inner<T> {
     /// The `TX_TASK_SET` bit in the `state` field is set if this field is
     /// initialized. If that bit is unset, this field may be uninitialized.
     tx_task: Task,
-
     /// The task to notify when the value is sent.
     ///
     /// ## Safety
@@ -407,18 +381,15 @@ struct Inner<T> {
     /// initialized. If that bit is unset, this field may be uninitialized.
     rx_task: Task,
 }
-
 struct Task(UnsafeCell<MaybeUninit<Waker>>);
-
 impl Task {
     /// # Safety
     ///
     /// The caller must do the necessary synchronization to ensure that
     /// the [`Self::0`] contains the valid [`Waker`] during the call.
     unsafe fn will_wake(&self, cx: &mut Context<'_>) -> bool {
-        unsafe { self.with_task(|w| w.will_wake(cx.waker())) }
+        panic!("STUB: not implemented");
     }
-
     /// # Safety
     ///
     /// The caller must do the necessary synchronization to ensure that
@@ -427,42 +398,25 @@ impl Task {
     where
         F: FnOnce(&Waker) -> R,
     {
-        self.0.with(|ptr| {
-            let waker: *const Waker = unsafe { (*ptr).as_ptr() };
-            f(unsafe { &*waker })
-        })
+        panic!("STUB: not implemented");
     }
-
     /// # Safety
     ///
     /// The caller must do the necessary synchronization to ensure that
     /// the [`Self::0`] contains the valid [`Waker`] during the call.
     unsafe fn drop_task(&self) {
-        self.0.with_mut(|ptr| {
-            let ptr: *mut Waker = unsafe { (*ptr).as_mut_ptr() };
-            unsafe {
-                ptr.drop_in_place();
-            }
-        });
+        panic!("STUB: not implemented");
     }
-
     /// # Safety
     ///
     /// The caller must do the necessary synchronization to ensure that
     /// the [`Self::0`] contains the valid [`Waker`] during the call.
     unsafe fn set_task(&self, cx: &mut Context<'_>) {
-        self.0.with_mut(|ptr| {
-            let ptr: *mut Waker = unsafe { (*ptr).as_mut_ptr() };
-            unsafe {
-                ptr.write(cx.waker().clone());
-            }
-        });
+        panic!("STUB: not implemented");
     }
 }
-
 #[derive(Clone, Copy)]
 struct State(usize);
-
 /// Creates a new one-shot channel for sending single values across asynchronous
 /// tasks.
 ///
@@ -495,89 +449,8 @@ struct State(usize);
 /// ```
 #[track_caller]
 pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
-    #[cfg(all(tokio_unstable, feature = "tracing"))]
-    let resource_span = {
-        let location = std::panic::Location::caller();
-
-        let resource_span = tracing::trace_span!(
-            parent: None,
-            "runtime.resource",
-            concrete_type = "Sender|Receiver",
-            kind = "Sync",
-            loc.file = location.file(),
-            loc.line = location.line(),
-            loc.col = location.column(),
-        );
-
-        resource_span.in_scope(|| {
-            tracing::trace!(
-            target: "runtime::resource::state_update",
-            tx_dropped = false,
-            tx_dropped.op = "override",
-            )
-        });
-
-        resource_span.in_scope(|| {
-            tracing::trace!(
-            target: "runtime::resource::state_update",
-            rx_dropped = false,
-            rx_dropped.op = "override",
-            )
-        });
-
-        resource_span.in_scope(|| {
-            tracing::trace!(
-            target: "runtime::resource::state_update",
-            value_sent = false,
-            value_sent.op = "override",
-            )
-        });
-
-        resource_span.in_scope(|| {
-            tracing::trace!(
-            target: "runtime::resource::state_update",
-            value_received = false,
-            value_received.op = "override",
-            )
-        });
-
-        resource_span
-    };
-
-    let inner = Arc::new(Inner {
-        state: AtomicUsize::new(State::new().as_usize()),
-        value: UnsafeCell::new(None),
-        tx_task: Task(UnsafeCell::new(MaybeUninit::uninit())),
-        rx_task: Task(UnsafeCell::new(MaybeUninit::uninit())),
-    });
-
-    let tx = Sender {
-        inner: Some(inner.clone()),
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        resource_span: resource_span.clone(),
-    };
-
-    #[cfg(all(tokio_unstable, feature = "tracing"))]
-    let async_op_span = resource_span
-        .in_scope(|| tracing::trace_span!("runtime.resource.async_op", source = "Receiver::await"));
-
-    #[cfg(all(tokio_unstable, feature = "tracing"))]
-    let async_op_poll_span =
-        async_op_span.in_scope(|| tracing::trace_span!("runtime.resource.async_op.poll"));
-
-    let rx = Receiver {
-        inner: Some(inner),
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        resource_span,
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        async_op_span,
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        async_op_poll_span,
-    };
-
-    (tx, rx)
+    panic!("STUB: not implemented");
 }
-
 impl<T> Sender<T> {
     /// Attempts to send a value on this channel, returning it back if it could
     /// not be sent.
@@ -620,43 +493,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn send(mut self, t: T) -> Result<(), T> {
-        let inner = self.inner.take().unwrap();
-
-        inner.value.with_mut(|ptr| unsafe {
-            // SAFETY: The receiver will not access the `UnsafeCell` unless the
-            // channel has been marked as "complete" (the `VALUE_SENT` state bit
-            // is set).
-            // That bit is only set by the sender later on in this method, and
-            // calling this method consumes `self`. Therefore, if it was possible to
-            // call this method, we know that the `VALUE_SENT` bit is unset, and
-            // the receiver is not currently accessing the `UnsafeCell`.
-            *ptr = Some(t);
-        });
-
-        if !inner.complete() {
-            unsafe {
-                // SAFETY: The receiver will not access the `UnsafeCell` unless
-                // the channel has been marked as "complete". Calling
-                // `complete()` will return true if this bit is set, and false
-                // if it is not set. Thus, if `complete()` returned false, it is
-                // safe for us to access the value, because we know that the
-                // receiver will not.
-                return Err(inner.consume_value().unwrap());
-            }
-        }
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        self.resource_span.in_scope(|| {
-            tracing::trace!(
-            target: "runtime::resource::state_update",
-            value_sent = true,
-            value_sent.op = "override",
-            )
-        });
-
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the associated [`Receiver`] handle to close.
     ///
     /// A [`Receiver`] is closed by either calling [`close`] explicitly or the
@@ -725,24 +563,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub async fn closed(&mut self) {
-        use std::future::poll_fn;
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let resource_span = self.resource_span.clone();
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let closed = trace::async_op(
-            || poll_fn(|cx| self.poll_closed(cx)),
-            resource_span,
-            "Sender::closed",
-            "poll_closed",
-            false,
-        );
-        #[cfg(not(all(tokio_unstable, feature = "tracing")))]
-        let closed = poll_fn(|cx| self.poll_closed(cx));
-
-        closed.await;
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if the associated [`Receiver`] handle has been dropped.
     ///
     /// A [`Receiver`] is closed by either calling [`close`] explicitly or the
@@ -771,12 +593,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn is_closed(&self) -> bool {
-        let inner = self.inner.as_ref().unwrap();
-
-        let state = State::load(&inner.state, Acquire);
-        state.is_closed()
+        panic!("STUB: not implemented");
     }
-
     /// Checks whether the `oneshot` channel has been closed, and if not, schedules the
     /// `Waker` in the provided `Context` to receive a notification when the channel is
     /// closed.
@@ -818,72 +636,14 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn poll_closed(&mut self, cx: &mut Context<'_>) -> Poll<()> {
-        ready!(crate::trace::trace_leaf());
-
-        // Keep track of task budget
-        let coop = ready!(crate::task::coop::poll_proceed(cx));
-
-        let inner = self.inner.as_ref().unwrap();
-
-        let mut state = State::load(&inner.state, Acquire);
-
-        if state.is_closed() {
-            coop.made_progress();
-            return Ready(());
-        }
-
-        if state.is_tx_task_set() {
-            let will_notify = unsafe { inner.tx_task.will_wake(cx) };
-
-            if !will_notify {
-                state = State::unset_tx_task(&inner.state);
-
-                if state.is_closed() {
-                    // Set the flag again so that the waker is released in drop
-                    State::set_tx_task(&inner.state);
-                    coop.made_progress();
-                    return Ready(());
-                } else {
-                    unsafe { inner.tx_task.drop_task() };
-                }
-            }
-        }
-
-        if !state.is_tx_task_set() {
-            // Attempt to set the task
-            unsafe {
-                inner.tx_task.set_task(cx);
-            }
-
-            // Update the state
-            state = State::set_tx_task(&inner.state);
-
-            if state.is_closed() {
-                coop.made_progress();
-                return Ready(());
-            }
-        }
-
-        Pending
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for Sender<T> {
     fn drop(&mut self) {
-        if let Some(inner) = self.inner.as_ref() {
-            inner.complete();
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            self.resource_span.in_scope(|| {
-                tracing::trace!(
-                target: "runtime::resource::state_update",
-                tx_dropped = true,
-                tx_dropped.op = "override",
-                )
-            });
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Receiver<T> {
     /// Prevents the associated [`Sender`] handle from sending a value.
     ///
@@ -945,19 +705,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn close(&mut self) {
-        if let Some(inner) = self.inner.as_ref() {
-            inner.close();
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            self.resource_span.in_scope(|| {
-                tracing::trace!(
-                target: "runtime::resource::state_update",
-                rx_dropped = true,
-                rx_dropped.op = "override",
-                )
-            });
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Checks if this receiver is terminated.
     ///
     /// This function returns true if this receiver has already yielded a [`Poll::Ready`] result.
@@ -1013,9 +762,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn is_terminated(&self) -> bool {
-        self.inner.is_none()
+        panic!("STUB: not implemented");
     }
-
     /// Checks if a channel is empty.
     ///
     /// This method returns `true` if the channel has no messages.
@@ -1080,27 +828,8 @@ impl<T> Receiver<T> {
     /// }
     /// ```
     pub fn is_empty(&self) -> bool {
-        let Some(inner) = self.inner.as_ref() else {
-            // The channel has already terminated.
-            return true;
-        };
-
-        let state = State::load(&inner.state, Acquire);
-        if state.is_complete() {
-            // SAFETY: If `state.is_complete()` returns true, then the
-            // `VALUE_SENT` bit has been set and the sender side of the
-            // channel will no longer attempt to access the inner
-            // `UnsafeCell`. Therefore, it is now safe for us to access the
-            // cell.
-            //
-            // The channel is empty if it does not have a value.
-            unsafe { !inner.has_value() }
-        } else {
-            // The receiver closed the channel or no value has been sent yet.
-            true
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to receive a value.
     ///
     /// If a pending value exists in the channel, it is returned. If no value
@@ -1169,43 +898,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
-        let result = if let Some(inner) = self.inner.as_ref() {
-            let state = State::load(&inner.state, Acquire);
-
-            if state.is_complete() {
-                // SAFETY: If `state.is_complete()` returns true, then the
-                // `VALUE_SENT` bit has been set and the sender side of the
-                // channel will no longer attempt to access the inner
-                // `UnsafeCell`. Therefore, it is now safe for us to access the
-                // cell.
-                match unsafe { inner.consume_value() } {
-                    Some(value) => {
-                        #[cfg(all(tokio_unstable, feature = "tracing"))]
-                        self.resource_span.in_scope(|| {
-                            tracing::trace!(
-                            target: "runtime::resource::state_update",
-                            value_received = true,
-                            value_received.op = "override",
-                            )
-                        });
-                        Ok(value)
-                    }
-                    None => Err(TryRecvError::Closed),
-                }
-            } else if state.is_closed() {
-                Err(TryRecvError::Closed)
-            } else {
-                // Not ready, this does not clear `inner`
-                return Err(TryRecvError::Empty);
-            }
-        } else {
-            Err(TryRecvError::Closed)
-        };
-
-        self.inner = None;
-        result
+        panic!("STUB: not implemented");
     }
-
     /// Blocking receive to call outside of asynchronous contexts.
     ///
     /// # Panics
@@ -1238,177 +932,31 @@ impl<T> Receiver<T> {
     #[cfg(feature = "sync")]
     #[cfg_attr(docsrs, doc(alias = "recv_blocking"))]
     pub fn blocking_recv(self) -> Result<T, RecvError> {
-        crate::future::block_on(self)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
-        if let Some(inner) = self.inner.as_ref() {
-            let state = inner.close();
-
-            if state.is_complete() {
-                // SAFETY: we have ensured that the `VALUE_SENT` bit has been set,
-                // so only the receiver can access the value.
-                drop(unsafe { inner.consume_value() });
-            }
-
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            self.resource_span.in_scope(|| {
-                tracing::trace!(
-                target: "runtime::resource::state_update",
-                rx_dropped = true,
-                rx_dropped.op = "override",
-                )
-            });
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Future for Receiver<T> {
     type Output = Result<T, RecvError>;
-
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.get_mut();
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let _res_span = this.resource_span.enter();
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let _ao_span = this.async_op_span.enter();
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let _ao_poll_span = this.async_op_poll_span.enter();
-
-        // If `inner` is `None`, then `poll()` has already completed.
-        let ret = if let Some(inner) = this.inner.as_ref() {
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            let res = ready!(trace_poll_op!("poll_recv", inner.poll_recv(cx)));
-
-            #[cfg(any(not(tokio_unstable), not(feature = "tracing")))]
-            let res = ready!(inner.poll_recv(cx));
-
-            res
-        } else {
-            panic!("called after complete");
-        };
-
-        this.inner = None;
-        Ready(ret)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Inner<T> {
     fn complete(&self) -> bool {
-        let prev = State::set_complete(&self.state);
-
-        if prev.is_closed() {
-            return false;
-        }
-
-        if prev.is_rx_task_set() {
-            // TODO: Consume waker?
-            unsafe {
-                self.rx_task.with_task(Waker::wake_by_ref);
-            }
-        }
-
-        true
+        panic!("STUB: not implemented");
     }
-
     fn poll_recv(&self, cx: &mut Context<'_>) -> Poll<Result<T, RecvError>> {
-        ready!(crate::trace::trace_leaf());
-        // Keep track of task budget
-        let coop = ready!(crate::task::coop::poll_proceed(cx));
-
-        // Load the state
-        let mut state = State::load(&self.state, Acquire);
-
-        if state.is_complete() {
-            coop.made_progress();
-            match unsafe { self.consume_value() } {
-                Some(value) => Ready(Ok(value)),
-                None => Ready(Err(RecvError(()))),
-            }
-        } else if state.is_closed() {
-            coop.made_progress();
-            Ready(Err(RecvError(())))
-        } else {
-            if state.is_rx_task_set() {
-                let will_notify = unsafe { self.rx_task.will_wake(cx) };
-
-                // Check if the task is still the same
-                if !will_notify {
-                    // Unset the task
-                    state = State::unset_rx_task(&self.state);
-                    if state.is_complete() {
-                        // Set the flag again so that the waker is released in drop
-                        State::set_rx_task(&self.state);
-
-                        coop.made_progress();
-                        // SAFETY: If `state.is_complete()` returns true, then the
-                        // `VALUE_SENT` bit has been set and the sender side of the
-                        // channel will no longer attempt to access the inner
-                        // `UnsafeCell`. Therefore, it is now safe for us to access the
-                        // cell.
-                        return match unsafe { self.consume_value() } {
-                            Some(value) => Ready(Ok(value)),
-                            None => Ready(Err(RecvError(()))),
-                        };
-                    } else {
-                        unsafe { self.rx_task.drop_task() };
-                    }
-                }
-            }
-
-            if !state.is_rx_task_set() {
-                // Attempt to set the task
-                unsafe {
-                    self.rx_task.set_task(cx);
-                }
-
-                // Update the state
-                state = State::set_rx_task(&self.state);
-
-                if state.is_complete() {
-                    coop.made_progress();
-                    match unsafe { self.consume_value() } {
-                        Some(value) => Ready(Ok(value)),
-                        None => Ready(Err(RecvError(()))),
-                    }
-                } else {
-                    Pending
-                }
-            } else {
-                Pending
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Called by `Receiver` to indicate that the value will never be received.
     fn close(&self) -> State {
-        let prev = State::set_closed(&self.state);
-
-        if prev.is_tx_task_set() && !prev.is_complete() {
-            unsafe {
-                self.tx_task.with_task(Waker::wake_by_ref);
-            }
-        }
-
-        if prev.is_rx_task_set() && !prev.is_complete() {
-            State::unset_rx_task(&self.state);
-            // SAFETY: The sender only accesses `rx_task` (via
-            // `wake_by_ref`) in `complete()` after successfully setting
-            // `VALUE_SENT`. But `set_complete` will not set `VALUE_SENT`
-            // if `CLOSED` is already set (its CAS loop breaks early).
-            // Since `prev` shows that `VALUE_SENT` was not set before we
-            // set `CLOSED`, the sender can no longer set `VALUE_SENT` and
-            // will never access `rx_task`. Therefore, we have exclusive
-            // access here.
-            unsafe { self.rx_task.drop_task() };
-        }
-
-        prev
+        panic!("STUB: not implemented");
     }
-
     /// Consumes the value. This function does not check `state`.
     ///
     /// # Safety
@@ -1419,9 +967,8 @@ impl<T> Inner<T> {
     /// If `VALUE_SENT` is not set, then only the sender may call this method;
     /// if it is set, then only the receiver may call this method.
     unsafe fn consume_value(&self) -> Option<T> {
-        self.value.with_mut(|ptr| unsafe { (*ptr).take() })
+        panic!("STUB: not implemented");
     }
-
     /// Returns true if there is a value. This function does not check `state`.
     ///
     /// # Safety
@@ -1432,54 +979,24 @@ impl<T> Inner<T> {
     /// If `VALUE_SENT` is not set, then only the sender may call this method;
     /// if it is set, then only the receiver may call this method.
     unsafe fn has_value(&self) -> bool {
-        self.value.with(|ptr| unsafe { (*ptr).is_some() })
+        panic!("STUB: not implemented");
     }
 }
-
 unsafe impl<T: Send> Send for Inner<T> {}
 unsafe impl<T: Send> Sync for Inner<T> {}
-
 fn mut_load(this: &mut AtomicUsize) -> usize {
-    this.with_mut(|v| *v)
+    panic!("STUB: not implemented");
 }
-
 impl<T> Drop for Inner<T> {
     fn drop(&mut self) {
-        let state = State(mut_load(&mut self.state));
-
-        if state.is_rx_task_set() {
-            unsafe {
-                self.rx_task.drop_task();
-            }
-        }
-
-        if state.is_tx_task_set() {
-            unsafe {
-                self.tx_task.drop_task();
-            }
-        }
-
-        // SAFETY: we have `&mut self`, and therefore we have
-        // exclusive access to the value.
-        unsafe {
-            // Note: the assertion holds because if the value has been sent by sender,
-            // we must ensure that the value must have been consumed by the receiver before
-            // dropping the `Inner`.
-            debug_assert!(self.consume_value().is_none());
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: fmt::Debug> fmt::Debug for Inner<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use std::sync::atomic::Ordering::Relaxed;
-
-        fmt.debug_struct("Inner")
-            .field("state", &State::load(&self.state, Relaxed))
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 /// Indicates that a waker for the receiving task has been set.
 ///
 /// # Safety
@@ -1496,114 +1013,55 @@ const RX_TASK_SET: usize = 0b00001;
 /// the sender.
 const VALUE_SENT: usize = 0b00010;
 const CLOSED: usize = 0b00100;
-
 /// Indicates that a waker for the sending task has been set.
 ///
 /// # Safety
 ///
 /// If this bit is not set, the `tx_task` field may be uninitialized.
 const TX_TASK_SET: usize = 0b01000;
-
 impl State {
     fn new() -> State {
-        State(0)
+        panic!("STUB: not implemented");
     }
-
     fn is_complete(self) -> bool {
-        self.0 & VALUE_SENT == VALUE_SENT
+        panic!("STUB: not implemented");
     }
-
     fn set_complete(cell: &AtomicUsize) -> State {
-        // This method is a compare-and-swap loop rather than a fetch-or like
-        // other `set_$WHATEVER` methods on `State`. This is because we must
-        // check if the state has been closed before setting the `VALUE_SENT`
-        // bit.
-        //
-        // We don't want to set both the `VALUE_SENT` bit if the `CLOSED`
-        // bit is already set, because `VALUE_SENT` will tell the receiver that
-        // it's okay to access the inner `UnsafeCell`. Immediately after calling
-        // `set_complete`, if the channel was closed, the sender will _also_
-        // access the `UnsafeCell` to take the value back out, so if a
-        // `poll_recv` or `try_recv` call is occurring concurrently, both
-        // threads may try to access the `UnsafeCell` if we were to set the
-        // `VALUE_SENT` bit on a closed channel.
-        let mut state = cell.load(Ordering::Relaxed);
-        loop {
-            if State(state).is_closed() {
-                break;
-            }
-            // TODO: This could be `Release`, followed by an `Acquire` fence *if*
-            // the `RX_TASK_SET` flag is set. However, `loom` does not support
-            // fences yet.
-            match cell.compare_exchange_weak(
-                state,
-                state | VALUE_SENT,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => break,
-                Err(actual) => state = actual,
-            }
-        }
-        State(state)
+        panic!("STUB: not implemented");
     }
-
     fn is_rx_task_set(self) -> bool {
-        self.0 & RX_TASK_SET == RX_TASK_SET
+        panic!("STUB: not implemented");
     }
-
     fn set_rx_task(cell: &AtomicUsize) -> State {
-        let val = cell.fetch_or(RX_TASK_SET, AcqRel);
-        State(val | RX_TASK_SET)
+        panic!("STUB: not implemented");
     }
-
     fn unset_rx_task(cell: &AtomicUsize) -> State {
-        let val = cell.fetch_and(!RX_TASK_SET, AcqRel);
-        State(val & !RX_TASK_SET)
+        panic!("STUB: not implemented");
     }
-
     fn is_closed(self) -> bool {
-        self.0 & CLOSED == CLOSED
+        panic!("STUB: not implemented");
     }
-
     fn set_closed(cell: &AtomicUsize) -> State {
-        // Acquire because we want all later writes (attempting to poll) to be
-        // ordered after this.
-        let val = cell.fetch_or(CLOSED, Acquire);
-        State(val)
+        panic!("STUB: not implemented");
     }
-
     fn set_tx_task(cell: &AtomicUsize) -> State {
-        let val = cell.fetch_or(TX_TASK_SET, AcqRel);
-        State(val | TX_TASK_SET)
+        panic!("STUB: not implemented");
     }
-
     fn unset_tx_task(cell: &AtomicUsize) -> State {
-        let val = cell.fetch_and(!TX_TASK_SET, AcqRel);
-        State(val & !TX_TASK_SET)
+        panic!("STUB: not implemented");
     }
-
     fn is_tx_task_set(self) -> bool {
-        self.0 & TX_TASK_SET == TX_TASK_SET
+        panic!("STUB: not implemented");
     }
-
     fn as_usize(self) -> usize {
-        self.0
+        panic!("STUB: not implemented");
     }
-
     fn load(cell: &AtomicUsize, order: Ordering) -> State {
-        let val = cell.load(order);
-        State(val)
+        panic!("STUB: not implemented");
     }
 }
-
 impl fmt::Debug for State {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("State")
-            .field("is_complete", &self.is_complete())
-            .field("is_closed", &self.is_closed())
-            .field("is_rx_task_set", &self.is_rx_task_set())
-            .field("is_tx_task_set", &self.is_tx_task_set())
-            .finish()
+        panic!("STUB: not implemented");
     }
 }

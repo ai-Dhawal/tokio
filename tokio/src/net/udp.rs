@@ -1,129 +1,84 @@
 use crate::io::{Interest, PollEvented, ReadBuf, Ready};
 use crate::net::{to_socket_addrs, ToSocketAddrs};
 use crate::util::check_socket_for_blocking;
-
 use std::fmt;
 use std::io;
 use std::net::{self, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::task::{ready, Context, Poll};
-
 cfg_io_util! {
     use bytes::BufMut;
 }
-
 cfg_net! {
-    /// A UDP socket.
-    ///
-    /// UDP is "connectionless", unlike TCP. Meaning, regardless of what address you've bound to, a `UdpSocket`
-    /// is free to communicate with many different remotes. In tokio there are basically two main ways to use `UdpSocket`:
-    ///
-    /// * one to many: [`bind`](`UdpSocket::bind`) and use [`send_to`](`UdpSocket::send_to`)
-    ///   and [`recv_from`](`UdpSocket::recv_from`) to communicate with many different addresses
-    /// * one to one: [`connect`](`UdpSocket::connect`) and associate with a single address, using [`send`](`UdpSocket::send`)
-    ///   and [`recv`](`UdpSocket::recv`) to communicate only with that remote address
-    ///
-    /// This type does not provide a `split` method, because this functionality
-    /// can be achieved by instead wrapping the socket in an [`Arc`]. Note that
-    /// you do not need a `Mutex` to share the `UdpSocket` — an `Arc<UdpSocket>`
-    /// is enough. This is because all of the methods take `&self` instead of
-    /// `&mut self`. Once you have wrapped it in an `Arc`, you can call
-    /// `.clone()` on the `Arc<UdpSocket>` to get multiple shared handles to the
-    /// same socket. An example of such usage can be found further down.
-    ///
-    /// [`Arc`]: std::sync::Arc
-    ///
-    /// # Streams
-    ///
-    /// If you need to listen over UDP and produce a [`Stream`], you can look
-    /// at [`UdpFramed`].
-    ///
-    /// [`UdpFramed`]: https://docs.rs/tokio-util/latest/tokio_util/udp/struct.UdpFramed.html
-    /// [`Stream`]: https://docs.rs/futures/0.3/futures/stream/trait.Stream.html
-    ///
-    /// # Example: one to many (bind)
-    ///
-    /// Using `bind` we can create a simple echo server that sends and recv's with many different clients:
-    /// ```no_run
-    /// use tokio::net::UdpSocket;
-    /// use std::io;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> io::Result<()> {
-    ///     let sock = UdpSocket::bind("0.0.0.0:8080").await?;
-    ///     let mut buf = [0; 1024];
-    ///     loop {
-    ///         let (len, addr) = sock.recv_from(&mut buf).await?;
-    ///         println!("{:?} bytes received from {:?}", len, addr);
-    ///
-    ///         let len = sock.send_to(&buf[..len], addr).await?;
-    ///         println!("{:?} bytes sent", len);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # Example: one to one (connect)
-    ///
-    /// Or using `connect` we can echo with a single remote address using `send` and `recv`:
-    /// ```no_run
-    /// use tokio::net::UdpSocket;
-    /// use std::io;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> io::Result<()> {
-    ///     let sock = UdpSocket::bind("0.0.0.0:8080").await?;
-    ///
-    ///     let remote_addr = "127.0.0.1:59611";
-    ///     sock.connect(remote_addr).await?;
-    ///     let mut buf = [0; 1024];
-    ///     loop {
-    ///         let len = sock.recv(&mut buf).await?;
-    ///         println!("{:?} bytes received from {:?}", len, remote_addr);
-    ///
-    ///         let len = sock.send(&buf[..len]).await?;
-    ///         println!("{:?} bytes sent", len);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # Example: Splitting with `Arc`
-    ///
-    /// Because `send_to` and `recv_from` take `&self`. It's perfectly alright
-    /// to use an `Arc<UdpSocket>` and share the references to multiple tasks.
-    /// Here is a similar "echo" example that supports concurrent
-    /// sending/receiving:
-    ///
-    /// ```no_run
-    /// use tokio::{net::UdpSocket, sync::mpsc};
-    /// use std::{io, net::SocketAddr, sync::Arc};
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> io::Result<()> {
-    ///     let sock = UdpSocket::bind("0.0.0.0:8080".parse::<SocketAddr>().unwrap()).await?;
-    ///     let r = Arc::new(sock);
-    ///     let s = r.clone();
-    ///     let (tx, mut rx) = mpsc::channel::<(Vec<u8>, SocketAddr)>(1_000);
-    ///
-    ///     tokio::spawn(async move {
-    ///         while let Some((bytes, addr)) = rx.recv().await {
-    ///             let len = s.send_to(&bytes, &addr).await.unwrap();
-    ///             println!("{:?} bytes sent", len);
-    ///         }
-    ///     });
-    ///
-    ///     let mut buf = [0; 1024];
-    ///     loop {
-    ///         let (len, addr) = r.recv_from(&mut buf).await?;
-    ///         println!("{:?} bytes received from {:?}", len, addr);
-    ///         tx.send((buf[..len].to_vec(), addr)).await.unwrap();
-    ///     }
-    /// }
-    /// ```
-    ///
-    pub struct UdpSocket {
-        io: PollEvented<mio::net::UdpSocket>,
-    }
+    #[doc = " A UDP socket."] #[doc = ""] #[doc =
+    " UDP is \"connectionless\", unlike TCP. Meaning, regardless of what address you've bound to, a `UdpSocket`"]
+    #[doc =
+    " is free to communicate with many different remotes. In tokio there are basically two main ways to use `UdpSocket`:"]
+    #[doc = ""] #[doc =
+    " * one to many: [`bind`](`UdpSocket::bind`) and use [`send_to`](`UdpSocket::send_to`)"]
+    #[doc =
+    "   and [`recv_from`](`UdpSocket::recv_from`) to communicate with many different addresses"]
+    #[doc =
+    " * one to one: [`connect`](`UdpSocket::connect`) and associate with a single address, using [`send`](`UdpSocket::send`)"]
+    #[doc =
+    "   and [`recv`](`UdpSocket::recv`) to communicate only with that remote address"]
+    #[doc = ""] #[doc =
+    " This type does not provide a `split` method, because this functionality"] #[doc =
+    " can be achieved by instead wrapping the socket in an [`Arc`]. Note that"] #[doc =
+    " you do not need a `Mutex` to share the `UdpSocket` — an `Arc<UdpSocket>`"] #[doc
+    = " is enough. This is because all of the methods take `&self` instead of"] #[doc =
+    " `&mut self`. Once you have wrapped it in an `Arc`, you can call"] #[doc =
+    " `.clone()` on the `Arc<UdpSocket>` to get multiple shared handles to the"] #[doc =
+    " same socket. An example of such usage can be found further down."] #[doc = ""]
+    #[doc = " [`Arc`]: std::sync::Arc"] #[doc = ""] #[doc = " # Streams"] #[doc = ""]
+    #[doc = " If you need to listen over UDP and produce a [`Stream`], you can look"]
+    #[doc = " at [`UdpFramed`]."] #[doc = ""] #[doc =
+    " [`UdpFramed`]: https://docs.rs/tokio-util/latest/tokio_util/udp/struct.UdpFramed.html"]
+    #[doc = " [`Stream`]: https://docs.rs/futures/0.3/futures/stream/trait.Stream.html"]
+    #[doc = ""] #[doc = " # Example: one to many (bind)"] #[doc = ""] #[doc =
+    " Using `bind` we can create a simple echo server that sends and recv's with many different clients:"]
+    #[doc = " ```no_run"] #[doc = " use tokio::net::UdpSocket;"] #[doc = " use std::io;"]
+    #[doc = ""] #[doc = " #[tokio::main]"] #[doc =
+    " async fn main() -> io::Result<()> {"] #[doc =
+    "     let sock = UdpSocket::bind(\"0.0.0.0:8080\").await?;"] #[doc =
+    "     let mut buf = [0; 1024];"] #[doc = "     loop {"] #[doc =
+    "         let (len, addr) = sock.recv_from(&mut buf).await?;"] #[doc =
+    "         println!(\"{:?} bytes received from {:?}\", len, addr);"] #[doc = ""] #[doc
+    = "         let len = sock.send_to(&buf[..len], addr).await?;"] #[doc =
+    "         println!(\"{:?} bytes sent\", len);"] #[doc = "     }"] #[doc = " }"] #[doc
+    = " ```"] #[doc = ""] #[doc = " # Example: one to one (connect)"] #[doc = ""] #[doc =
+    " Or using `connect` we can echo with a single remote address using `send` and `recv`:"]
+    #[doc = " ```no_run"] #[doc = " use tokio::net::UdpSocket;"] #[doc = " use std::io;"]
+    #[doc = ""] #[doc = " #[tokio::main]"] #[doc =
+    " async fn main() -> io::Result<()> {"] #[doc =
+    "     let sock = UdpSocket::bind(\"0.0.0.0:8080\").await?;"] #[doc = ""] #[doc =
+    "     let remote_addr = \"127.0.0.1:59611\";"] #[doc =
+    "     sock.connect(remote_addr).await?;"] #[doc = "     let mut buf = [0; 1024];"]
+    #[doc = "     loop {"] #[doc = "         let len = sock.recv(&mut buf).await?;"]
+    #[doc = "         println!(\"{:?} bytes received from {:?}\", len, remote_addr);"]
+    #[doc = ""] #[doc = "         let len = sock.send(&buf[..len]).await?;"] #[doc =
+    "         println!(\"{:?} bytes sent\", len);"] #[doc = "     }"] #[doc = " }"] #[doc
+    = " ```"] #[doc = ""] #[doc = " # Example: Splitting with `Arc`"] #[doc = ""] #[doc =
+    " Because `send_to` and `recv_from` take `&self`. It's perfectly alright"] #[doc =
+    " to use an `Arc<UdpSocket>` and share the references to multiple tasks."] #[doc =
+    " Here is a similar \"echo\" example that supports concurrent"] #[doc =
+    " sending/receiving:"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+    " use tokio::{net::UdpSocket, sync::mpsc};"] #[doc =
+    " use std::{io, net::SocketAddr, sync::Arc};"] #[doc = ""] #[doc = " #[tokio::main]"]
+    #[doc = " async fn main() -> io::Result<()> {"] #[doc =
+    "     let sock = UdpSocket::bind(\"0.0.0.0:8080\".parse::<SocketAddr>().unwrap()).await?;"]
+    #[doc = "     let r = Arc::new(sock);"] #[doc = "     let s = r.clone();"] #[doc =
+    "     let (tx, mut rx) = mpsc::channel::<(Vec<u8>, SocketAddr)>(1_000);"] #[doc = ""]
+    #[doc = "     tokio::spawn(async move {"] #[doc =
+    "         while let Some((bytes, addr)) = rx.recv().await {"] #[doc =
+    "             let len = s.send_to(&bytes, &addr).await.unwrap();"] #[doc =
+    "             println!(\"{:?} bytes sent\", len);"] #[doc = "         }"] #[doc =
+    "     });"] #[doc = ""] #[doc = "     let mut buf = [0; 1024];"] #[doc =
+    "     loop {"] #[doc = "         let (len, addr) = r.recv_from(&mut buf).await?;"]
+    #[doc = "         println!(\"{:?} bytes received from {:?}\", len, addr);"] #[doc =
+    "         tx.send((buf[..len].to_vec(), addr)).await.unwrap();"] #[doc = "     }"]
+    #[doc = " }"] #[doc = " ```"] #[doc = ""] pub struct UdpSocket { io : PollEvented <
+    mio::net::UdpSocket >, }
 }
-
 impl UdpSocket {
     /// This function will create a new UDP socket and attempt to bind it to
     /// the `addr` provided.
@@ -148,35 +103,15 @@ impl UdpSocket {
     /// }
     /// ```
     pub async fn bind<A: ToSocketAddrs>(addr: A) -> io::Result<UdpSocket> {
-        let addrs = to_socket_addrs(addr).await?;
-        let mut last_err = None;
-
-        for addr in addrs {
-            match UdpSocket::bind_addr(addr) {
-                Ok(socket) => return Ok(socket),
-                Err(e) => last_err = Some(e),
-            }
-        }
-
-        Err(last_err.unwrap_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "could not resolve to any address",
-            )
-        }))
+        panic!("STUB: not implemented");
     }
-
     fn bind_addr(addr: SocketAddr) -> io::Result<UdpSocket> {
-        let sys = mio::net::UdpSocket::bind(addr)?;
-        UdpSocket::new(sys)
+        panic!("STUB: not implemented");
     }
-
     #[track_caller]
     fn new(socket: mio::net::UdpSocket) -> io::Result<UdpSocket> {
-        let io = PollEvented::new(socket)?;
-        Ok(UdpSocket { io })
+        panic!("STUB: not implemented");
     }
-
     /// Creates new `UdpSocket` from a previously bound `std::net::UdpSocket`.
     ///
     /// This function is intended to be used to wrap a UDP socket from the
@@ -225,12 +160,8 @@ impl UdpSocket {
     /// ```
     #[track_caller]
     pub fn from_std(socket: net::UdpSocket) -> io::Result<UdpSocket> {
-        check_socket_for_blocking(&socket)?;
-
-        let io = mio::net::UdpSocket::from_std(socket);
-        UdpSocket::new(io)
+        panic!("STUB: not implemented");
     }
-
     /// Turns a [`tokio::net::UdpSocket`] into a [`std::net::UdpSocket`].
     ///
     /// The returned [`std::net::UdpSocket`] will have nonblocking mode set as
@@ -254,29 +185,11 @@ impl UdpSocket {
     /// [`std::net::UdpSocket`]: std::net::UdpSocket
     /// [`set_nonblocking`]: fn@std::net::UdpSocket::set_nonblocking
     pub fn into_std(self) -> io::Result<std::net::UdpSocket> {
-        #[cfg(not(windows))]
-        {
-            use std::os::fd::{FromRawFd, IntoRawFd};
-            self.io
-                .into_inner()
-                .map(IntoRawFd::into_raw_fd)
-                .map(|raw_fd| unsafe { std::net::UdpSocket::from_raw_fd(raw_fd) })
-        }
-
-        #[cfg(windows)]
-        {
-            use std::os::windows::io::{FromRawSocket, IntoRawSocket};
-            self.io
-                .into_inner()
-                .map(|io| io.into_raw_socket())
-                .map(|raw_socket| unsafe { std::net::UdpSocket::from_raw_socket(raw_socket) })
-        }
+        panic!("STUB: not implemented");
     }
-
     fn as_socket(&self) -> socket2::SockRef<'_> {
-        socket2::SockRef::from(self)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the local address that this socket is bound to.
     ///
     /// # Example
@@ -295,9 +208,8 @@ impl UdpSocket {
     /// # }
     /// ```
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.io.local_addr()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the socket address of the remote peer this socket was connected to.
     ///
     /// # Example
@@ -318,9 +230,8 @@ impl UdpSocket {
     /// # }
     /// ```
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
-        self.io.peer_addr()
+        panic!("STUB: not implemented");
     }
-
     /// Connects the UDP socket setting the default destination for send() and
     /// limiting packets that are read via `recv` from the address specified in
     /// `addr`.
@@ -346,24 +257,8 @@ impl UdpSocket {
     /// # }
     /// ```
     pub async fn connect<A: ToSocketAddrs>(&self, addr: A) -> io::Result<()> {
-        let addrs = to_socket_addrs(addr).await?;
-        let mut last_err = None;
-
-        for addr in addrs {
-            match self.io.connect(addr) {
-                Ok(()) => return Ok(()),
-                Err(e) => last_err = Some(e),
-            }
-        }
-
-        Err(last_err.unwrap_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "could not resolve to any address",
-            )
-        }))
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states.
     ///
     /// This function is usually paired with `try_recv()` or `try_send()`. It
@@ -433,10 +328,8 @@ impl UdpSocket {
     /// }
     /// ```
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        let event = self.io.registration().readiness(interest).await?;
-        Ok(event.ready)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the socket to become writable.
     ///
     /// This function is equivalent to `ready(Interest::WRITABLE)` and is
@@ -488,10 +381,8 @@ impl UdpSocket {
     /// }
     /// ```
     pub async fn writable(&self) -> io::Result<()> {
-        self.ready(Interest::WRITABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for write/send readiness.
     ///
     /// If the udp stream is not currently ready for sending, this method will
@@ -522,9 +413,8 @@ impl UdpSocket {
     ///
     /// [`writable`]: method@Self::writable
     pub fn poll_send_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_write_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Sends data on the socket to the remote address that the socket is
     /// connected to.
     ///
@@ -568,12 +458,8 @@ impl UdpSocket {
     /// }
     /// ```
     pub async fn send(&self, buf: &[u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .async_io(Interest::WRITABLE, || self.io.send(buf))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to send data on the socket to the remote address to which it
     /// was previously `connect`ed.
     ///
@@ -597,12 +483,13 @@ impl UdpSocket {
     /// This function may encounter any standard I/O error except `WouldBlock`.
     ///
     /// [`connect`]: method@Self::connect
-    pub fn poll_send(&self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
-        self.io
-            .registration()
-            .poll_write_io(cx, || self.io.send(buf))
+    pub fn poll_send(
+        &self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        panic!("STUB: not implemented");
     }
-
     /// Tries to send data on the socket to the remote address to which it is
     /// connected.
     ///
@@ -652,11 +539,8 @@ impl UdpSocket {
     /// }
     /// ```
     pub fn try_send(&self, buf: &[u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || self.io.send(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the socket to become readable.
     ///
     /// This function is equivalent to `ready(Interest::READABLE)` and is usually
@@ -713,10 +597,8 @@ impl UdpSocket {
     /// }
     /// ```
     pub async fn readable(&self) -> io::Result<()> {
-        self.ready(Interest::READABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for read/receive readiness.
     ///
     /// If the udp stream is not currently ready for receiving, this method will
@@ -747,9 +629,8 @@ impl UdpSocket {
     ///
     /// [`readable`]: method@Self::readable
     pub fn poll_recv_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_read_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Receives a single datagram message on the socket from the remote address
     /// to which it is connected. On success, returns the number of bytes read.
     ///
@@ -788,12 +669,8 @@ impl UdpSocket {
     /// }
     /// ```
     pub async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .async_io(Interest::READABLE | Interest::ERROR, || self.io.recv(buf))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to receive a single datagram message on the socket from the remote
     /// address to which it is `connect`ed.
     ///
@@ -817,25 +694,13 @@ impl UdpSocket {
     /// This function may encounter any standard I/O error except `WouldBlock`.
     ///
     /// [`connect`]: method@Self::connect
-    pub fn poll_recv(&self, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        #[allow(clippy::blocks_in_conditions)]
-        let n = ready!(self.io.registration().poll_read_io(cx, || {
-            // Safety: will not read the maybe uninitialized bytes.
-            let b = unsafe {
-                &mut *(buf.unfilled_mut() as *mut [std::mem::MaybeUninit<u8>] as *mut [u8])
-            };
-
-            self.io.recv(b)
-        }))?;
-
-        // Safety: We trust `recv` to have filled up `n` bytes in the buffer.
-        unsafe {
-            buf.assume_init(n);
-        }
-        buf.advance(n);
-        Poll::Ready(Ok(()))
+    pub fn poll_recv(
+        &self,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
-
     /// Tries to receive a single datagram message on the socket from the remote
     /// address to which it is connected. On success, returns the number of
     /// bytes read.
@@ -887,265 +752,145 @@ impl UdpSocket {
     /// }
     /// ```
     pub fn try_recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || self.io.recv(buf))
+        panic!("STUB: not implemented");
     }
-
     cfg_io_util! {
-        /// Tries to receive data from the stream into the provided buffer, advancing the
-        /// buffer's internal cursor, returning how many bytes were read.
-        ///
-        /// This method must be called with valid byte array `buf` of sufficient size
-        /// to hold the message bytes. If a message is too long to fit in the
-        /// supplied buffer, excess bytes may be discarded.
-        ///
-        /// This method can be used even if `buf` is uninitialized.
-        ///
-        /// When there is no pending data, `Err(io::ErrorKind::WouldBlock)` is
-        /// returned. This function is usually paired with `readable()`.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// use tokio::net::UdpSocket;
-        /// use std::io;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     // Connect to a peer
-        ///     let socket = UdpSocket::bind("127.0.0.1:8080").await?;
-        ///     socket.connect("127.0.0.1:8081").await?;
-        ///
-        ///     loop {
-        ///         // Wait for the socket to be readable
-        ///         socket.readable().await?;
-        ///
-        ///         let mut buf = Vec::with_capacity(1024);
-        ///
-        ///         // Try to recv data, this may still fail with `WouldBlock`
-        ///         // if the readiness event is a false positive.
-        ///         match socket.try_recv_buf(&mut buf) {
-        ///             Ok(n) => {
-        ///                 println!("GOT {:?}", &buf[..n]);
-        ///                 break;
-        ///             }
-        ///             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-        ///                 continue;
-        ///             }
-        ///             Err(e) => {
-        ///                 return Err(e);
-        ///             }
-        ///         }
-        ///     }
-        ///
-        ///     Ok(())
-        /// }
-        /// ```
-        pub fn try_recv_buf<B: BufMut>(&self, buf: &mut B) -> io::Result<usize> {
-            self.io.registration().try_io(Interest::READABLE, || {
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                let n = (*self.io).recv(dst)?;
-
-                // Safety: We trust `UdpSocket::recv` to have filled up `n` bytes in the
-                // buffer.
-                unsafe {
-                    buf.advance_mut(n);
-                }
-
-                Ok(n)
-            })
-        }
-
-        /// Receives a single datagram message on the socket from the remote address
-        /// to which it is connected, advancing the buffer's internal cursor,
-        /// returning how many bytes were read.
-        ///
-        /// This method must be called with valid byte array `buf` of sufficient size
-        /// to hold the message bytes. If a message is too long to fit in the
-        /// supplied buffer, excess bytes may be discarded.
-        ///
-        /// This method can be used even if `buf` is uninitialized.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// use tokio::net::UdpSocket;
-        /// use std::io;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     // Connect to a peer
-        ///     let socket = UdpSocket::bind("127.0.0.1:8080").await?;
-        ///     socket.connect("127.0.0.1:8081").await?;
-        ///
-        ///     let mut buf = Vec::with_capacity(512);
-        ///     let len = socket.recv_buf(&mut buf).await?;
-        ///
-        ///     println!("received {} bytes {:?}", len, &buf[..len]);
-        ///
-        ///     Ok(())
-        /// }
-        /// ```
-        pub async fn recv_buf<B: BufMut>(&self, buf: &mut B) -> io::Result<usize> {
-            self.io
-                .registration()
-                .async_io(Interest::READABLE | Interest::ERROR, || {
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                let n = (*self.io).recv(dst)?;
-
-                // Safety: We trust `UdpSocket::recv` to have filled up `n` bytes in the
-                // buffer.
-                unsafe {
-                    buf.advance_mut(n);
-                }
-
-                Ok(n)
-            })
-            .await
-        }
-
-        /// Tries to receive a single datagram message on the socket. On success,
-        /// returns the number of bytes read and the origin.
-        ///
-        /// This method must be called with valid byte array `buf` of sufficient size
-        /// to hold the message bytes. If a message is too long to fit in the
-        /// supplied buffer, excess bytes may be discarded.
-        ///
-        /// This method can be used even if `buf` is uninitialized.
-        ///
-        /// When there is no pending data, `Err(io::ErrorKind::WouldBlock)` is
-        /// returned. This function is usually paired with `readable()`.
-        ///
-        /// # Notes
-        /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
-        /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
-        /// Because UDP is stateless and does not validate the origin of a packet,
-        /// the attacker does not need to be able to intercept traffic in order to interfere.
-        /// It is important to be aware of this when designing your application-level protocol.
-        ///
-        /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// use tokio::net::UdpSocket;
-        /// use std::io;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     // Connect to a peer
-        ///     let socket = UdpSocket::bind("127.0.0.1:8080").await?;
-        ///
-        ///     loop {
-        ///         // Wait for the socket to be readable
-        ///         socket.readable().await?;
-        ///
-        ///         let mut buf = Vec::with_capacity(1024);
-        ///
-        ///         // Try to recv data, this may still fail with `WouldBlock`
-        ///         // if the readiness event is a false positive.
-        ///         match socket.try_recv_buf_from(&mut buf) {
-        ///             Ok((n, _addr)) => {
-        ///                 println!("GOT {:?}", &buf[..n]);
-        ///                 break;
-        ///             }
-        ///             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-        ///                 continue;
-        ///             }
-        ///             Err(e) => {
-        ///                 return Err(e);
-        ///             }
-        ///         }
-        ///     }
-        ///
-        ///     Ok(())
-        /// }
-        /// ```
-        pub fn try_recv_buf_from<B: BufMut>(&self, buf: &mut B) -> io::Result<(usize, SocketAddr)> {
-            self.io.registration().try_io(Interest::READABLE, || {
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                let (n, addr) = (*self.io).recv_from(dst)?;
-
-                // Safety: We trust `UdpSocket::recv_from` to have filled up `n` bytes in the
-                // buffer.
-                unsafe {
-                    buf.advance_mut(n);
-                }
-
-                Ok((n, addr))
-            })
-        }
-
-        /// Receives a single datagram message on the socket, advancing the
-        /// buffer's internal cursor, returning how many bytes were read and the origin.
-        ///
-        /// This method must be called with valid byte array `buf` of sufficient size
-        /// to hold the message bytes. If a message is too long to fit in the
-        /// supplied buffer, excess bytes may be discarded.
-        ///
-        /// This method can be used even if `buf` is uninitialized.
-        ///
-        /// # Notes
-        /// Note that the socket address **cannot** be implicitly trusted, because it is relatively
-        /// trivial to send a UDP datagram with a spoofed origin in a [packet injection attack].
-        /// Because UDP is stateless and does not validate the origin of a packet,
-        /// the attacker does not need to be able to intercept traffic in order to interfere.
-        /// It is important to be aware of this when designing your application-level protocol.
-        ///
-        /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// use tokio::net::UdpSocket;
-        /// use std::io;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     // Connect to a peer
-        ///     let socket = UdpSocket::bind("127.0.0.1:8080").await?;
-        ///     socket.connect("127.0.0.1:8081").await?;
-        ///
-        ///     let mut buf = Vec::with_capacity(512);
-        ///     let (len, addr) = socket.recv_buf_from(&mut buf).await?;
-        ///
-        ///     println!("received {:?} bytes from {:?}", len, addr);
-        ///
-        ///     Ok(())
-        /// }
-        /// ```
-        pub async fn recv_buf_from<B: BufMut>(&self, buf: &mut B) -> io::Result<(usize, SocketAddr)> {
-            self.io
-                .registration()
-                .async_io(Interest::READABLE | Interest::ERROR, || {
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                let (n, addr) = (*self.io).recv_from(dst)?;
-
-                // Safety: We trust `UdpSocket::recv_from` to have filled up `n` bytes in the
-                // buffer.
-                unsafe {
-                    buf.advance_mut(n);
-                }
-
-                Ok((n, addr))
-            })
-            .await
-        }
+        #[doc =
+        " Tries to receive data from the stream into the provided buffer, advancing the"]
+        #[doc = " buffer's internal cursor, returning how many bytes were read."] #[doc =
+        ""] #[doc =
+        " This method must be called with valid byte array `buf` of sufficient size"]
+        #[doc = " to hold the message bytes. If a message is too long to fit in the"]
+        #[doc = " supplied buffer, excess bytes may be discarded."] #[doc = ""] #[doc =
+        " This method can be used even if `buf` is uninitialized."] #[doc = ""] #[doc =
+        " When there is no pending data, `Err(io::ErrorKind::WouldBlock)` is"] #[doc =
+        " returned. This function is usually paired with `readable()`."] #[doc = ""]
+        #[doc = " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+        " use tokio::net::UdpSocket;"] #[doc = " use std::io;"] #[doc = ""] #[doc =
+        " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc =
+        "     // Connect to a peer"] #[doc =
+        "     let socket = UdpSocket::bind(\"127.0.0.1:8080\").await?;"] #[doc =
+        "     socket.connect(\"127.0.0.1:8081\").await?;"] #[doc = ""] #[doc =
+        "     loop {"] #[doc = "         // Wait for the socket to be readable"] #[doc =
+        "         socket.readable().await?;"] #[doc = ""] #[doc =
+        "         let mut buf = Vec::with_capacity(1024);"] #[doc = ""] #[doc =
+        "         // Try to recv data, this may still fail with `WouldBlock`"] #[doc =
+        "         // if the readiness event is a false positive."] #[doc =
+        "         match socket.try_recv_buf(&mut buf) {"] #[doc =
+        "             Ok(n) => {"] #[doc =
+        "                 println!(\"GOT {:?}\", &buf[..n]);"] #[doc =
+        "                 break;"] #[doc = "             }"] #[doc =
+        "             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {"] #[doc =
+        "                 continue;"] #[doc = "             }"] #[doc =
+        "             Err(e) => {"] #[doc = "                 return Err(e);"] #[doc =
+        "             }"] #[doc = "         }"] #[doc = "     }"] #[doc = ""] #[doc =
+        "     Ok(())"] #[doc = " }"] #[doc = " ```"] pub fn try_recv_buf < B : BufMut >
+        (& self, buf : & mut B) -> io::Result < usize > { self.io.registration()
+        .try_io(Interest::READABLE, || { let dst = buf.chunk_mut(); let dst = unsafe { &
+        mut * (dst as * mut _ as * mut [std::mem::MaybeUninit < u8 >] as * mut [u8]) };
+        let n = (* self.io).recv(dst) ?; unsafe { buf.advance_mut(n); } Ok(n) }) } #[doc
+        = " Receives a single datagram message on the socket from the remote address"]
+        #[doc = " to which it is connected, advancing the buffer's internal cursor,"]
+        #[doc = " returning how many bytes were read."] #[doc = ""] #[doc =
+        " This method must be called with valid byte array `buf` of sufficient size"]
+        #[doc = " to hold the message bytes. If a message is too long to fit in the"]
+        #[doc = " supplied buffer, excess bytes may be discarded."] #[doc = ""] #[doc =
+        " This method can be used even if `buf` is uninitialized."] #[doc = ""] #[doc =
+        " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+        " use tokio::net::UdpSocket;"] #[doc = " use std::io;"] #[doc = ""] #[doc =
+        " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc =
+        "     // Connect to a peer"] #[doc =
+        "     let socket = UdpSocket::bind(\"127.0.0.1:8080\").await?;"] #[doc =
+        "     socket.connect(\"127.0.0.1:8081\").await?;"] #[doc = ""] #[doc =
+        "     let mut buf = Vec::with_capacity(512);"] #[doc =
+        "     let len = socket.recv_buf(&mut buf).await?;"] #[doc = ""] #[doc =
+        "     println!(\"received {} bytes {:?}\", len, &buf[..len]);"] #[doc = ""] #[doc
+        = "     Ok(())"] #[doc = " }"] #[doc = " ```"] pub async fn recv_buf < B : BufMut
+        > (& self, buf : & mut B) -> io::Result < usize > { self.io.registration()
+        .async_io(Interest::READABLE | Interest::ERROR, || { let dst = buf.chunk_mut();
+        let dst = unsafe { & mut * (dst as * mut _ as * mut [std::mem::MaybeUninit < u8
+        >] as * mut [u8]) }; let n = (* self.io).recv(dst) ?; unsafe { buf
+        .advance_mut(n); } Ok(n) }). await } #[doc =
+        " Tries to receive a single datagram message on the socket. On success,"] #[doc =
+        " returns the number of bytes read and the origin."] #[doc = ""] #[doc =
+        " This method must be called with valid byte array `buf` of sufficient size"]
+        #[doc = " to hold the message bytes. If a message is too long to fit in the"]
+        #[doc = " supplied buffer, excess bytes may be discarded."] #[doc = ""] #[doc =
+        " This method can be used even if `buf` is uninitialized."] #[doc = ""] #[doc =
+        " When there is no pending data, `Err(io::ErrorKind::WouldBlock)` is"] #[doc =
+        " returned. This function is usually paired with `readable()`."] #[doc = ""]
+        #[doc = " # Notes"] #[doc =
+        " Note that the socket address **cannot** be implicitly trusted, because it is relatively"]
+        #[doc =
+        " trivial to send a UDP datagram with a spoofed origin in a [packet injection attack]."]
+        #[doc =
+        " Because UDP is stateless and does not validate the origin of a packet,"] #[doc
+        =
+        " the attacker does not need to be able to intercept traffic in order to interfere."]
+        #[doc =
+        " It is important to be aware of this when designing your application-level protocol."]
+        #[doc = ""] #[doc =
+        " [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection"]
+        #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+        " use tokio::net::UdpSocket;"] #[doc = " use std::io;"] #[doc = ""] #[doc =
+        " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc =
+        "     // Connect to a peer"] #[doc =
+        "     let socket = UdpSocket::bind(\"127.0.0.1:8080\").await?;"] #[doc = ""]
+        #[doc = "     loop {"] #[doc = "         // Wait for the socket to be readable"]
+        #[doc = "         socket.readable().await?;"] #[doc = ""] #[doc =
+        "         let mut buf = Vec::with_capacity(1024);"] #[doc = ""] #[doc =
+        "         // Try to recv data, this may still fail with `WouldBlock`"] #[doc =
+        "         // if the readiness event is a false positive."] #[doc =
+        "         match socket.try_recv_buf_from(&mut buf) {"] #[doc =
+        "             Ok((n, _addr)) => {"] #[doc =
+        "                 println!(\"GOT {:?}\", &buf[..n]);"] #[doc =
+        "                 break;"] #[doc = "             }"] #[doc =
+        "             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {"] #[doc =
+        "                 continue;"] #[doc = "             }"] #[doc =
+        "             Err(e) => {"] #[doc = "                 return Err(e);"] #[doc =
+        "             }"] #[doc = "         }"] #[doc = "     }"] #[doc = ""] #[doc =
+        "     Ok(())"] #[doc = " }"] #[doc = " ```"] pub fn try_recv_buf_from < B :
+        BufMut > (& self, buf : & mut B) -> io::Result < (usize, SocketAddr) > { self.io
+        .registration().try_io(Interest::READABLE, || { let dst = buf.chunk_mut(); let
+        dst = unsafe { & mut * (dst as * mut _ as * mut [std::mem::MaybeUninit < u8 >] as
+        * mut [u8]) }; let (n, addr) = (* self.io).recv_from(dst) ?; unsafe { buf
+        .advance_mut(n); } Ok((n, addr)) }) } #[doc =
+        " Receives a single datagram message on the socket, advancing the"] #[doc =
+        " buffer's internal cursor, returning how many bytes were read and the origin."]
+        #[doc = ""] #[doc =
+        " This method must be called with valid byte array `buf` of sufficient size"]
+        #[doc = " to hold the message bytes. If a message is too long to fit in the"]
+        #[doc = " supplied buffer, excess bytes may be discarded."] #[doc = ""] #[doc =
+        " This method can be used even if `buf` is uninitialized."] #[doc = ""] #[doc =
+        " # Notes"] #[doc =
+        " Note that the socket address **cannot** be implicitly trusted, because it is relatively"]
+        #[doc =
+        " trivial to send a UDP datagram with a spoofed origin in a [packet injection attack]."]
+        #[doc =
+        " Because UDP is stateless and does not validate the origin of a packet,"] #[doc
+        =
+        " the attacker does not need to be able to intercept traffic in order to interfere."]
+        #[doc =
+        " It is important to be aware of this when designing your application-level protocol."]
+        #[doc = ""] #[doc =
+        " [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection"]
+        #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+        " use tokio::net::UdpSocket;"] #[doc = " use std::io;"] #[doc = ""] #[doc =
+        " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc =
+        "     // Connect to a peer"] #[doc =
+        "     let socket = UdpSocket::bind(\"127.0.0.1:8080\").await?;"] #[doc =
+        "     socket.connect(\"127.0.0.1:8081\").await?;"] #[doc = ""] #[doc =
+        "     let mut buf = Vec::with_capacity(512);"] #[doc =
+        "     let (len, addr) = socket.recv_buf_from(&mut buf).await?;"] #[doc = ""]
+        #[doc = "     println!(\"received {:?} bytes from {:?}\", len, addr);"] #[doc =
+        ""] #[doc = "     Ok(())"] #[doc = " }"] #[doc = " ```"] pub async fn
+        recv_buf_from < B : BufMut > (& self, buf : & mut B) -> io::Result < (usize,
+        SocketAddr) > { self.io.registration().async_io(Interest::READABLE |
+        Interest::ERROR, || { let dst = buf.chunk_mut(); let dst = unsafe { & mut * (dst
+        as * mut _ as * mut [std::mem::MaybeUninit < u8 >] as * mut [u8]) }; let (n,
+        addr) = (* self.io).recv_from(dst) ?; unsafe { buf.advance_mut(n); } Ok((n,
+        addr)) }). await }
     }
-
     /// Sends data on the socket to the given address. On success, returns the
     /// number of bytes written.
     ///
@@ -1182,18 +927,13 @@ impl UdpSocket {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn send_to<A: ToSocketAddrs>(&self, buf: &[u8], addr: A) -> io::Result<usize> {
-        let mut addrs = to_socket_addrs(addr).await?;
-
-        match addrs.next() {
-            Some(target) => self.send_to_addr(buf, target).await,
-            None => Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "no addresses to send data to",
-            )),
-        }
+    pub async fn send_to<A: ToSocketAddrs>(
+        &self,
+        buf: &[u8],
+        addr: A,
+    ) -> io::Result<usize> {
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to send data on the socket to a given address.
     ///
     /// Note that on multiple calls to a `poll_*` method in the send direction, only the
@@ -1217,11 +957,8 @@ impl UdpSocket {
         buf: &[u8],
         target: SocketAddr,
     ) -> Poll<io::Result<usize>> {
-        self.io
-            .registration()
-            .poll_write_io(cx, || self.io.send_to(buf, target))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to send data on the socket to the given address, but if the send is
     /// blocked this will return right away.
     ///
@@ -1270,18 +1007,11 @@ impl UdpSocket {
     /// }
     /// ```
     pub fn try_send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || self.io.send_to(buf, target))
+        panic!("STUB: not implemented");
     }
-
     async fn send_to_addr(&self, buf: &[u8], target: SocketAddr) -> io::Result<usize> {
-        self.io
-            .registration()
-            .async_io(Interest::WRITABLE, || self.io.send_to(buf, target))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Receives a single datagram message on the socket. On success, returns
     /// the number of bytes read and the origin.
     ///
@@ -1324,14 +1054,8 @@ impl UdpSocket {
     ///
     /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
     pub async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        self.io
-            .registration()
-            .async_io(Interest::READABLE | Interest::ERROR, || {
-                self.io.recv_from(buf)
-            })
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to receive a single datagram on the socket.
     ///
     /// Note that on multiple calls to a `poll_*` method in the `recv` direction, only the
@@ -1363,24 +1087,8 @@ impl UdpSocket {
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<SocketAddr>> {
-        #[allow(clippy::blocks_in_conditions)]
-        let (n, addr) = ready!(self.io.registration().poll_read_io(cx, || {
-            // Safety: will not read the maybe uninitialized bytes.
-            let b = unsafe {
-                &mut *(buf.unfilled_mut() as *mut [std::mem::MaybeUninit<u8>] as *mut [u8])
-            };
-
-            self.io.recv_from(b)
-        }))?;
-
-        // Safety: We trust `recv` to have filled up `n` bytes in the buffer.
-        unsafe {
-            buf.assume_init(n);
-        }
-        buf.advance(n);
-        Poll::Ready(Ok(addr))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to receive a single datagram message on the socket. On success,
     /// returns the number of bytes read and the origin.
     ///
@@ -1440,11 +1148,8 @@ impl UdpSocket {
     /// }
     /// ```
     pub fn try_recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || self.io.recv_from(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read or write from the socket using a user-provided IO operation.
     ///
     /// If the socket is ready, the provided closure is called. The closure
@@ -1482,11 +1187,8 @@ impl UdpSocket {
         interest: Interest,
         f: impl FnOnce() -> io::Result<R>,
     ) -> io::Result<R> {
-        self.io
-            .registration()
-            .try_io(interest, || self.io.try_io(f))
+        panic!("STUB: not implemented");
     }
-
     /// Reads or writes from the socket using a user-provided IO operation.
     ///
     /// The readiness of the socket is awaited and when the socket is ready,
@@ -1517,12 +1219,8 @@ impl UdpSocket {
         interest: Interest,
         mut f: impl FnMut() -> io::Result<R>,
     ) -> io::Result<R> {
-        self.io
-            .registration()
-            .async_io(interest, || self.io.try_io(&mut f))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Receives a single datagram from the connected address without removing it from the queue.
     /// On success, returns the number of bytes read from whence the data came.
     ///
@@ -1567,12 +1265,8 @@ impl UdpSocket {
     /// [`peek_sender`]: method@Self::peek_sender
     /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
     pub async fn peek(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .async_io(Interest::READABLE | Interest::ERROR, || self.io.peek(buf))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Receives data from the connected address, without removing it from the input queue.
     ///
     /// # Notes
@@ -1612,25 +1306,13 @@ impl UdpSocket {
     ///
     /// [`poll_peek_sender`]: method@Self::poll_peek_sender
     /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
-    pub fn poll_peek(&self, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        #[allow(clippy::blocks_in_conditions)]
-        let n = ready!(self.io.registration().poll_read_io(cx, || {
-            // Safety: will not read the maybe uninitialized bytes.
-            let b = unsafe {
-                &mut *(buf.unfilled_mut() as *mut [std::mem::MaybeUninit<u8>] as *mut [u8])
-            };
-
-            self.io.peek(b)
-        }))?;
-
-        // Safety: We trust `peek` to have filled up `n` bytes in the buffer.
-        unsafe {
-            buf.assume_init(n);
-        }
-        buf.advance(n);
-        Poll::Ready(Ok(()))
+    pub fn poll_peek(
+        &self,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
-
     /// Tries to receive data on the connected address without removing it from the input queue.
     /// On success, returns the number of bytes read.
     ///
@@ -1659,11 +1341,8 @@ impl UdpSocket {
     /// [`try_peek_sender`]: method@Self::try_peek_sender
     /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
     pub fn try_peek(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || self.io.peek(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Receives data from the socket, without removing it from the input queue.
     /// On success, returns the number of bytes read and the address from whence
     /// the data came.
@@ -1709,14 +1388,8 @@ impl UdpSocket {
     /// [`peek_sender`]: method@Self::peek_sender
     /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
     pub async fn peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        self.io
-            .registration()
-            .async_io(Interest::READABLE | Interest::ERROR, || {
-                self.io.peek_from(buf)
-            })
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Receives data from the socket, without removing it from the input queue.
     /// On success, returns the sending address of the datagram.
     ///
@@ -1762,24 +1435,8 @@ impl UdpSocket {
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<SocketAddr>> {
-        #[allow(clippy::blocks_in_conditions)]
-        let (n, addr) = ready!(self.io.registration().poll_read_io(cx, || {
-            // Safety: will not read the maybe uninitialized bytes.
-            let b = unsafe {
-                &mut *(buf.unfilled_mut() as *mut [std::mem::MaybeUninit<u8>] as *mut [u8])
-            };
-
-            self.io.peek_from(b)
-        }))?;
-
-        // Safety: We trust `recv` to have filled up `n` bytes in the buffer.
-        unsafe {
-            buf.assume_init(n);
-        }
-        buf.advance(n);
-        Poll::Ready(Ok(addr))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to receive data on the socket without removing it from the input queue.
     /// On success, returns the number of bytes read and the sending address of the
     /// datagram.
@@ -1809,11 +1466,8 @@ impl UdpSocket {
     /// [`try_peek_sender`]: method@Self::try_peek_sender
     /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
     pub fn try_peek_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || self.io.peek_from(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Retrieve the sender of the data at the head of the input queue, waiting if empty.
     ///
     /// This is equivalent to calling [`peek_from`] with a zero-sized buffer,
@@ -1828,14 +1482,8 @@ impl UdpSocket {
     /// [`peek_from`]: method@Self::peek_from
     /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
     pub async fn peek_sender(&self) -> io::Result<SocketAddr> {
-        self.io
-            .registration()
-            .async_io(Interest::READABLE | Interest::ERROR, || {
-                self.peek_sender_inner()
-            })
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Retrieve the sender of the data at the head of the input queue,
     /// scheduling a wakeup if empty.
     ///
@@ -1856,12 +1504,12 @@ impl UdpSocket {
     ///
     /// [`poll_peek_from`]: method@Self::poll_peek_from
     /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
-    pub fn poll_peek_sender(&self, cx: &mut Context<'_>) -> Poll<io::Result<SocketAddr>> {
-        self.io
-            .registration()
-            .poll_read_io(cx, || self.peek_sender_inner())
+    pub fn poll_peek_sender(
+        &self,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<SocketAddr>> {
+        panic!("STUB: not implemented");
     }
-
     /// Try to retrieve the sender of the data at the head of the input queue.
     ///
     /// When there is no pending data, `Err(io::ErrorKind::WouldBlock)` is
@@ -1875,50 +1523,35 @@ impl UdpSocket {
     ///
     /// [packet injection attack]: https://en.wikipedia.org/wiki/Packet_injection
     pub fn try_peek_sender(&self) -> io::Result<SocketAddr> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || self.peek_sender_inner())
+        panic!("STUB: not implemented");
     }
-
     #[inline]
     fn peek_sender_inner(&self) -> io::Result<SocketAddr> {
-        self.io.try_io(|| {
-            self.as_socket()
-                .peek_sender()?
-                // May be `None` if the platform doesn't populate the sender for some reason.
-                // In testing, that only occurred on macOS if you pass a zero-sized buffer,
-                // but the implementation of `Socket::peek_sender()` covers that.
-                .as_socket()
-                .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "sender not available"))
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Gets the value of the `SO_BROADCAST` option for this socket.
     ///
     /// For more information about this option, see [`set_broadcast`].
     ///
     /// [`set_broadcast`]: method@Self::set_broadcast
     pub fn broadcast(&self) -> io::Result<bool> {
-        self.io.broadcast()
+        panic!("STUB: not implemented");
     }
-
     /// Sets the value of the `SO_BROADCAST` option for this socket.
     ///
     /// When enabled, this socket is allowed to send packets to a broadcast
     /// address.
     pub fn set_broadcast(&self, on: bool) -> io::Result<()> {
-        self.io.set_broadcast(on)
+        panic!("STUB: not implemented");
     }
-
     /// Gets the value of the `IP_MULTICAST_LOOP` option for this socket.
     ///
     /// For more information about this option, see [`set_multicast_loop_v4`].
     ///
     /// [`set_multicast_loop_v4`]: method@Self::set_multicast_loop_v4
     pub fn multicast_loop_v4(&self) -> io::Result<bool> {
-        self.io.multicast_loop_v4()
+        panic!("STUB: not implemented");
     }
-
     /// Sets the value of the `IP_MULTICAST_LOOP` option for this socket.
     ///
     /// If enabled, multicast packets will be looped back to the local socket.
@@ -1927,18 +1560,16 @@ impl UdpSocket {
     ///
     /// This may not have any effect on IPv6 sockets.
     pub fn set_multicast_loop_v4(&self, on: bool) -> io::Result<()> {
-        self.io.set_multicast_loop_v4(on)
+        panic!("STUB: not implemented");
     }
-
     /// Gets the value of the `IP_MULTICAST_TTL` option for this socket.
     ///
     /// For more information about this option, see [`set_multicast_ttl_v4`].
     ///
     /// [`set_multicast_ttl_v4`]: method@Self::set_multicast_ttl_v4
     pub fn multicast_ttl_v4(&self) -> io::Result<u32> {
-        self.io.multicast_ttl_v4()
+        panic!("STUB: not implemented");
     }
-
     /// Sets the value of the `IP_MULTICAST_TTL` option for this socket.
     ///
     /// Indicates the time-to-live value of outgoing multicast packets for
@@ -1949,18 +1580,16 @@ impl UdpSocket {
     ///
     /// This may not have any effect on IPv6 sockets.
     pub fn set_multicast_ttl_v4(&self, ttl: u32) -> io::Result<()> {
-        self.io.set_multicast_ttl_v4(ttl)
+        panic!("STUB: not implemented");
     }
-
     /// Gets the value of the `IPV6_MULTICAST_LOOP` option for this socket.
     ///
     /// For more information about this option, see [`set_multicast_loop_v6`].
     ///
     /// [`set_multicast_loop_v6`]: method@Self::set_multicast_loop_v6
     pub fn multicast_loop_v6(&self) -> io::Result<bool> {
-        self.io.multicast_loop_v6()
+        panic!("STUB: not implemented");
     }
-
     /// Sets the value of the `IPV6_MULTICAST_LOOP` option for this socket.
     ///
     /// Controls whether this socket sees the multicast packets it sends itself.
@@ -1969,29 +1598,15 @@ impl UdpSocket {
     ///
     /// This may not have any effect on IPv4 sockets.
     pub fn set_multicast_loop_v6(&self, on: bool) -> io::Result<()> {
-        self.io.set_multicast_loop_v6(on)
+        panic!("STUB: not implemented");
     }
-
     /// Gets the value of the `IPV6_TCLASS` option for this socket.
     ///
     /// For more information about this option, see [`set_tclass_v6`].
     ///
     /// [`set_tclass_v6`]: Self::set_tclass_v6
-    // https://docs.rs/socket2/0.6.1/src/socket2/sys/unix.rs.html#2541
-    #[cfg(any(
-        target_os = "android",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "fuchsia",
-        target_os = "linux",
-        target_os = "macos",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "cygwin",
-    ))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(any(
+    #[cfg(
+        any(
             target_os = "android",
             target_os = "dragonfly",
             target_os = "freebsd",
@@ -2001,12 +1616,29 @@ impl UdpSocket {
             target_os = "netbsd",
             target_os = "openbsd",
             target_os = "cygwin",
-        )))
+        )
+    )]
+    #[cfg_attr(
+        docsrs,
+        doc(
+            cfg(
+                any(
+                    target_os = "android",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "fuchsia",
+                    target_os = "linux",
+                    target_os = "macos",
+                    target_os = "netbsd",
+                    target_os = "openbsd",
+                    target_os = "cygwin",
+                )
+            )
+        )
     )]
     pub fn tclass_v6(&self) -> io::Result<u32> {
-        self.as_socket().tclass_v6()
+        panic!("STUB: not implemented");
     }
-
     /// Sets the value for the `IPV6_TCLASS` option on this socket.
     ///
     /// Specifies the traffic class field that is used in every packet
@@ -2015,21 +1647,8 @@ impl UdpSocket {
     /// # Note
     ///
     /// This may not have any effect on IPv4 sockets.
-    // https://docs.rs/socket2/0.6.1/src/socket2/sys/unix.rs.html#2566
-    #[cfg(any(
-        target_os = "android",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "fuchsia",
-        target_os = "linux",
-        target_os = "macos",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "cygwin",
-    ))]
-    #[cfg_attr(
-        docsrs,
-        doc(cfg(any(
+    #[cfg(
+        any(
             target_os = "android",
             target_os = "dragonfly",
             target_os = "freebsd",
@@ -2039,12 +1658,29 @@ impl UdpSocket {
             target_os = "netbsd",
             target_os = "openbsd",
             target_os = "cygwin",
-        )))
+        )
+    )]
+    #[cfg_attr(
+        docsrs,
+        doc(
+            cfg(
+                any(
+                    target_os = "android",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "fuchsia",
+                    target_os = "linux",
+                    target_os = "macos",
+                    target_os = "netbsd",
+                    target_os = "openbsd",
+                    target_os = "cygwin",
+                )
+            )
+        )
     )]
     pub fn set_tclass_v6(&self, tclass: u32) -> io::Result<()> {
-        self.as_socket().set_tclass_v6(tclass)
+        panic!("STUB: not implemented");
     }
-
     /// Gets the value of the `IP_TTL` option for this socket.
     ///
     /// For more information about this option, see [`set_ttl`].
@@ -2065,9 +1701,8 @@ impl UdpSocket {
     /// # }
     /// ```
     pub fn ttl(&self) -> io::Result<u32> {
-        self.io.ttl()
+        panic!("STUB: not implemented");
     }
-
     /// Sets the value for the `IP_TTL` option on this socket.
     ///
     /// This value sets the time-to-live field that is used in every packet sent
@@ -2087,38 +1722,45 @@ impl UdpSocket {
     /// # }
     /// ```
     pub fn set_ttl(&self, ttl: u32) -> io::Result<()> {
-        self.io.set_ttl(ttl)
+        panic!("STUB: not implemented");
     }
-
     /// Gets the value of the `IP_TOS` option for this socket.
     ///
     /// For more information about this option, see [`set_tos_v4`].
     ///
     /// [`set_tos_v4`]: Self::set_tos_v4
-    // https://docs.rs/socket2/0.6.1/src/socket2/socket.rs.html#1585
-    #[cfg(not(any(
-        target_os = "fuchsia",
-        target_os = "redox",
-        target_os = "solaris",
-        target_os = "illumos",
-        target_os = "haiku",
-        target_os = "wasi",
-    )))]
+    #[cfg(
+        not(
+            any(
+                target_os = "fuchsia",
+                target_os = "redox",
+                target_os = "solaris",
+                target_os = "illumos",
+                target_os = "haiku",
+                target_os = "wasi",
+            )
+        )
+    )]
     #[cfg_attr(
         docsrs,
-        doc(cfg(not(any(
-            target_os = "fuchsia",
-            target_os = "redox",
-            target_os = "solaris",
-            target_os = "illumos",
-            target_os = "haiku",
-            target_os = "wasi",
-        ))))
+        doc(
+            cfg(
+                not(
+                    any(
+                        target_os = "fuchsia",
+                        target_os = "redox",
+                        target_os = "solaris",
+                        target_os = "illumos",
+                        target_os = "haiku",
+                        target_os = "wasi",
+                    )
+                )
+            )
+        )
     )]
     pub fn tos_v4(&self) -> io::Result<u32> {
-        self.as_socket().tos_v4()
+        panic!("STUB: not implemented");
     }
-
     /// Deprecated. Use [`tos_v4()`] instead.
     ///
     /// [`tos_v4()`]: Self::tos_v4
@@ -2126,29 +1768,38 @@ impl UdpSocket {
         note = "`tos` related methods have been renamed `tos_v4` since they are IPv4-specific."
     )]
     #[doc(hidden)]
-    #[cfg(not(any(
-        target_os = "fuchsia",
-        target_os = "redox",
-        target_os = "solaris",
-        target_os = "illumos",
-        target_os = "haiku",
-        target_os = "wasi",
-    )))]
+    #[cfg(
+        not(
+            any(
+                target_os = "fuchsia",
+                target_os = "redox",
+                target_os = "solaris",
+                target_os = "illumos",
+                target_os = "haiku",
+                target_os = "wasi",
+            )
+        )
+    )]
     #[cfg_attr(
         docsrs,
-        doc(cfg(not(any(
-            target_os = "fuchsia",
-            target_os = "redox",
-            target_os = "solaris",
-            target_os = "illumos",
-            target_os = "haiku",
-            target_os = "wasi",
-        ))))
+        doc(
+            cfg(
+                not(
+                    any(
+                        target_os = "fuchsia",
+                        target_os = "redox",
+                        target_os = "solaris",
+                        target_os = "illumos",
+                        target_os = "haiku",
+                        target_os = "wasi",
+                    )
+                )
+            )
+        )
     )]
     pub fn tos(&self) -> io::Result<u32> {
-        self.tos_v4()
+        panic!("STUB: not implemented");
     }
-
     /// Sets the value for the `IP_TOS` option on this socket.
     ///
     /// This value sets the type-of-service field that is used in every packet
@@ -2159,30 +1810,38 @@ impl UdpSocket {
     /// - This may not have any effect on IPv6 sockets.
     /// - On Windows, `IP_TOS` is only supported on [Windows 8+ or
     ///   Windows Server 2012+.](https://docs.microsoft.com/en-us/windows/win32/winsock/ipproto-ip-socket-options)
-    // https://docs.rs/socket2/0.6.1/src/socket2/socket.rs.html#1566
-    #[cfg(not(any(
-        target_os = "fuchsia",
-        target_os = "redox",
-        target_os = "solaris",
-        target_os = "illumos",
-        target_os = "haiku",
-        target_os = "wasi",
-    )))]
+    #[cfg(
+        not(
+            any(
+                target_os = "fuchsia",
+                target_os = "redox",
+                target_os = "solaris",
+                target_os = "illumos",
+                target_os = "haiku",
+                target_os = "wasi",
+            )
+        )
+    )]
     #[cfg_attr(
         docsrs,
-        doc(cfg(not(any(
-            target_os = "fuchsia",
-            target_os = "redox",
-            target_os = "solaris",
-            target_os = "illumos",
-            target_os = "haiku",
-            target_os = "wasi",
-        ))))
+        doc(
+            cfg(
+                not(
+                    any(
+                        target_os = "fuchsia",
+                        target_os = "redox",
+                        target_os = "solaris",
+                        target_os = "illumos",
+                        target_os = "haiku",
+                        target_os = "wasi",
+                    )
+                )
+            )
+        )
     )]
     pub fn set_tos_v4(&self, tos: u32) -> io::Result<()> {
-        self.as_socket().set_tos_v4(tos)
+        panic!("STUB: not implemented");
     }
-
     /// Deprecated. Use [`set_tos_v4()`] instead.
     ///
     /// [`set_tos_v4()`]: Self::set_tos_v4
@@ -2190,41 +1849,49 @@ impl UdpSocket {
         note = "`tos` related methods have been renamed `tos_v4` since they are IPv4-specific."
     )]
     #[doc(hidden)]
-    #[cfg(not(any(
-        target_os = "fuchsia",
-        target_os = "redox",
-        target_os = "solaris",
-        target_os = "illumos",
-        target_os = "haiku",
-        target_os = "wasi",
-    )))]
+    #[cfg(
+        not(
+            any(
+                target_os = "fuchsia",
+                target_os = "redox",
+                target_os = "solaris",
+                target_os = "illumos",
+                target_os = "haiku",
+                target_os = "wasi",
+            )
+        )
+    )]
     #[cfg_attr(
         docsrs,
-        doc(cfg(not(any(
-            target_os = "fuchsia",
-            target_os = "redox",
-            target_os = "solaris",
-            target_os = "illumos",
-            target_os = "haiku",
-            target_os = "wasi",
-        ))))
+        doc(
+            cfg(
+                not(
+                    any(
+                        target_os = "fuchsia",
+                        target_os = "redox",
+                        target_os = "solaris",
+                        target_os = "illumos",
+                        target_os = "haiku",
+                        target_os = "wasi",
+                    )
+                )
+            )
+        )
     )]
     pub fn set_tos(&self, tos: u32) -> io::Result<()> {
-        self.set_tos_v4(tos)
+        panic!("STUB: not implemented");
     }
-
     /// Gets the value for the `SO_BINDTODEVICE` option on this socket
     ///
     /// This value gets the socket-bound device's interface name.
-    #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux",))]
+    #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
     #[cfg_attr(
         docsrs,
-        doc(cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux",)))
+        doc(cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux")))
     )]
     pub fn device(&self) -> io::Result<Option<Vec<u8>>> {
-        self.as_socket().device()
+        panic!("STUB: not implemented");
     }
-
     /// Sets the value for the `SO_BINDTODEVICE` option on this socket
     ///
     /// If a socket is bound to an interface, only packets received from that
@@ -2235,12 +1902,21 @@ impl UdpSocket {
     #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
     #[cfg_attr(
         docsrs,
-        doc(cfg(all(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))))
+        doc(
+            cfg(
+                all(
+                    any(
+                        target_os = "android",
+                        target_os = "fuchsia",
+                        target_os = "linux"
+                    )
+                )
+            )
+        )
     )]
     pub fn bind_device(&self, interface: Option<&[u8]>) -> io::Result<()> {
-        self.as_socket().bind_device(interface)
+        panic!("STUB: not implemented");
     }
-
     /// Executes an operation of the `IP_ADD_MEMBERSHIP` type.
     ///
     /// This function specifies a new multicast group for this socket to join.
@@ -2248,37 +1924,49 @@ impl UdpSocket {
     /// address of the local interface with which the system should join the
     /// multicast group. If it's equal to `INADDR_ANY` then an appropriate
     /// interface is chosen by the system.
-    pub fn join_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
-        self.io.join_multicast_v4(&multiaddr, &interface)
+    pub fn join_multicast_v4(
+        &self,
+        multiaddr: Ipv4Addr,
+        interface: Ipv4Addr,
+    ) -> io::Result<()> {
+        panic!("STUB: not implemented");
     }
-
     /// Executes an operation of the `IPV6_ADD_MEMBERSHIP` type.
     ///
     /// This function specifies a new multicast group for this socket to join.
     /// The address must be a valid multicast address, and `interface` is the
     /// index of the interface to join/leave (or 0 to indicate any interface).
-    pub fn join_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()> {
-        self.io.join_multicast_v6(multiaddr, interface)
+    pub fn join_multicast_v6(
+        &self,
+        multiaddr: &Ipv6Addr,
+        interface: u32,
+    ) -> io::Result<()> {
+        panic!("STUB: not implemented");
     }
-
     /// Executes an operation of the `IP_DROP_MEMBERSHIP` type.
     ///
     /// For more information about this option, see [`join_multicast_v4`].
     ///
     /// [`join_multicast_v4`]: method@Self::join_multicast_v4
-    pub fn leave_multicast_v4(&self, multiaddr: Ipv4Addr, interface: Ipv4Addr) -> io::Result<()> {
-        self.io.leave_multicast_v4(&multiaddr, &interface)
+    pub fn leave_multicast_v4(
+        &self,
+        multiaddr: Ipv4Addr,
+        interface: Ipv4Addr,
+    ) -> io::Result<()> {
+        panic!("STUB: not implemented");
     }
-
     /// Executes an operation of the `IPV6_DROP_MEMBERSHIP` type.
     ///
     /// For more information about this option, see [`join_multicast_v6`].
     ///
     /// [`join_multicast_v6`]: method@Self::join_multicast_v6
-    pub fn leave_multicast_v6(&self, multiaddr: &Ipv6Addr, interface: u32) -> io::Result<()> {
-        self.io.leave_multicast_v6(multiaddr, interface)
+    pub fn leave_multicast_v6(
+        &self,
+        multiaddr: &Ipv6Addr,
+        interface: u32,
+    ) -> io::Result<()> {
+        panic!("STUB: not implemented");
     }
-
     /// Returns the value of the `SO_ERROR` option.
     ///
     /// # Examples
@@ -2300,59 +1988,43 @@ impl UdpSocket {
     /// }
     /// ```
     pub fn take_error(&self) -> io::Result<Option<io::Error>> {
-        self.io.take_error()
+        panic!("STUB: not implemented");
     }
 }
-
 impl TryFrom<std::net::UdpSocket> for UdpSocket {
     type Error = io::Error;
-
     /// Consumes stream, returning the tokio I/O object.
     ///
     /// This is equivalent to
     /// [`UdpSocket::from_std(stream)`](UdpSocket::from_std).
     fn try_from(stream: std::net::UdpSocket) -> Result<Self, Self::Error> {
-        Self::from_std(stream)
+        panic!("STUB: not implemented");
     }
 }
-
 impl fmt::Debug for UdpSocket {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.io.fmt(f)
+        panic!("STUB: not implemented");
     }
 }
-
 #[cfg(not(windows))]
 mod sys {
     use super::UdpSocket;
     use std::os::fd::{AsFd, AsRawFd, BorrowedFd, RawFd};
-
     impl AsRawFd for UdpSocket {
         fn as_raw_fd(&self) -> RawFd {
-            self.io.as_raw_fd()
+            panic!("STUB: not implemented");
         }
     }
-
     impl AsFd for UdpSocket {
         fn as_fd(&self) -> BorrowedFd<'_> {
-            unsafe { BorrowedFd::borrow_raw(self.as_raw_fd()) }
+            panic!("STUB: not implemented");
         }
     }
 }
-
 cfg_windows! {
-    use crate::os::windows::io::{AsRawSocket, RawSocket};
-    use crate::os::windows::io::{AsSocket, BorrowedSocket};
-
-    impl AsRawSocket for UdpSocket {
-        fn as_raw_socket(&self) -> RawSocket {
-            self.io.as_raw_socket()
-        }
-    }
-
-    impl AsSocket for UdpSocket {
-        fn as_socket(&self) -> BorrowedSocket<'_> {
-            unsafe { BorrowedSocket::borrow_raw(self.as_raw_socket()) }
-        }
-    }
+    use crate ::os::windows::io:: { AsRawSocket, RawSocket }; use crate
+    ::os::windows::io:: { AsSocket, BorrowedSocket }; impl AsRawSocket for UdpSocket { fn
+    as_raw_socket(& self) -> RawSocket { self.io.as_raw_socket() } } impl AsSocket for
+    UdpSocket { fn as_socket(& self) -> BorrowedSocket <'_ > { unsafe {
+    BorrowedSocket::borrow_raw(self.as_raw_socket()) } } }
 }

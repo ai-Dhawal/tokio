@@ -1,9 +1,8 @@
-use super::batch_semaphore as ll; // low level implementation
+use super::batch_semaphore as ll;
 use super::{AcquireError, TryAcquireError};
 #[cfg(all(tokio_unstable, feature = "tracing"))]
 use crate::util::trace;
 use std::sync::Arc;
-
 /// Counting semaphore performing asynchronous permit acquisition.
 ///
 /// A semaphore maintains a set of permits. Permits are used to synchronize
@@ -401,7 +400,6 @@ pub struct Semaphore {
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
 }
-
 /// A permit from the semaphore.
 ///
 /// This type is created by the [`acquire`] method.
@@ -414,7 +412,6 @@ pub struct SemaphorePermit<'a> {
     sem: &'a Semaphore,
     permits: u32,
 }
-
 /// An owned permit from the semaphore.
 ///
 /// This type is created by the [`acquire_owned`] method.
@@ -427,62 +424,36 @@ pub struct OwnedSemaphorePermit {
     sem: Arc<Semaphore>,
     permits: u32,
 }
-
 #[test]
 #[cfg(not(loom))]
 fn bounds() {
-    fn check_unpin<T: Unpin>() {}
-    // This has to take a value, since the async fn's return type is unnameable.
-    fn check_send_sync_val<T: Send + Sync>(_t: T) {}
-    fn check_send_sync<T: Send + Sync>() {}
+    fn check_unpin<T: Unpin>() {
+        panic!("STUB: not implemented");
+    }
+    fn check_send_sync_val<T: Send + Sync>(_t: T) {
+        panic!("STUB: not implemented");
+    }
+    fn check_send_sync<T: Send + Sync>() {
+        panic!("STUB: not implemented");
+    }
     check_unpin::<Semaphore>();
     check_unpin::<SemaphorePermit<'_>>();
     check_send_sync::<Semaphore>();
-
     let semaphore = Semaphore::new(0);
     check_send_sync_val(semaphore.acquire());
 }
-
 impl Semaphore {
     /// The maximum number of permits which a semaphore can hold. It is `usize::MAX >> 3`.
     ///
     /// Exceeding this limit typically results in a panic.
     pub const MAX_PERMITS: usize = super::batch_semaphore::Semaphore::MAX_PERMITS;
-
     /// Creates a new semaphore with the initial number of permits.
     ///
     /// Panics if `permits` exceeds [`Semaphore::MAX_PERMITS`].
     #[track_caller]
     pub fn new(permits: usize) -> Self {
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let resource_span = {
-            let location = std::panic::Location::caller();
-
-            tracing::trace_span!(
-                parent: None,
-                "runtime.resource",
-                concrete_type = "Semaphore",
-                kind = "Sync",
-                loc.file = location.file(),
-                loc.line = location.line(),
-                loc.col = location.column(),
-                inherits_child_attrs = true,
-            )
-        };
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let ll_sem = resource_span.in_scope(|| ll::Semaphore::new(permits));
-
-        #[cfg(any(not(tokio_unstable), not(feature = "tracing")))]
-        let ll_sem = ll::Semaphore::new(permits);
-
-        Self {
-            ll_sem,
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new semaphore with the initial number of permits.
     ///
     /// When using the `tracing` [unstable feature], a `Semaphore` created with
@@ -508,16 +479,10 @@ impl Semaphore {
             resource_span: tracing::Span::none(),
         }
     }
-
     /// Creates a new closed semaphore with 0 permits.
     pub(crate) fn new_closed() -> Self {
-        Self {
-            ll_sem: ll::Semaphore::new_closed(),
-            #[cfg(all(tokio_unstable, feature = "tracing"))]
-            resource_span: tracing::Span::none(),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new closed semaphore with 0 permits.
     #[cfg(not(all(loom, test)))]
     pub(crate) const fn const_new_closed() -> Self {
@@ -527,27 +492,23 @@ impl Semaphore {
             resource_span: tracing::Span::none(),
         }
     }
-
     /// Returns the current number of available permits.
     pub fn available_permits(&self) -> usize {
-        self.ll_sem.available_permits()
+        panic!("STUB: not implemented");
     }
-
     /// Adds `n` new permits to the semaphore.
     ///
     /// The maximum number of permits is [`Semaphore::MAX_PERMITS`], and this function will panic if the limit is exceeded.
     pub fn add_permits(&self, n: usize) {
-        self.ll_sem.release(n);
+        panic!("STUB: not implemented");
     }
-
     /// Decrease a semaphore's permits by a maximum of `n`.
     ///
     /// If there are insufficient permits and it's not possible to reduce by `n`,
     /// return the number of permits that were actually reduced.
     pub fn forget_permits(&self, n: usize) -> usize {
-        self.ll_sem.forget_permits(n)
+        panic!("STUB: not implemented");
     }
-
     /// Acquires a permit from the semaphore.
     ///
     /// If the semaphore has been closed, this returns an [`AcquireError`].
@@ -583,24 +544,8 @@ impl Semaphore {
     /// [`AcquireError`]: crate::sync::AcquireError
     /// [`SemaphorePermit`]: crate::sync::SemaphorePermit
     pub async fn acquire(&self) -> Result<SemaphorePermit<'_>, AcquireError> {
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let inner = trace::async_op(
-            || self.ll_sem.acquire(1),
-            self.resource_span.clone(),
-            "Semaphore::acquire",
-            "poll",
-            true,
-        );
-        #[cfg(not(all(tokio_unstable, feature = "tracing")))]
-        let inner = self.ll_sem.acquire(1);
-
-        inner.await?;
-        Ok(SemaphorePermit {
-            sem: self,
-            permits: 1,
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Acquires `n` permits from the semaphore.
     ///
     /// If the semaphore has been closed, this returns an [`AcquireError`].
@@ -629,26 +574,12 @@ impl Semaphore {
     ///
     /// [`AcquireError`]: crate::sync::AcquireError
     /// [`SemaphorePermit`]: crate::sync::SemaphorePermit
-    pub async fn acquire_many(&self, n: u32) -> Result<SemaphorePermit<'_>, AcquireError> {
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        trace::async_op(
-            || self.ll_sem.acquire(n as usize),
-            self.resource_span.clone(),
-            "Semaphore::acquire_many",
-            "poll",
-            true,
-        )
-        .await?;
-
-        #[cfg(not(all(tokio_unstable, feature = "tracing")))]
-        self.ll_sem.acquire(n as usize).await?;
-
-        Ok(SemaphorePermit {
-            sem: self,
-            permits: n,
-        })
+    pub async fn acquire_many(
+        &self,
+        n: u32,
+    ) -> Result<SemaphorePermit<'_>, AcquireError> {
+        panic!("STUB: not implemented");
     }
-
     /// Tries to acquire a permit from the semaphore.
     ///
     /// If the semaphore has been closed, this returns a [`TryAcquireError::Closed`]
@@ -678,15 +609,8 @@ impl Semaphore {
     /// [`TryAcquireError::NoPermits`]: crate::sync::TryAcquireError::NoPermits
     /// [`SemaphorePermit`]: crate::sync::SemaphorePermit
     pub fn try_acquire(&self) -> Result<SemaphorePermit<'_>, TryAcquireError> {
-        match self.ll_sem.try_acquire(1) {
-            Ok(()) => Ok(SemaphorePermit {
-                sem: self,
-                permits: 1,
-            }),
-            Err(e) => Err(e),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Tries to acquire `n` permits from the semaphore.
     ///
     /// If the semaphore has been closed, this returns a [`TryAcquireError::Closed`]
@@ -712,16 +636,12 @@ impl Semaphore {
     /// [`TryAcquireError::Closed`]: crate::sync::TryAcquireError::Closed
     /// [`TryAcquireError::NoPermits`]: crate::sync::TryAcquireError::NoPermits
     /// [`SemaphorePermit`]: crate::sync::SemaphorePermit
-    pub fn try_acquire_many(&self, n: u32) -> Result<SemaphorePermit<'_>, TryAcquireError> {
-        match self.ll_sem.try_acquire(n as usize) {
-            Ok(()) => Ok(SemaphorePermit {
-                sem: self,
-                permits: n,
-            }),
-            Err(e) => Err(e),
-        }
+    pub fn try_acquire_many(
+        &self,
+        n: u32,
+    ) -> Result<SemaphorePermit<'_>, TryAcquireError> {
+        panic!("STUB: not implemented");
     }
-
     /// Acquires a permit from the semaphore.
     ///
     /// The semaphore must be wrapped in an [`Arc`] to call this method.
@@ -764,25 +684,11 @@ impl Semaphore {
     /// [`Arc`]: std::sync::Arc
     /// [`AcquireError`]: crate::sync::AcquireError
     /// [`OwnedSemaphorePermit`]: crate::sync::OwnedSemaphorePermit
-    pub async fn acquire_owned(self: Arc<Self>) -> Result<OwnedSemaphorePermit, AcquireError> {
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let inner = trace::async_op(
-            || self.ll_sem.acquire(1),
-            self.resource_span.clone(),
-            "Semaphore::acquire_owned",
-            "poll",
-            true,
-        );
-        #[cfg(not(all(tokio_unstable, feature = "tracing")))]
-        let inner = self.ll_sem.acquire(1);
-
-        inner.await?;
-        Ok(OwnedSemaphorePermit {
-            sem: self,
-            permits: 1,
-        })
+    pub async fn acquire_owned(
+        self: Arc<Self>,
+    ) -> Result<OwnedSemaphorePermit, AcquireError> {
+        panic!("STUB: not implemented");
     }
-
     /// Acquires `n` permits from the semaphore.
     ///
     /// The semaphore must be wrapped in an [`Arc`] to call this method.
@@ -829,24 +735,8 @@ impl Semaphore {
         self: Arc<Self>,
         n: u32,
     ) -> Result<OwnedSemaphorePermit, AcquireError> {
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let inner = trace::async_op(
-            || self.ll_sem.acquire(n as usize),
-            self.resource_span.clone(),
-            "Semaphore::acquire_many_owned",
-            "poll",
-            true,
-        );
-        #[cfg(not(all(tokio_unstable, feature = "tracing")))]
-        let inner = self.ll_sem.acquire(n as usize);
-
-        inner.await?;
-        Ok(OwnedSemaphorePermit {
-            sem: self,
-            permits: n,
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Tries to acquire a permit from the semaphore.
     ///
     /// The semaphore must be wrapped in an [`Arc`] to call this method. If
@@ -879,16 +769,11 @@ impl Semaphore {
     /// [`TryAcquireError::Closed`]: crate::sync::TryAcquireError::Closed
     /// [`TryAcquireError::NoPermits`]: crate::sync::TryAcquireError::NoPermits
     /// [`OwnedSemaphorePermit`]: crate::sync::OwnedSemaphorePermit
-    pub fn try_acquire_owned(self: Arc<Self>) -> Result<OwnedSemaphorePermit, TryAcquireError> {
-        match self.ll_sem.try_acquire(1) {
-            Ok(()) => Ok(OwnedSemaphorePermit {
-                sem: self,
-                permits: 1,
-            }),
-            Err(e) => Err(e),
-        }
+    pub fn try_acquire_owned(
+        self: Arc<Self>,
+    ) -> Result<OwnedSemaphorePermit, TryAcquireError> {
+        panic!("STUB: not implemented");
     }
-
     /// Tries to acquire `n` permits from the semaphore.
     ///
     /// The semaphore must be wrapped in an [`Arc`] to call this method. If
@@ -922,15 +807,8 @@ impl Semaphore {
         self: Arc<Self>,
         n: u32,
     ) -> Result<OwnedSemaphorePermit, TryAcquireError> {
-        match self.ll_sem.try_acquire(n as usize) {
-            Ok(()) => Ok(OwnedSemaphorePermit {
-                sem: self,
-                permits: n,
-            }),
-            Err(e) => Err(e),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Closes the semaphore.
     ///
     /// This prevents the semaphore from issuing new permits and notifies all pending waiters.
@@ -961,15 +839,13 @@ impl Semaphore {
     /// # }
     /// ```
     pub fn close(&self) {
-        self.ll_sem.close();
+        panic!("STUB: not implemented");
     }
-
     /// Returns true if the semaphore is closed
     pub fn is_closed(&self) -> bool {
-        self.ll_sem.is_closed()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a> SemaphorePermit<'a> {
     /// Forgets the permit **without** releasing it back to the semaphore.
     /// This can be used to reduce the amount of permits available from a
@@ -993,9 +869,8 @@ impl<'a> SemaphorePermit<'a> {
     /// assert_eq!(sem.available_permits(), 5);
     /// ```
     pub fn forget(mut self) {
-        self.permits = 0;
+        panic!("STUB: not implemented");
     }
-
     /// Merge two [`SemaphorePermit`] instances together, consuming `other`
     /// without releasing the permits it holds.
     ///
@@ -1030,14 +905,8 @@ impl<'a> SemaphorePermit<'a> {
     /// ```
     #[track_caller]
     pub fn merge(&mut self, mut other: Self) {
-        assert!(
-            std::ptr::eq(self.sem, other.sem),
-            "merging permits from different semaphore instances"
-        );
-        self.permits += other.permits;
-        other.permits = 0;
+        panic!("STUB: not implemented");
     }
-
     /// Splits `n` permits from `self` and returns a new [`SemaphorePermit`] instance that holds `n` permits.
     ///
     /// If there are insufficient permits and it's not possible to reduce by `n`, returns `None`.
@@ -1057,26 +926,13 @@ impl<'a> SemaphorePermit<'a> {
     /// assert_eq!(p2.num_permits(), 1);
     /// ```
     pub fn split(&mut self, n: usize) -> Option<Self> {
-        let n = u32::try_from(n).ok()?;
-
-        if n > self.permits {
-            return None;
-        }
-
-        self.permits -= n;
-
-        Some(Self {
-            sem: self.sem,
-            permits: n,
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of permits held by `self`.
     pub fn num_permits(&self) -> usize {
-        self.permits as usize
+        panic!("STUB: not implemented");
     }
 }
-
 impl OwnedSemaphorePermit {
     /// Forgets the permit **without** releasing it back to the semaphore.
     /// This can be used to reduce the amount of permits available from a
@@ -1100,9 +956,8 @@ impl OwnedSemaphorePermit {
     /// assert_eq!(sem.available_permits(), 5);
     /// ```
     pub fn forget(mut self) {
-        self.permits = 0;
+        panic!("STUB: not implemented");
     }
-
     /// Merge two [`OwnedSemaphorePermit`] instances together, consuming `other`
     /// without releasing the permits it holds.
     ///
@@ -1137,14 +992,8 @@ impl OwnedSemaphorePermit {
     /// ```
     #[track_caller]
     pub fn merge(&mut self, mut other: Self) {
-        assert!(
-            Arc::ptr_eq(&self.sem, &other.sem),
-            "merging permits from different semaphore instances"
-        );
-        self.permits += other.permits;
-        other.permits = 0;
+        panic!("STUB: not implemented");
     }
-
     /// Splits `n` permits from `self` and returns a new [`OwnedSemaphorePermit`] instance that holds `n` permits.
     ///
     /// If there are insufficient permits and it's not possible to reduce by `n`, returns `None`.
@@ -1168,39 +1017,24 @@ impl OwnedSemaphorePermit {
     /// assert_eq!(p2.num_permits(), 1);
     /// ```
     pub fn split(&mut self, n: usize) -> Option<Self> {
-        let n = u32::try_from(n).ok()?;
-
-        if n > self.permits {
-            return None;
-        }
-
-        self.permits -= n;
-
-        Some(Self {
-            sem: self.sem.clone(),
-            permits: n,
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Returns the [`Semaphore`] from which this permit was acquired.
     pub fn semaphore(&self) -> &Arc<Semaphore> {
-        &self.sem
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of permits held by `self`.
     pub fn num_permits(&self) -> usize {
-        self.permits as usize
+        panic!("STUB: not implemented");
     }
 }
-
 impl Drop for SemaphorePermit<'_> {
     fn drop(&mut self) {
-        self.sem.add_permits(self.permits as usize);
+        panic!("STUB: not implemented");
     }
 }
-
 impl Drop for OwnedSemaphorePermit {
     fn drop(&mut self) {
-        self.sem.add_permits(self.permits as usize);
+        panic!("STUB: not implemented");
     }
 }

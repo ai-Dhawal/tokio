@@ -225,25 +225,19 @@
 //! [`Command`]: crate::process::Command
 //! [`Command::kill_on_drop`]: crate::process::Command::kill_on_drop
 //! [`Child`]: crate::process::Child
-
 #[path = "unix/mod.rs"]
 #[cfg(unix)]
 mod imp;
-
 #[cfg(unix)]
 pub(crate) mod unix {
     pub(crate) use super::imp::*;
 }
-
 #[path = "windows.rs"]
 #[cfg(windows)]
 mod imp;
-
 mod kill;
-
 use crate::io::{AsyncRead, AsyncWrite, ReadBuf};
 use crate::process::kill::Kill;
-
 use std::ffi::OsStr;
 use std::future::Future;
 use std::io;
@@ -251,16 +245,13 @@ use std::path::Path;
 use std::pin::Pin;
 use std::process::{Child as StdChild, Command as StdCommand, ExitStatus, Output, Stdio};
 use std::task::{ready, Context, Poll};
-
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-
 cfg_windows! {
-    use crate::os::windows::io::{AsRawHandle, RawHandle};
+    use crate ::os::windows::io:: { AsRawHandle, RawHandle };
 }
-
 /// This structure mimics the API of [`std::process::Command`] found in the standard library, but
 /// replaces functions that create a process with an asynchronous variant. The main provided
 /// asynchronous functions are [spawn](Command::spawn), [status](Command::status), and
@@ -275,14 +266,12 @@ pub struct Command {
     std: StdCommand,
     kill_on_drop: bool,
 }
-
 pub(crate) struct SpawnedChild {
     child: imp::Child,
     stdin: Option<imp::ChildStdio>,
     stdout: Option<imp::ChildStdio>,
     stderr: Option<imp::ChildStdio>,
 }
-
 impl Command {
     /// Constructs a new `Command` for launching the program at
     /// path `program`, with the following default configuration:
@@ -315,30 +304,26 @@ impl Command {
     ///
     /// [rust-lang/rust#37519]: https://github.com/rust-lang/rust/issues/37519
     pub fn new<S: AsRef<OsStr>>(program: S) -> Command {
-        Self::from(StdCommand::new(program))
+        panic!("STUB: not implemented");
     }
-
     /// Cheaply convert to a `&std::process::Command` for places where the type from the standard
     /// library is expected.
     pub fn as_std(&self) -> &StdCommand {
-        &self.std
+        panic!("STUB: not implemented");
     }
-
     /// Cheaply convert to a `&mut std::process::Command` for places where the type from the
     /// standard library is expected.
     pub fn as_std_mut(&mut self) -> &mut StdCommand {
-        &mut self.std
+        panic!("STUB: not implemented");
     }
-
     /// Cheaply convert into a `std::process::Command`.
     ///
     /// Note that Tokio specific options will be lost. Currently, this only applies to [`kill_on_drop`].
     ///
     /// [`kill_on_drop`]: Command::kill_on_drop
     pub fn into_std(self) -> StdCommand {
-        self.std
+        panic!("STUB: not implemented");
     }
-
     /// Adds an argument to pass to the program.
     ///
     /// Only one argument can be passed per use. So instead of:
@@ -380,10 +365,8 @@ impl Command {
     ///
     /// ```
     pub fn arg<S: AsRef<OsStr>>(&mut self, arg: S) -> &mut Command {
-        self.std.arg(arg);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Adds multiple arguments to pass to the program.
     ///
     /// To pass a single argument see [`arg`].
@@ -408,21 +391,17 @@ impl Command {
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
     {
-        self.std.args(args);
-        self
+        panic!("STUB: not implemented");
     }
-
     cfg_windows! {
-        /// Append literal text to the command line without any quoting or escaping.
-        ///
-        /// This is useful for passing arguments to `cmd.exe /c`, which doesn't follow
-        /// `CommandLineToArgvW` escaping rules.
-        pub fn raw_arg<S: AsRef<OsStr>>(&mut self, text_to_append_as_is: S) -> &mut Command {
-            self.std.raw_arg(text_to_append_as_is);
-            self
-        }
+        #[doc =
+        " Append literal text to the command line without any quoting or escaping."]
+        #[doc = ""] #[doc =
+        " This is useful for passing arguments to `cmd.exe /c`, which doesn't follow"]
+        #[doc = " `CommandLineToArgvW` escaping rules."] pub fn raw_arg < S : AsRef <
+        OsStr >> (& mut self, text_to_append_as_is : S) -> & mut Command { self.std
+        .raw_arg(text_to_append_as_is); self }
     }
-
     /// Inserts or updates an environment variable mapping.
     ///
     /// Note that environment variable names are case-insensitive (but case-preserving) on Windows,
@@ -446,10 +425,8 @@ impl Command {
         K: AsRef<OsStr>,
         V: AsRef<OsStr>,
     {
-        self.std.env(key, val);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Adds or updates multiple environment variable mappings.
     ///
     /// # Examples
@@ -482,10 +459,8 @@ impl Command {
         K: AsRef<OsStr>,
         V: AsRef<OsStr>,
     {
-        self.std.envs(vars);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Removes an environment variable mapping.
     ///
     /// # Examples
@@ -502,10 +477,8 @@ impl Command {
     /// # }
     /// ```
     pub fn env_remove<K: AsRef<OsStr>>(&mut self, key: K) -> &mut Command {
-        self.std.env_remove(key);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Clears the entire environment map for the child process.
     ///
     /// # Examples
@@ -522,10 +495,8 @@ impl Command {
     /// # }
     /// ```
     pub fn env_clear(&mut self) -> &mut Command {
-        self.std.env_clear();
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets the working directory for the child process.
     ///
     /// # Platform-specific behavior
@@ -552,10 +523,8 @@ impl Command {
     /// # }
     /// ```
     pub fn current_dir<P: AsRef<Path>>(&mut self, dir: P) -> &mut Command {
-        self.std.current_dir(dir);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets configuration for the child process's standard input (stdin) handle.
     ///
     /// Defaults to [`inherit`].
@@ -577,10 +546,8 @@ impl Command {
     /// # }
     /// ```
     pub fn stdin<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Command {
-        self.std.stdin(cfg);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets configuration for the child process's standard output (stdout) handle.
     ///
     /// Defaults to [`inherit`] when used with `spawn` or `status`, and
@@ -604,10 +571,8 @@ impl Command {
     /// # }
     /// ```
     pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Command {
-        self.std.stdout(cfg);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets configuration for the child process's standard error (stderr) handle.
     ///
     /// Defaults to [`inherit`] when used with `spawn` or `status`, and
@@ -631,10 +596,8 @@ impl Command {
     /// # }
     /// ```
     pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut Command {
-        self.std.stderr(cfg);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Controls whether a `kill` operation should be invoked on a spawned child
     /// process when its corresponding `Child` handle is dropped.
     ///
@@ -662,45 +625,32 @@ impl Command {
     /// a [`Child`] handle where possible, and instead utilize `child.wait().await`
     /// or `child.kill().await` where possible.
     pub fn kill_on_drop(&mut self, kill_on_drop: bool) -> &mut Command {
-        self.kill_on_drop = kill_on_drop;
-        self
+        panic!("STUB: not implemented");
     }
-
     cfg_windows! {
-        /// Sets the [process creation flags][1] to be passed to `CreateProcess`.
-        ///
-        /// These will always be ORed with `CREATE_UNICODE_ENVIRONMENT`.
-        ///
-        /// [1]: https://msdn.microsoft.com/en-us/library/windows/desktop/ms684863(v=vs.85).aspx
-        pub fn creation_flags(&mut self, flags: u32) -> &mut Command {
-            self.std.creation_flags(flags);
-            self
-        }
+        #[doc = " Sets the [process creation flags][1] to be passed to `CreateProcess`."]
+        #[doc = ""] #[doc =
+        " These will always be ORed with `CREATE_UNICODE_ENVIRONMENT`."] #[doc = ""]
+        #[doc =
+        " [1]: https://msdn.microsoft.com/en-us/library/windows/desktop/ms684863(v=vs.85).aspx"]
+        pub fn creation_flags(& mut self, flags : u32) -> & mut Command { self.std
+        .creation_flags(flags); self }
     }
-
     /// Sets the child process's user ID. This translates to a
     /// `setuid` call in the child process. Failure in the `setuid`
     /// call will cause the spawn to fail.
     #[cfg(unix)]
     #[cfg_attr(docsrs, doc(cfg(unix)))]
     pub fn uid(&mut self, id: u32) -> &mut Command {
-        #[cfg(target_os = "nto")]
-        let id = id as i32;
-        self.std.uid(id);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Similar to `uid` but sets the group ID of the child process. This has
     /// the same semantics as the `uid` field.
     #[cfg(unix)]
     #[cfg_attr(docsrs, doc(cfg(unix)))]
     pub fn gid(&mut self, id: u32) -> &mut Command {
-        #[cfg(target_os = "nto")]
-        let id = id as i32;
-        self.std.gid(id);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets executable argument.
     ///
     /// Set the first process argument, `argv[0]`, to something other than the
@@ -711,10 +661,8 @@ impl Command {
     where
         S: AsRef<OsStr>,
     {
-        self.std.arg0(arg);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Schedules a closure to be run just before the `exec` function is
     /// invoked.
     ///
@@ -750,10 +698,8 @@ impl Command {
     where
         F: FnMut() -> io::Result<()> + Send + Sync + 'static,
     {
-        unsafe { self.std.pre_exec(f) };
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets the process group ID (PGID) of the child process. Equivalent to a
     /// `setpgid` call in the child process, but may be more efficient.
     ///
@@ -788,10 +734,8 @@ impl Command {
     #[cfg(unix)]
     #[cfg_attr(docsrs, doc(cfg(unix)))]
     pub fn process_group(&mut self, pgroup: i32) -> &mut Command {
-        self.std.process_group(pgroup);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Executes the command as a child process, returning a handle to it.
     ///
     /// By default, stdin, stdout and stderr are inherited from the parent.
@@ -861,11 +805,8 @@ impl Command {
     /// running on the system).
     #[inline]
     pub fn spawn(&mut self) -> io::Result<Child> {
-        // On two lines to circumvent a mutable borrow check failure.
-        let child = self.std.spawn()?;
-        self.build_child(child)
+        panic!("STUB: not implemented");
     }
-
     /// Executes the command as a child process with a custom spawning function,
     /// returning a handle to it.
     ///
@@ -935,11 +876,8 @@ impl Command {
         &mut self,
         with: impl FnOnce(&mut StdCommand) -> io::Result<StdChild>,
     ) -> io::Result<Child> {
-        // On two lines to circumvent a mutable borrow check failure.
-        let child = with(&mut self.std)?;
-        self.build_child(child)
+        panic!("STUB: not implemented");
     }
-
     /// Small indirection for the spawn implementations.
     ///
     /// This is introduced for [`Self::spawn`] and [`Self::spawn_with`] to use:
@@ -948,19 +886,8 @@ impl Command {
     /// monomorphization bloat by taking in an already-spawned child process
     /// instead of a command and custom spawn function.
     fn build_child(&self, child: StdChild) -> io::Result<Child> {
-        let spawned_child = imp::build_child(child)?;
-
-        Ok(Child {
-            child: FusedChild::Child(ChildDropGuard {
-                inner: spawned_child.child,
-                kill_on_drop: self.kill_on_drop,
-            }),
-            stdin: spawned_child.stdin.map(|inner| ChildStdin { inner }),
-            stdout: spawned_child.stdout.map(|inner| ChildStdout { inner }),
-            stderr: spawned_child.stderr.map(|inner| ChildStderr { inner }),
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Executes the command as a child process, waiting for it to finish and
     /// collecting its exit status.
     ///
@@ -1000,22 +927,9 @@ impl Command {
     /// }
     /// ```
     pub fn status(&mut self) -> impl Future<Output = io::Result<ExitStatus>> {
-        let child = self.spawn();
-
-        async {
-            let mut child = child?;
-
-            // Ensure we close any stdio handles so we can't deadlock
-            // waiting on the child which may be waiting to read/write
-            // to a pipe we're holding.
-            child.stdin.take();
-            child.stdout.take();
-            child.stderr.take();
-
-            child.wait().await
-        }
+        panic!("STUB: not implemented");
+        #[allow(unreachable_code)] std::future::ready::<io::Result<ExitStatus>>(panic!())
     }
-
     /// Executes the command as a child process, waiting for it to finish and
     /// collecting all of its output.
     ///
@@ -1063,14 +977,9 @@ impl Command {
     /// }
     /// ```
     pub fn output(&mut self) -> impl Future<Output = io::Result<Output>> {
-        self.std.stdout(Stdio::piped());
-        self.std.stderr(Stdio::piped());
-
-        let child = self.spawn();
-
-        async { child?.wait_with_output().await }
+        panic!("STUB: not implemented");
+        #[allow(unreachable_code)] std::future::ready::<io::Result<Output>>(panic!())
     }
-
     /// Returns the boolean value that was previously set by [`Command::kill_on_drop`].
     ///
     /// Note that if you have not previously called [`Command::kill_on_drop`], the
@@ -1088,72 +997,39 @@ impl Command {
     /// assert!(cmd.get_kill_on_drop());
     /// ```
     pub fn get_kill_on_drop(&self) -> bool {
-        self.kill_on_drop
+        panic!("STUB: not implemented");
     }
 }
-
 impl From<StdCommand> for Command {
     fn from(std: StdCommand) -> Command {
-        Command {
-            std,
-            kill_on_drop: false,
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 /// A drop guard which can ensure the child process is killed on drop if specified.
 #[derive(Debug)]
 struct ChildDropGuard<T: Kill> {
     inner: T,
     kill_on_drop: bool,
 }
-
 impl<T: Kill> Kill for ChildDropGuard<T> {
     fn kill(&mut self) -> io::Result<()> {
-        let ret = self.inner.kill();
-
-        if ret.is_ok() {
-            self.kill_on_drop = false;
-        }
-
-        ret
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: Kill> Drop for ChildDropGuard<T> {
     fn drop(&mut self) {
-        if self.kill_on_drop {
-            drop(self.kill());
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T, E, F> Future for ChildDropGuard<F>
 where
     F: Future<Output = Result<T, E>> + Kill + Unpin,
 {
     type Output = Result<T, E>;
-
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        ready!(crate::trace::trace_leaf());
-        // Keep track of task budget
-        let coop = ready!(crate::task::coop::poll_proceed(cx));
-
-        let ret = Pin::new(&mut self.inner).poll(cx);
-
-        if let Poll::Ready(Ok(_)) = ret {
-            // Avoid the overhead of trying to kill a reaped process
-            self.kill_on_drop = false;
-        }
-
-        if ret.is_ready() {
-            coop.made_progress();
-        }
-
-        ret
+        panic!("STUB: not implemented");
     }
 }
-
 /// Keeps track of the exit status of a child process without worrying about
 /// polling the underlying futures even after they have completed.
 #[derive(Debug)]
@@ -1161,7 +1037,6 @@ enum FusedChild {
     Child(ChildDropGuard<imp::Child>),
     Done(ExitStatus),
 }
-
 /// Representation of a child process spawned onto an event loop.
 ///
 /// # Caveats
@@ -1175,7 +1050,6 @@ enum FusedChild {
 #[derive(Debug)]
 pub struct Child {
     child: FusedChild,
-
     /// The handle for writing to the child's standard input (stdin), if it has
     /// been captured. To avoid partially moving the `child` and thus blocking
     /// yourself from calling functions on `child` while using `stdin`, you might
@@ -1186,7 +1060,6 @@ pub struct Child {
     /// let stdin = child.stdin.take().unwrap();
     /// ```
     pub stdin: Option<ChildStdin>,
-
     /// The handle for reading from the child's standard output (stdout), if it
     /// has been captured. You might find it helpful to do
     ///
@@ -1198,7 +1071,6 @@ pub struct Child {
     /// to avoid partially moving the `child` and thus blocking yourself from calling
     /// functions on `child` while using `stdout`.
     pub stdout: Option<ChildStdout>,
-
     /// The handle for reading from the child's standard error (stderr), if it
     /// has been captured. You might find it helpful to do
     ///
@@ -1211,7 +1083,6 @@ pub struct Child {
     /// functions on `child` while using `stderr`.
     pub stderr: Option<ChildStderr>,
 }
-
 impl Child {
     /// Returns the OS-assigned process identifier associated with this child
     /// while it is still running.
@@ -1220,23 +1091,16 @@ impl Child {
     /// This is done to avoid confusion on platforms like Unix where the OS
     /// identifier could be reused once the process has completed.
     pub fn id(&self) -> Option<u32> {
-        match &self.child {
-            FusedChild::Child(child) => Some(child.inner.id()),
-            FusedChild::Done(_) => None,
-        }
+        panic!("STUB: not implemented");
     }
-
     cfg_windows! {
-        /// Extracts the raw handle of the process associated with this child while
-        /// it is still running. Returns `None` if the child has exited.
-        pub fn raw_handle(&self) -> Option<RawHandle> {
-            match &self.child {
-                FusedChild::Child(c) => Some(c.inner.as_raw_handle()),
-                FusedChild::Done(_) => None,
-            }
-        }
+        #[doc =
+        " Extracts the raw handle of the process associated with this child while"] #[doc
+        = " it is still running. Returns `None` if the child has exited."] pub fn
+        raw_handle(& self) -> Option < RawHandle > { match & self.child {
+        FusedChild::Child(c) => Some(c.inner.as_raw_handle()), FusedChild::Done(_) =>
+        None, } }
     }
-
     /// Attempts to force the child to exit, but does not wait for the request
     /// to take effect.
     ///
@@ -1245,12 +1109,8 @@ impl Child {
     /// after a kill is sent; to avoid this, the caller should ensure that either
     /// `child.wait().await` or `child.try_wait()` is invoked successfully.
     pub fn start_kill(&mut self) -> io::Result<()> {
-        match &mut self.child {
-            FusedChild::Child(child) => child.kill(),
-            FusedChild::Done(_) => Ok(()),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Forces the child to exit.
     ///
     /// This is equivalent to sending a `SIGKILL` on unix platforms
@@ -1324,11 +1184,8 @@ impl Child {
     /// }
     /// ```
     pub async fn kill(&mut self) -> io::Result<()> {
-        self.start_kill()?;
-        self.wait().await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the child to exit completely, returning the status that it
     /// exited with. This function will continue to have the same return value
     /// after it has been called at least once.
@@ -1377,24 +1234,8 @@ impl Child {
     /// }
     /// ```
     pub async fn wait(&mut self) -> io::Result<ExitStatus> {
-        // Ensure stdin is closed so the child isn't stuck waiting on
-        // input while the parent is waiting for it to exit.
-        drop(self.stdin.take());
-
-        match &mut self.child {
-            FusedChild::Done(exit) => Ok(*exit),
-            FusedChild::Child(child) => {
-                let ret = child.await;
-
-                if let Ok(exit) = ret {
-                    self.child = FusedChild::Done(exit);
-                }
-
-                ret
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to collect the exit status of the child if it has already
     /// exited.
     ///
@@ -1411,22 +1252,8 @@ impl Child {
     /// Note that unlike `wait`, this function will not attempt to drop stdin,
     /// nor will it wake the current task if the child exits.
     pub fn try_wait(&mut self) -> io::Result<Option<ExitStatus>> {
-        match &mut self.child {
-            FusedChild::Done(exit) => Ok(Some(*exit)),
-            FusedChild::Child(guard) => {
-                let ret = guard.inner.try_wait();
-
-                if let Ok(Some(exit)) = ret {
-                    // Avoid the overhead of trying to kill a reaped process
-                    guard.kill_on_drop = false;
-                    self.child = FusedChild::Done(exit);
-                }
-
-                ret
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns a future that will resolve to an `Output`, containing the exit
     /// status, stdout, and stderr of the child process.
     ///
@@ -1444,36 +1271,9 @@ impl Child {
     /// new pipes between parent and child. Use `stdout(Stdio::piped())` or
     /// `stderr(Stdio::piped())`, respectively, when creating a `Command`.
     pub async fn wait_with_output(mut self) -> io::Result<Output> {
-        use crate::future::try_join3;
-
-        async fn read_to_end<A: AsyncRead + Unpin>(io: &mut Option<A>) -> io::Result<Vec<u8>> {
-            let mut vec = Vec::new();
-            if let Some(io) = io.as_mut() {
-                crate::io::util::read_to_end(io, &mut vec).await?;
-            }
-            Ok(vec)
-        }
-
-        let mut stdout_pipe = self.stdout.take();
-        let mut stderr_pipe = self.stderr.take();
-
-        let stdout_fut = read_to_end(&mut stdout_pipe);
-        let stderr_fut = read_to_end(&mut stderr_pipe);
-
-        let (status, stdout, stderr) = try_join3(self.wait(), stdout_fut, stderr_fut).await?;
-
-        // Drop happens after `try_join` due to <https://github.com/tokio-rs/tokio/issues/4309>
-        drop(stdout_pipe);
-        drop(stderr_pipe);
-
-        Ok(Output {
-            status,
-            stdout,
-            stderr,
-        })
+        panic!("STUB: not implemented");
     }
 }
-
 /// The standard input stream for spawned children.
 ///
 /// This type implements the `AsyncWrite` trait to pass data to the stdin
@@ -1482,7 +1282,6 @@ impl Child {
 pub struct ChildStdin {
     inner: imp::ChildStdio,
 }
-
 /// The standard output stream for spawned children.
 ///
 /// This type implements the `AsyncRead` trait to read data from the stdout
@@ -1491,7 +1290,6 @@ pub struct ChildStdin {
 pub struct ChildStdout {
     inner: imp::ChildStdio,
 }
-
 /// The standard error stream for spawned children.
 ///
 /// This type implements the `AsyncRead` trait to read data from the stderr
@@ -1500,7 +1298,6 @@ pub struct ChildStdout {
 pub struct ChildStderr {
     inner: imp::ChildStdio,
 }
-
 impl ChildStdin {
     /// Creates an asynchronous `ChildStdin` from a synchronous one.
     ///
@@ -1510,12 +1307,9 @@ impl ChildStdin {
     /// non-blocking mode, or when registering the pipe with the runtime's IO
     /// driver.
     pub fn from_std(inner: std::process::ChildStdin) -> io::Result<Self> {
-        Ok(Self {
-            inner: imp::stdio(inner)?,
-        })
+        panic!("STUB: not implemented");
     }
 }
-
 impl ChildStdout {
     /// Creates an asynchronous `ChildStdout` from a synchronous one.
     ///
@@ -1525,12 +1319,9 @@ impl ChildStdout {
     /// non-blocking mode, or when registering the pipe with the runtime's IO
     /// driver.
     pub fn from_std(inner: std::process::ChildStdout) -> io::Result<Self> {
-        Ok(Self {
-            inner: imp::stdio(inner)?,
-        })
+        panic!("STUB: not implemented");
     }
 }
-
 impl ChildStderr {
     /// Creates an asynchronous `ChildStderr` from a synchronous one.
     ///
@@ -1540,205 +1331,145 @@ impl ChildStderr {
     /// non-blocking mode, or when registering the pipe with the runtime's IO
     /// driver.
     pub fn from_std(inner: std::process::ChildStderr) -> io::Result<Self> {
-        Ok(Self {
-            inner: imp::stdio(inner)?,
-        })
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for ChildStdin {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        Pin::new(&mut self.inner).poll_write(cx, buf)
+        panic!("STUB: not implemented");
     }
-
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.inner).poll_flush(cx)
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
-
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.inner).poll_shutdown(cx)
+    fn poll_shutdown(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<Result<usize, io::Error>> {
-        Pin::new(&mut self.inner).poll_write_vectored(cx, bufs)
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        self.inner.is_write_vectored()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncRead for ChildStdout {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.inner).poll_read(cx, buf)
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncRead for ChildStderr {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.inner).poll_read(cx, buf)
+        panic!("STUB: not implemented");
     }
 }
-
 impl TryInto<Stdio> for ChildStdin {
     type Error = io::Error;
-
     fn try_into(self) -> Result<Stdio, Self::Error> {
-        imp::convert_to_stdio(self.inner)
+        panic!("STUB: not implemented");
     }
 }
-
 impl TryInto<Stdio> for ChildStdout {
     type Error = io::Error;
-
     fn try_into(self) -> Result<Stdio, Self::Error> {
-        imp::convert_to_stdio(self.inner)
+        panic!("STUB: not implemented");
     }
 }
-
 impl TryInto<Stdio> for ChildStderr {
     type Error = io::Error;
-
     fn try_into(self) -> Result<Stdio, Self::Error> {
-        imp::convert_to_stdio(self.inner)
+        panic!("STUB: not implemented");
     }
 }
-
 #[cfg(unix)]
 #[cfg_attr(docsrs, doc(cfg(unix)))]
 mod sys {
-    use std::{
-        io,
-        os::unix::io::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
-    };
-
+    use std::{io, os::unix::io::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd}};
     use super::{ChildStderr, ChildStdin, ChildStdout};
-
     macro_rules! impl_traits {
         ($type:ty) => {
-            impl $type {
-                /// Convert into [`OwnedFd`].
-                pub fn into_owned_fd(self) -> io::Result<OwnedFd> {
-                    self.inner.into_owned_fd()
-                }
-            }
-
-            impl AsRawFd for $type {
-                fn as_raw_fd(&self) -> RawFd {
-                    self.inner.as_raw_fd()
-                }
-            }
-
-            impl AsFd for $type {
-                fn as_fd(&self) -> BorrowedFd<'_> {
-                    unsafe { BorrowedFd::borrow_raw(self.as_raw_fd()) }
-                }
-            }
+            impl $type { #[doc = " Convert into [`OwnedFd`]."] pub fn into_owned_fd(self)
+            -> io::Result < OwnedFd > { self.inner.into_owned_fd() } } impl AsRawFd for
+            $type { fn as_raw_fd(& self) -> RawFd { self.inner.as_raw_fd() } } impl AsFd
+            for $type { fn as_fd(& self) -> BorrowedFd <'_ > { unsafe {
+            BorrowedFd::borrow_raw(self.as_raw_fd()) } } }
         };
     }
-
     impl_traits!(ChildStdin);
     impl_traits!(ChildStdout);
     impl_traits!(ChildStderr);
 }
-
 #[cfg(any(windows, docsrs))]
 #[cfg_attr(docsrs, doc(cfg(windows)))]
 mod windows {
     use super::*;
-    use crate::os::windows::io::{AsHandle, AsRawHandle, BorrowedHandle, OwnedHandle, RawHandle};
-
+    use crate::os::windows::io::{
+        AsHandle, AsRawHandle, BorrowedHandle, OwnedHandle, RawHandle,
+    };
     #[cfg(not(docsrs))]
     macro_rules! impl_traits {
         ($type:ty) => {
-            impl $type {
-                /// Convert into [`OwnedHandle`].
-                pub fn into_owned_handle(self) -> io::Result<OwnedHandle> {
-                    self.inner.into_owned_handle()
-                }
-            }
-
-            impl AsRawHandle for $type {
-                fn as_raw_handle(&self) -> RawHandle {
-                    self.inner.as_raw_handle()
-                }
-            }
-
-            impl AsHandle for $type {
-                fn as_handle(&self) -> BorrowedHandle<'_> {
-                    unsafe { BorrowedHandle::borrow_raw(self.as_raw_handle()) }
-                }
-            }
+            impl $type { #[doc = " Convert into [`OwnedHandle`]."] pub fn
+            into_owned_handle(self) -> io::Result < OwnedHandle > { self.inner
+            .into_owned_handle() } } impl AsRawHandle for $type { fn as_raw_handle(&
+            self) -> RawHandle { self.inner.as_raw_handle() } } impl AsHandle for $type {
+            fn as_handle(& self) -> BorrowedHandle <'_ > { unsafe {
+            BorrowedHandle::borrow_raw(self.as_raw_handle()) } } }
         };
     }
-
     #[cfg(docsrs)]
     macro_rules! impl_traits {
         ($type:ty) => {
-            impl $type {
-                /// Convert into [`OwnedHandle`].
-                pub fn into_owned_handle(self) -> io::Result<OwnedHandle> {
-                    todo!("For doc generation only")
-                }
-            }
-
-            impl AsRawHandle for $type {
-                fn as_raw_handle(&self) -> RawHandle {
-                    todo!("For doc generation only")
-                }
-            }
-
-            impl AsHandle for $type {
-                fn as_handle(&self) -> BorrowedHandle<'_> {
-                    todo!("For doc generation only")
-                }
-            }
+            impl $type { #[doc = " Convert into [`OwnedHandle`]."] pub fn
+            into_owned_handle(self) -> io::Result < OwnedHandle > {
+            todo!("For doc generation only") } } impl AsRawHandle for $type { fn
+            as_raw_handle(& self) -> RawHandle { todo!("For doc generation only") } }
+            impl AsHandle for $type { fn as_handle(& self) -> BorrowedHandle <'_ > {
+            todo!("For doc generation only") } }
         };
     }
-
     impl_traits!(ChildStdin);
     impl_traits!(ChildStdout);
     impl_traits!(ChildStderr);
 }
-
 #[cfg(all(test, not(loom)))]
 mod test {
     use super::kill::Kill;
     use super::ChildDropGuard;
-
     use futures::future::FutureExt;
     use std::future::Future;
     use std::io;
     use std::pin::Pin;
     use std::task::{Context, Poll};
-
     struct Mock {
         num_kills: usize,
         num_polls: usize,
         poll_result: Poll<Result<(), ()>>,
     }
-
     impl Mock {
         fn new() -> Self {
             Self::with_result(Poll::Pending)
         }
-
         fn with_result(result: Poll<Result<(), ()>>) -> Self {
             Self {
                 num_kills: 0,
@@ -1747,28 +1478,23 @@ mod test {
             }
         }
     }
-
     impl Kill for Mock {
         fn kill(&mut self) -> io::Result<()> {
             self.num_kills += 1;
             Ok(())
         }
     }
-
     impl Future for Mock {
         type Output = Result<(), ()>;
-
         fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
             let inner = Pin::get_mut(self);
             inner.num_polls += 1;
             inner.poll_result
         }
     }
-
     #[test]
     fn kills_on_drop_if_specified() {
         let mut mock = Mock::new();
-
         {
             let guard = ChildDropGuard {
                 inner: &mut mock,
@@ -1776,15 +1502,12 @@ mod test {
             };
             drop(guard);
         }
-
         assert_eq!(1, mock.num_kills);
         assert_eq!(0, mock.num_polls);
     }
-
     #[test]
     fn no_kill_on_drop_by_default() {
         let mut mock = Mock::new();
-
         {
             let guard = ChildDropGuard {
                 inner: &mut mock,
@@ -1792,15 +1515,12 @@ mod test {
             };
             drop(guard);
         }
-
         assert_eq!(0, mock.num_kills);
         assert_eq!(0, mock.num_polls);
     }
-
     #[test]
     fn no_kill_if_already_killed() {
         let mut mock = Mock::new();
-
         {
             let mut guard = ChildDropGuard {
                 inner: &mut mock,
@@ -1809,17 +1529,14 @@ mod test {
             let _ = guard.kill();
             drop(guard);
         }
-
         assert_eq!(1, mock.num_kills);
         assert_eq!(0, mock.num_polls);
     }
-
     #[test]
     fn no_kill_if_reaped() {
         let mut mock_pending = Mock::with_result(Poll::Pending);
         let mut mock_reaped = Mock::with_result(Poll::Ready(Ok(())));
         let mut mock_err = Mock::with_result(Poll::Ready(Err(())));
-
         let waker = futures::task::noop_waker();
         let mut context = Context::from_waker(&waker);
         {
@@ -1828,26 +1545,21 @@ mod test {
                 kill_on_drop: true,
             };
             let _ = guard.poll_unpin(&mut context);
-
             let mut guard = ChildDropGuard {
                 inner: &mut mock_reaped,
                 kill_on_drop: true,
             };
             let _ = guard.poll_unpin(&mut context);
-
             let mut guard = ChildDropGuard {
                 inner: &mut mock_err,
                 kill_on_drop: true,
             };
             let _ = guard.poll_unpin(&mut context);
         }
-
         assert_eq!(1, mock_pending.num_kills);
         assert_eq!(1, mock_pending.num_polls);
-
         assert_eq!(0, mock_reaped.num_kills);
         assert_eq!(1, mock_reaped.num_polls);
-
         assert_eq!(1, mock_err.num_kills);
         assert_eq!(1, mock_err.num_polls);
     }

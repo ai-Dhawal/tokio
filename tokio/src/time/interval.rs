@@ -1,11 +1,9 @@
 use crate::time::{sleep_until, Duration, Instant, Sleep};
 use crate::util::trace;
-
 use std::future::{poll_fn, Future};
 use std::panic::Location;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
-
 /// Creates new [`Interval`] that yields with interval of `period`. The first
 /// tick completes immediately. The default [`MissedTickBehavior`] is
 /// [`Burst`](MissedTickBehavior::Burst), but this can be configured
@@ -71,10 +69,8 @@ use std::task::{ready, Context, Poll};
 /// [`.tick().await`]: Interval::tick
 #[track_caller]
 pub fn interval(period: Duration) -> Interval {
-    assert!(period > Duration::new(0, 0), "`period` must be non-zero.");
-    internal_interval_at(Instant::now(), period, trace::caller_location())
+    panic!("STUB: not implemented");
 }
-
 /// Creates new [`Interval`] that yields with interval of `period` with the
 /// first tick completing at `start`. The default [`MissedTickBehavior`] is
 /// [`Burst`](MissedTickBehavior::Burst), but this can be configured
@@ -106,40 +102,16 @@ pub fn interval(period: Duration) -> Interval {
 /// ```
 #[track_caller]
 pub fn interval_at(start: Instant, period: Duration) -> Interval {
-    assert!(period > Duration::new(0, 0), "`period` must be non-zero.");
-    internal_interval_at(start, period, trace::caller_location())
+    panic!("STUB: not implemented");
 }
-
 #[cfg_attr(not(all(tokio_unstable, feature = "tracing")), allow(unused_variables))]
 fn internal_interval_at(
     start: Instant,
     period: Duration,
     location: Option<&'static Location<'static>>,
 ) -> Interval {
-    #[cfg(all(tokio_unstable, feature = "tracing"))]
-    let resource_span = {
-        let location = location.expect("should have location if tracing");
-
-        tracing::trace_span!(
-            parent: None,
-            "runtime.resource",
-            concrete_type = "Interval",
-            kind = "timer",
-            loc.file = location.file(),
-            loc.line = location.line(),
-            loc.col = location.column(),
-        )
-    };
-
-    Interval {
-        delay: Box::pin(sleep_until(start)),
-        period,
-        missed_tick_behavior: MissedTickBehavior::default(),
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        resource_span,
-    }
+    panic!("STUB: not implemented");
 }
-
 /// Defines the behavior of an [`Interval`] when it misses a tick.
 ///
 /// Sometimes, an [`Interval`]'s tick is missed. For example, consider the
@@ -233,7 +205,6 @@ pub enum MissedTickBehavior {
     /// [`Delay`]: MissedTickBehavior::Delay
     /// [`Skip`]: MissedTickBehavior::Skip
     Burst,
-
     /// Tick at multiples of `period` from when [`tick`] was called, rather than
     /// from `start`.
     ///
@@ -281,7 +252,6 @@ pub enum MissedTickBehavior {
     /// [`Skip`]: MissedTickBehavior::Skip
     /// [`tick`]: Interval::tick
     Delay,
-
     /// Skips missed ticks and tick on the next multiple of `period` from
     /// `start`.
     ///
@@ -329,34 +299,12 @@ pub enum MissedTickBehavior {
     /// [`Delay`]: MissedTickBehavior::Delay
     Skip,
 }
-
 impl MissedTickBehavior {
     /// If a tick is missed, this method is called to determine when the next tick should happen.
     fn next_timeout(&self, timeout: Instant, now: Instant, period: Duration) -> Instant {
-        match self {
-            Self::Burst => timeout + period,
-            Self::Delay => now + period,
-            Self::Skip => {
-                now + period
-                    - Duration::from_nanos(
-                        ((now - timeout).as_nanos() % period.as_nanos())
-                            .try_into()
-                            // This operation is practically guaranteed not to
-                            // fail, as in order for it to fail, `period` would
-                            // have to be longer than `now - timeout`, and both
-                            // would have to be longer than 584 years.
-                            //
-                            // If it did fail, there's not a good way to pass
-                            // the error along to the user, so we just panic.
-                            .expect(
-                                "too much time has elapsed since the interval was supposed to tick",
-                            ),
-                    )
-            }
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl Default for MissedTickBehavior {
     /// Returns [`MissedTickBehavior::Burst`].
     ///
@@ -368,10 +316,9 @@ impl Default for MissedTickBehavior {
     ///
     /// [`Burst`]: MissedTickBehavior::Burst
     fn default() -> Self {
-        Self::Burst
+        panic!("STUB: not implemented");
     }
 }
-
 /// Interval returned by [`interval`] and [`interval_at`].
 ///
 /// This type allows you to wait on a sequence of instants with a certain
@@ -386,17 +333,13 @@ impl Default for MissedTickBehavior {
 pub struct Interval {
     /// Future that completes the next time the `Interval` yields a value.
     delay: Pin<Box<Sleep>>,
-
     /// The duration between values yielded by `Interval`.
     period: Duration,
-
     /// The strategy `Interval` should use when a tick is missed.
     missed_tick_behavior: MissedTickBehavior,
-
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     resource_span: tracing::Span,
 }
-
 impl Interval {
     /// Completes when the next instant in the interval has been reached.
     ///
@@ -426,22 +369,8 @@ impl Interval {
     /// # }
     /// ```
     pub async fn tick(&mut self) -> Instant {
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let resource_span = self.resource_span.clone();
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let instant = trace::async_op(
-            || poll_fn(|cx| self.poll_tick(cx)),
-            resource_span,
-            "Interval::tick",
-            "poll_tick",
-            false,
-        );
-        #[cfg(not(all(tokio_unstable, feature = "tracing")))]
-        let instant = poll_fn(|cx| self.poll_tick(cx));
-
-        instant.await
+        panic!("STUB: not implemented");
     }
-
     /// Polls for the next instant in the interval to be reached.
     ///
     /// This method can return the following values:
@@ -455,39 +384,8 @@ impl Interval {
     /// [`Context`] passed to the most recent call is scheduled to receive a
     /// wakeup.
     pub fn poll_tick(&mut self, cx: &mut Context<'_>) -> Poll<Instant> {
-        // Wait for the delay to be done
-        ready!(Pin::new(&mut self.delay).poll(cx));
-
-        // Get the time when we were scheduled to tick
-        let timeout = self.delay.deadline();
-
-        let now = Instant::now();
-
-        // If a tick was not missed, and thus we are being called before the
-        // next tick is due, just schedule the next tick normally, one `period`
-        // after `timeout`
-        //
-        // However, if a tick took excessively long and we are now behind,
-        // schedule the next tick according to how the user specified with
-        // `MissedTickBehavior`
-        let next = if now > timeout + Duration::from_millis(5) {
-            self.missed_tick_behavior
-                .next_timeout(timeout, now, self.period)
-        } else {
-            timeout
-                .checked_add(self.period)
-                .unwrap_or_else(Instant::far_future)
-        };
-
-        // When we arrive here, the internal delay returned `Poll::Ready`.
-        // Reset the delay but do not register it. It should be registered with
-        // the next call to [`poll_tick`].
-        self.delay.as_mut().reset_without_timer(next);
-
-        // Return the time when we were scheduled to tick
-        Poll::Ready(timeout)
+        panic!("STUB: not implemented");
     }
-
     /// Resets the interval to complete one period after the current time.
     ///
     /// This method ignores [`MissedTickBehavior`] strategy.
@@ -517,9 +415,8 @@ impl Interval {
     /// # }
     /// ```
     pub fn reset(&mut self) {
-        self.delay.as_mut().reset(Instant::now() + self.period);
+        panic!("STUB: not implemented");
     }
-
     /// Resets the interval immediately.
     ///
     /// This method ignores [`MissedTickBehavior`] strategy.
@@ -549,9 +446,8 @@ impl Interval {
     /// # }
     /// ```
     pub fn reset_immediately(&mut self) {
-        self.delay.as_mut().reset(Instant::now());
+        panic!("STUB: not implemented");
     }
-
     /// Resets the interval after the specified [`std::time::Duration`].
     ///
     /// This method ignores [`MissedTickBehavior`] strategy.
@@ -582,9 +478,8 @@ impl Interval {
     /// # }
     /// ```
     pub fn reset_after(&mut self, after: Duration) {
-        self.delay.as_mut().reset(Instant::now() + after);
+        panic!("STUB: not implemented");
     }
-
     /// Resets the interval to a [`crate::time::Instant`] deadline.
     ///
     /// Sets the next tick to expire at the given instant. If the instant is in
@@ -618,21 +513,18 @@ impl Interval {
     /// # }
     /// ```
     pub fn reset_at(&mut self, deadline: Instant) {
-        self.delay.as_mut().reset(deadline);
+        panic!("STUB: not implemented");
     }
-
     /// Returns the [`MissedTickBehavior`] strategy currently being used.
     pub fn missed_tick_behavior(&self) -> MissedTickBehavior {
-        self.missed_tick_behavior
+        panic!("STUB: not implemented");
     }
-
     /// Sets the [`MissedTickBehavior`] strategy that should be used.
     pub fn set_missed_tick_behavior(&mut self, behavior: MissedTickBehavior) {
-        self.missed_tick_behavior = behavior;
+        panic!("STUB: not implemented");
     }
-
     /// Returns the period of the interval.
     pub fn period(&self) -> Duration {
-        self.period
+        panic!("STUB: not implemented");
     }
 }

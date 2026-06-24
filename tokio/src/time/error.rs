@@ -1,8 +1,6 @@
 //! Time error types.
-
 use std::error;
 use std::fmt;
-
 /// Errors encountered by the timer implementation.
 ///
 /// Currently, there are two different errors that can occur:
@@ -24,7 +22,6 @@ use std::fmt;
 /// [shed load]: https://en.wikipedia.org/wiki/Load_Shedding
 #[derive(Debug, Copy, Clone)]
 pub struct Error(Kind);
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[repr(u8)]
 pub(crate) enum Kind {
@@ -32,92 +29,66 @@ pub(crate) enum Kind {
     AtCapacity = 2,
     Invalid = 3,
 }
-
 impl From<Kind> for Error {
     fn from(k: Kind) -> Self {
-        Error(k)
+        panic!("STUB: not implemented");
     }
 }
-
 /// Errors returned by `Timeout`.
 ///
 /// This error is returned when a timeout expires before the function was able
 /// to finish.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Elapsed(());
-
 #[derive(Debug)]
 pub(crate) enum InsertError {
     Elapsed,
 }
-
-// ===== impl Error =====
-
 impl Error {
     /// Creates an error representing a shutdown timer.
     pub fn shutdown() -> Error {
-        Error(Kind::Shutdown)
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if the error was caused by the timer being shutdown.
     pub fn is_shutdown(&self) -> bool {
-        matches!(self.0, Kind::Shutdown)
+        panic!("STUB: not implemented");
     }
-
     /// Creates an error representing a timer at capacity.
     pub fn at_capacity() -> Error {
-        Error(Kind::AtCapacity)
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if the error was caused by the timer being at capacity.
     pub fn is_at_capacity(&self) -> bool {
-        matches!(self.0, Kind::AtCapacity)
+        panic!("STUB: not implemented");
     }
-
     /// Creates an error representing a misconfigured timer.
     pub fn invalid() -> Error {
-        Error(Kind::Invalid)
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if the error was caused by the timer being misconfigured.
     pub fn is_invalid(&self) -> bool {
-        matches!(self.0, Kind::Invalid)
+        panic!("STUB: not implemented");
     }
 }
-
 impl error::Error for Error {}
-
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let descr = match self.0 {
-            Kind::Shutdown => {
-                "the timer is shutdown, must be called from the context of Tokio runtime"
-            }
-            Kind::AtCapacity => "timer is at capacity and cannot create a new entry",
-            Kind::Invalid => "timer duration exceeds maximum duration",
-        };
-        write!(fmt, "{descr}")
+        panic!("STUB: not implemented");
     }
 }
-
-// ===== impl Elapsed =====
-
 impl Elapsed {
     pub(crate) fn new() -> Self {
-        Elapsed(())
+        panic!("STUB: not implemented");
     }
 }
-
 impl fmt::Display for Elapsed {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        "deadline has elapsed".fmt(fmt)
+        panic!("STUB: not implemented");
     }
 }
-
 impl std::error::Error for Elapsed {}
-
 impl From<Elapsed> for std::io::Error {
     fn from(_err: Elapsed) -> std::io::Error {
-        std::io::ErrorKind::TimedOut.into()
+        panic!("STUB: not implemented");
     }
 }

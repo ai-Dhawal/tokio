@@ -1,6 +1,5 @@
 use std::fmt;
 use std::num::NonZeroU64;
-
 /// An opaque ID that uniquely identifies a runtime relative to all other currently
 /// running runtimes.
 ///
@@ -28,15 +27,13 @@ use std::num::NonZeroU64;
 /// ```
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
 pub struct Id(NonZeroU64);
-
 impl Id {
     pub(crate) fn new(integer: impl Into<NonZeroU64>) -> Self {
-        Self(integer.into())
+        panic!("STUB: not implemented");
     }
 }
-
 impl fmt::Display for Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        panic!("STUB: not implemented");
     }
 }

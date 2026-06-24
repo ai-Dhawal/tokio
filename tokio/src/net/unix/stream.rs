@@ -4,7 +4,6 @@ use crate::net::unix::split_owned::{split_owned, OwnedReadHalf, OwnedWriteHalf};
 use crate::net::unix::ucred::{self, UCred};
 use crate::net::unix::SocketAddr;
 use crate::util::check_socket_for_blocking;
-
 use std::fmt;
 use std::future::poll_fn;
 use std::io::{self, Read, Write};
@@ -20,50 +19,30 @@ use std::os::unix::net::{self, SocketAddr as StdSocketAddr};
 use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-
 cfg_io_util! {
     use bytes::BufMut;
 }
-
 cfg_net_unix! {
-    /// A structure representing a connected Unix socket.
-    ///
-    /// This socket can be connected directly with [`UnixStream::connect`] or accepted
-    /// from a listener with [`UnixListener::accept`]. Additionally, a pair of
-    /// anonymous Unix sockets can be created with `UnixStream::pair`.
-    ///
-    /// To shut down the stream in the write direction, you can call the
-    /// [`shutdown()`] method. This will cause the other peer to receive a read of
-    /// length 0, indicating that no more data will be sent. This only closes
-    /// the stream in one direction.
-    ///
-    /// [`shutdown()`]: fn@crate::io::AsyncWriteExt::shutdown
-    /// [`UnixListener::accept`]: crate::net::UnixListener::accept
-    #[cfg_attr(docsrs, doc(alias = "uds"))]
-    pub struct UnixStream {
-        io: PollEvented<mio::net::UnixStream>,
-    }
+    #[doc = " A structure representing a connected Unix socket."] #[doc = ""] #[doc =
+    " This socket can be connected directly with [`UnixStream::connect`] or accepted"]
+    #[doc = " from a listener with [`UnixListener::accept`]. Additionally, a pair of"]
+    #[doc = " anonymous Unix sockets can be created with `UnixStream::pair`."] #[doc =
+    ""] #[doc = " To shut down the stream in the write direction, you can call the"]
+    #[doc =
+    " [`shutdown()`] method. This will cause the other peer to receive a read of"] #[doc
+    = " length 0, indicating that no more data will be sent. This only closes"] #[doc =
+    " the stream in one direction."] #[doc = ""] #[doc =
+    " [`shutdown()`]: fn@crate::io::AsyncWriteExt::shutdown"] #[doc =
+    " [`UnixListener::accept`]: crate::net::UnixListener::accept"] #[cfg_attr(docsrs,
+    doc(alias = "uds"))] pub struct UnixStream { io : PollEvented < mio::net::UnixStream
+    >, }
 }
-
 impl UnixStream {
-    pub(crate) async fn connect_mio(sys: mio::net::UnixStream) -> io::Result<UnixStream> {
-        let stream = UnixStream::new(sys)?;
-
-        // Once we've connected, wait for the stream to be writable as
-        // that's when the actual connection has been initiated. Once we're
-        // writable we check for `take_socket_error` to see if the connect
-        // actually hit an error or not.
-        //
-        // If all that succeeded then we ship everything on up.
-        poll_fn(|cx| stream.io.registration().poll_write_ready(cx)).await?;
-
-        if let Some(e) = stream.io.take_error()? {
-            return Err(e);
-        }
-
-        Ok(stream)
+    pub(crate) async fn connect_mio(
+        sys: mio::net::UnixStream,
+    ) -> io::Result<UnixStream> {
+        panic!("STUB: not implemented");
     }
-
     /// Connects to the socket named by `path`.
     ///
     /// This function will create a new Unix socket and connect to the path
@@ -82,23 +61,8 @@ impl UnixStream {
     where
         P: AsRef<Path>,
     {
-        // On linux, abstract socket paths need to be considered.
-        #[cfg(any(target_os = "linux", target_os = "android"))]
-        let addr = {
-            let os_str_bytes = path.as_ref().as_os_str().as_bytes();
-            if os_str_bytes.starts_with(b"\0") {
-                StdSocketAddr::from_abstract_name(&os_str_bytes[1..])?
-            } else {
-                StdSocketAddr::from_pathname(path)?
-            }
-        };
-        #[cfg(not(any(target_os = "linux", target_os = "android")))]
-        let addr = StdSocketAddr::from_pathname(path)?;
-
-        let addr = SocketAddr::from(addr);
-        UnixStream::connect_addr(&addr).await
+        panic!("STUB: not implemented");
     }
-
     /// Connects to the socket named by `socket_addr`.
     ///
     /// This function will create a new Unix socket and connect to the address
@@ -114,18 +78,8 @@ impl UnixStream {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub async fn connect_addr(socket_addr: &SocketAddr) -> io::Result<UnixStream> {
-        let stream = mio::net::UnixStream::connect_addr(&socket_addr.0)?;
-        let stream = UnixStream::new(stream)?;
-
-        poll_fn(|cx| stream.io.registration().poll_write_ready(cx)).await?;
-
-        if let Some(e) = stream.io.take_error()? {
-            return Err(e);
-        }
-
-        Ok(stream)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states.
     ///
     /// This function is usually paired with `try_read()` or `try_write()`. It
@@ -202,10 +156,8 @@ impl UnixStream {
     /// }
     /// ```
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        let event = self.io.registration().readiness(interest).await?;
-        Ok(event.ready)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the socket to become readable.
     ///
     /// This function is equivalent to `ready(Interest::READABLE)` and is usually
@@ -259,10 +211,8 @@ impl UnixStream {
     /// }
     /// ```
     pub async fn readable(&self) -> io::Result<()> {
-        self.ready(Interest::READABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for read readiness.
     ///
     /// If the unix stream is not currently ready for reading, this method will
@@ -293,9 +243,8 @@ impl UnixStream {
     ///
     /// [`readable`]: method@Self::readable
     pub fn poll_read_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_read_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Try to read data from the stream into the provided buffer, returning how
     /// many bytes were read.
     ///
@@ -362,11 +311,8 @@ impl UnixStream {
     /// }
     /// ```
     pub fn try_read(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || (&*self.io).read(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read data from the stream into the provided buffers, returning
     /// how many bytes were read.
     ///
@@ -439,93 +385,58 @@ impl UnixStream {
     ///     Ok(())
     /// }
     /// ```
-    pub fn try_read_vectored(&self, bufs: &mut [io::IoSliceMut<'_>]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || (&*self.io).read_vectored(bufs))
+    pub fn try_read_vectored(
+        &self,
+        bufs: &mut [io::IoSliceMut<'_>],
+    ) -> io::Result<usize> {
+        panic!("STUB: not implemented");
     }
-
     cfg_io_util! {
-        /// Tries to read data from the stream into the provided buffer, advancing the
-        /// buffer's internal cursor, returning how many bytes were read.
-        ///
-        /// Receives any pending data from the socket but does not wait for new data
-        /// to arrive. On success, returns the number of bytes read. Because
-        /// `try_read_buf()` is non-blocking, the buffer does not have to be stored by
-        /// the async task and can exist entirely on the stack.
-        ///
-        /// Usually, [`readable()`] or [`ready()`] is used with this function.
-        ///
-        /// [`readable()`]: UnixStream::readable()
-        /// [`ready()`]: UnixStream::ready()
-        ///
-        /// # Return
-        ///
-        /// If data is successfully read, `Ok(n)` is returned, where `n` is the
-        /// number of bytes read. `Ok(0)` indicates the stream's read half is closed
-        /// and will no longer yield data. If the stream is not ready to read data
-        /// `Err(io::ErrorKind::WouldBlock)` is returned.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// use tokio::net::UnixStream;
-        /// use std::error::Error;
-        /// use std::io;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> Result<(), Box<dyn Error>> {
-        ///     // Connect to a peer
-        ///     let dir = tempfile::tempdir().unwrap();
-        ///     let bind_path = dir.path().join("bind_path");
-        ///     let stream = UnixStream::connect(bind_path).await?;
-        ///
-        ///     loop {
-        ///         // Wait for the socket to be readable
-        ///         stream.readable().await?;
-        ///
-        ///         let mut buf = Vec::with_capacity(4096);
-        ///
-        ///         // Try to read data, this may still fail with `WouldBlock`
-        ///         // if the readiness event is a false positive.
-        ///         match stream.try_read_buf(&mut buf) {
-        ///             Ok(0) => break,
-        ///             Ok(n) => {
-        ///                 println!("read {} bytes", n);
-        ///             }
-        ///             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-        ///                 continue;
-        ///             }
-        ///             Err(e) => {
-        ///                 return Err(e.into());
-        ///             }
-        ///         }
-        ///     }
-        ///
-        ///     Ok(())
-        /// }
-        /// ```
-        pub fn try_read_buf<B: BufMut>(&self, buf: &mut B) -> io::Result<usize> {
-            self.io.registration().try_io(Interest::READABLE, || {
-                use std::io::Read;
-
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                // Safety: We trust `UnixStream::read` to have filled up `n` bytes in the
-                // buffer.
-                let n = (&*self.io).read(dst)?;
-
-                unsafe {
-                    buf.advance_mut(n);
-                }
-
-                Ok(n)
-            })
-        }
+        #[doc =
+        " Tries to read data from the stream into the provided buffer, advancing the"]
+        #[doc = " buffer's internal cursor, returning how many bytes were read."] #[doc =
+        ""] #[doc =
+        " Receives any pending data from the socket but does not wait for new data"]
+        #[doc = " to arrive. On success, returns the number of bytes read. Because"]
+        #[doc =
+        " `try_read_buf()` is non-blocking, the buffer does not have to be stored by"]
+        #[doc = " the async task and can exist entirely on the stack."] #[doc = ""] #[doc
+        = " Usually, [`readable()`] or [`ready()`] is used with this function."] #[doc =
+        ""] #[doc = " [`readable()`]: UnixStream::readable()"] #[doc =
+        " [`ready()`]: UnixStream::ready()"] #[doc = ""] #[doc = " # Return"] #[doc = ""]
+        #[doc = " If data is successfully read, `Ok(n)` is returned, where `n` is the"]
+        #[doc =
+        " number of bytes read. `Ok(0)` indicates the stream's read half is closed"]
+        #[doc =
+        " and will no longer yield data. If the stream is not ready to read data"] #[doc
+        = " `Err(io::ErrorKind::WouldBlock)` is returned."] #[doc = ""] #[doc =
+        " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+        " use tokio::net::UnixStream;"] #[doc = " use std::error::Error;"] #[doc =
+        " use std::io;"] #[doc = ""] #[doc = " #[tokio::main]"] #[doc =
+        " async fn main() -> Result<(), Box<dyn Error>> {"] #[doc =
+        "     // Connect to a peer"] #[doc =
+        "     let dir = tempfile::tempdir().unwrap();"] #[doc =
+        "     let bind_path = dir.path().join(\"bind_path\");"] #[doc =
+        "     let stream = UnixStream::connect(bind_path).await?;"] #[doc = ""] #[doc =
+        "     loop {"] #[doc = "         // Wait for the socket to be readable"] #[doc =
+        "         stream.readable().await?;"] #[doc = ""] #[doc =
+        "         let mut buf = Vec::with_capacity(4096);"] #[doc = ""] #[doc =
+        "         // Try to read data, this may still fail with `WouldBlock`"] #[doc =
+        "         // if the readiness event is a false positive."] #[doc =
+        "         match stream.try_read_buf(&mut buf) {"] #[doc =
+        "             Ok(0) => break,"] #[doc = "             Ok(n) => {"] #[doc =
+        "                 println!(\"read {} bytes\", n);"] #[doc = "             }"]
+        #[doc = "             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {"]
+        #[doc = "                 continue;"] #[doc = "             }"] #[doc =
+        "             Err(e) => {"] #[doc = "                 return Err(e.into());"]
+        #[doc = "             }"] #[doc = "         }"] #[doc = "     }"] #[doc = ""]
+        #[doc = "     Ok(())"] #[doc = " }"] #[doc = " ```"] pub fn try_read_buf < B :
+        BufMut > (& self, buf : & mut B) -> io::Result < usize > { self.io.registration()
+        .try_io(Interest::READABLE, || { use std::io::Read; let dst = buf.chunk_mut();
+        let dst = unsafe { & mut * (dst as * mut _ as * mut [std::mem::MaybeUninit < u8
+        >] as * mut [u8]) }; let n = (&* self.io).read(dst) ?; unsafe { buf
+        .advance_mut(n); } Ok(n) }) }
     }
-
     /// Waits for the socket to become writable.
     ///
     /// This function is equivalent to `ready(Interest::WRITABLE)` and is usually
@@ -575,10 +486,8 @@ impl UnixStream {
     /// }
     /// ```
     pub async fn writable(&self) -> io::Result<()> {
-        self.ready(Interest::WRITABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for write readiness.
     ///
     /// If the unix stream is not currently ready for writing, this method will
@@ -609,9 +518,8 @@ impl UnixStream {
     ///
     /// [`writable`]: method@Self::writable
     pub fn poll_write_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_write_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write a buffer to the stream, returning how many bytes were
     /// written.
     ///
@@ -663,11 +571,8 @@ impl UnixStream {
     /// }
     /// ```
     pub fn try_write(&self, buf: &[u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || (&*self.io).write(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write several buffers to the stream, returning how many bytes
     /// were written.
     ///
@@ -725,11 +630,8 @@ impl UnixStream {
     /// }
     /// ```
     pub fn try_write_vectored(&self, buf: &[io::IoSlice<'_>]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || (&*self.io).write_vectored(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read or write from the socket using a user-provided IO operation.
     ///
     /// If the socket is ready, the provided closure is called. The closure
@@ -767,11 +669,8 @@ impl UnixStream {
         interest: Interest,
         f: impl FnOnce() -> io::Result<R>,
     ) -> io::Result<R> {
-        self.io
-            .registration()
-            .try_io(interest, || self.io.try_io(f))
+        panic!("STUB: not implemented");
     }
-
     /// Reads or writes from the socket using a user-provided IO operation.
     ///
     /// The readiness of the socket is awaited and when the socket is ready,
@@ -802,12 +701,8 @@ impl UnixStream {
         interest: Interest,
         mut f: impl FnMut() -> io::Result<R>,
     ) -> io::Result<R> {
-        self.io
-            .registration()
-            .async_io(interest, || self.io.try_io(&mut f))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Creates new [`UnixStream`] from a [`std::os::unix::net::UnixStream`].
     ///
     /// This function is intended to be used to wrap a `UnixStream` from the
@@ -851,14 +746,8 @@ impl UnixStream {
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     #[track_caller]
     pub fn from_std(stream: net::UnixStream) -> io::Result<UnixStream> {
-        check_socket_for_blocking(&stream)?;
-
-        let stream = mio::net::UnixStream::from_std(stream);
-        let io = PollEvented::new(stream)?;
-
-        Ok(UnixStream { io })
+        panic!("STUB: not implemented");
     }
-
     /// Turns a [`tokio::net::UnixStream`] into a [`std::os::unix::net::UnixStream`].
     ///
     /// The returned [`std::os::unix::net::UnixStream`] will have nonblocking
@@ -899,30 +788,19 @@ impl UnixStream {
     /// [`std::os::unix::net::UnixStream`]: std::os::unix::net::UnixStream
     /// [`set_nonblocking`]: fn@std::os::unix::net::UnixStream::set_nonblocking
     pub fn into_std(self) -> io::Result<std::os::unix::net::UnixStream> {
-        self.io
-            .into_inner()
-            .map(IntoRawFd::into_raw_fd)
-            .map(|raw_fd| unsafe { std::os::unix::net::UnixStream::from_raw_fd(raw_fd) })
+        panic!("STUB: not implemented");
     }
-
     /// Creates an unnamed pair of connected sockets.
     ///
     /// This function will create a pair of interconnected Unix sockets for
     /// communicating back and forth between one another. Each socket will
     /// be associated with the default event loop's handle.
     pub fn pair() -> io::Result<(UnixStream, UnixStream)> {
-        let (a, b) = mio::net::UnixStream::pair()?;
-        let a = UnixStream::new(a)?;
-        let b = UnixStream::new(b)?;
-
-        Ok((a, b))
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn new(stream: mio::net::UnixStream) -> io::Result<UnixStream> {
-        let io = PollEvented::new(stream)?;
-        Ok(UnixStream { io })
+        panic!("STUB: not implemented");
     }
-
     /// Returns the socket address of the local half of this connection.
     ///
     /// # Examples
@@ -940,9 +818,8 @@ impl UnixStream {
     /// # }
     /// ```
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.io.local_addr().map(SocketAddr)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the socket address of the remote half of this connection.
     ///
     /// # Examples
@@ -960,30 +837,24 @@ impl UnixStream {
     /// # }
     /// ```
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
-        self.io.peer_addr().map(SocketAddr)
+        panic!("STUB: not implemented");
     }
-
     /// Returns effective credentials of the process which called `connect` or `pair`.
     pub fn peer_cred(&self) -> io::Result<UCred> {
-        ucred::get_peer_cred(self)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the value of the `SO_ERROR` option.
     pub fn take_error(&self) -> io::Result<Option<io::Error>> {
-        self.io.take_error()
+        panic!("STUB: not implemented");
     }
-
     /// Shuts down the read, write, or both halves of this connection.
     ///
     /// This function will cause all pending and future I/O calls on the
     /// specified portions to immediately return with an appropriate value
     /// (see the documentation of `Shutdown`).
     pub(super) fn shutdown_std(&self, how: Shutdown) -> io::Result<()> {
-        self.io.shutdown(how)
+        panic!("STUB: not implemented");
     }
-
-    // These lifetime markers also appear in the generated documentation, and make
-    // it more clear that this is a *borrowed* split.
     #[allow(clippy::needless_lifetimes)]
     /// Splits a `UnixStream` into a read half and a write half, which can be used
     /// to read and write the stream concurrently.
@@ -993,9 +864,8 @@ impl UnixStream {
     ///
     /// [`into_split`]: Self::into_split()
     pub fn split<'a>(&'a mut self) -> (ReadHalf<'a>, WriteHalf<'a>) {
-        split(self)
+        panic!("STUB: not implemented");
     }
-
     /// Splits a `UnixStream` into a read half and a write half, which can be used
     /// to read and write the stream concurrently.
     ///
@@ -1008,116 +878,93 @@ impl UnixStream {
     /// [`split`]: Self::split()
     /// [`shutdown()`]: fn@crate::io::AsyncWriteExt::shutdown
     pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
-        split_owned(self)
+        panic!("STUB: not implemented");
     }
 }
-
 impl TryFrom<net::UnixStream> for UnixStream {
     type Error = io::Error;
-
     /// Consumes stream, returning the tokio I/O object.
     ///
     /// This is equivalent to
     /// [`UnixStream::from_std(stream)`](UnixStream::from_std).
     fn try_from(stream: net::UnixStream) -> io::Result<Self> {
-        Self::from_std(stream)
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncRead for UnixStream {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        self.poll_read_priv(cx, buf)
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for UnixStream {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        self.poll_write_priv(cx, buf)
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        self.poll_write_vectored_priv(cx, bufs)
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        true
+        panic!("STUB: not implemented");
     }
-
     fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Ok(()))
+        panic!("STUB: not implemented");
     }
-
     fn poll_shutdown(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.shutdown_std(std::net::Shutdown::Write)?;
-        Poll::Ready(Ok(()))
+        panic!("STUB: not implemented");
     }
 }
-
 impl UnixStream {
-    // == Poll IO functions that takes `&self` ==
-    //
-    // To read or write without mutable access to the `UnixStream`, combine the
-    // `poll_read_ready` or `poll_write_ready` methods with the `try_read` or
-    // `try_write` methods.
-
     pub(crate) fn poll_read_priv(
         &self,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        // Safety: `UnixStream::read` correctly handles reads into uninitialized memory
-        unsafe { self.io.poll_read(cx, buf) }
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn poll_write_priv(
         &self,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        self.io.poll_write(cx, buf)
+        panic!("STUB: not implemented");
     }
-
     pub(super) fn poll_write_vectored_priv(
         &self,
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        self.io.poll_write_vectored(cx, bufs)
+        panic!("STUB: not implemented");
     }
 }
-
 impl fmt::Debug for UnixStream {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (*self.io).fmt(f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRef<Self> for UnixStream {
     fn as_ref(&self) -> &Self {
-        self
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRawFd for UnixStream {
     fn as_raw_fd(&self) -> RawFd {
-        self.io.as_raw_fd()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsFd for UnixStream {
     fn as_fd(&self) -> BorrowedFd<'_> {
-        unsafe { BorrowedFd::borrow_raw(self.as_raw_fd()) }
+        panic!("STUB: not implemented");
     }
 }

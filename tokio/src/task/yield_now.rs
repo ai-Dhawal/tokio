@@ -1,8 +1,6 @@
 use crate::runtime::context;
-
 use std::future::poll_fn;
 use std::task::{ready, Poll};
-
 /// Yields execution back to the Tokio runtime.
 ///
 /// A task yields by awaiting on `yield_now()`, and may resume when that future
@@ -36,19 +34,5 @@ use std::task::{ready, Poll};
 /// [`tokio::select!`]: macro@crate::select
 #[cfg_attr(docsrs, doc(cfg(feature = "rt")))]
 pub async fn yield_now() {
-    let mut yielded = false;
-    poll_fn(|cx| {
-        ready!(crate::trace::trace_leaf());
-
-        if yielded {
-            return Poll::Ready(());
-        }
-
-        yielded = true;
-
-        context::defer(cx.waker());
-
-        Poll::Pending
-    })
-    .await
+    panic!("STUB: not implemented");
 }

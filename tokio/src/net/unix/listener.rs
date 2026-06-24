@@ -1,7 +1,6 @@
 use crate::io::{Interest, PollEvented};
 use crate::net::unix::{SocketAddr, UnixStream};
 use crate::util::check_socket_for_blocking;
-
 use std::fmt;
 use std::io;
 #[cfg(target_os = "android")]
@@ -14,54 +13,34 @@ use std::os::unix::io::{AsFd, AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, RawFd};
 use std::os::unix::net::{self, SocketAddr as StdSocketAddr};
 use std::path::Path;
 use std::task::{ready, Context, Poll};
-
 cfg_net_unix! {
-    /// A Unix socket which can accept connections from other Unix sockets.
-    ///
-    /// You can accept a new connection by using the [`accept`](`UnixListener::accept`) method.
-    ///
-    /// A `UnixListener` can be turned into a `Stream` with [`UnixListenerStream`].
-    ///
-    /// [`UnixListenerStream`]: https://docs.rs/tokio-stream/0.1/tokio_stream/wrappers/struct.UnixListenerStream.html
-    ///
-    /// # Errors
-    ///
-    /// Note that accepting a connection can lead to various errors and not all
-    /// of them are necessarily fatal ‒ for example having too many open file
-    /// descriptors or the other side closing the connection while it waits in
-    /// an accept queue. These would terminate the stream if not handled in any
-    /// way.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use tokio::net::UnixListener;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let listener = UnixListener::bind("/path/to/the/socket").unwrap();
-    ///     loop {
-    ///         match listener.accept().await {
-    ///             Ok((stream, _addr)) => {
-    ///                 println!("new client!");
-    ///             }
-    ///             Err(e) => { /* connection failed */ }
-    ///         }
-    ///     }
-    /// }
-    /// ```
-    #[cfg_attr(docsrs, doc(alias = "uds"))]
-    pub struct UnixListener {
-        io: PollEvented<mio::net::UnixListener>,
-    }
+    #[doc = " A Unix socket which can accept connections from other Unix sockets."] #[doc
+    = ""] #[doc =
+    " You can accept a new connection by using the [`accept`](`UnixListener::accept`) method."]
+    #[doc = ""] #[doc =
+    " A `UnixListener` can be turned into a `Stream` with [`UnixListenerStream`]."] #[doc
+    = ""] #[doc =
+    " [`UnixListenerStream`]: https://docs.rs/tokio-stream/0.1/tokio_stream/wrappers/struct.UnixListenerStream.html"]
+    #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " Note that accepting a connection can lead to various errors and not all"] #[doc =
+    " of them are necessarily fatal ‒ for example having too many open file"] #[doc =
+    " descriptors or the other side closing the connection while it waits in"] #[doc =
+    " an accept queue. These would terminate the stream if not handled in any"] #[doc =
+    " way."] #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+    " use tokio::net::UnixListener;"] #[doc = ""] #[doc = " #[tokio::main]"] #[doc =
+    " async fn main() {"] #[doc =
+    "     let listener = UnixListener::bind(\"/path/to/the/socket\").unwrap();"] #[doc =
+    "     loop {"] #[doc = "         match listener.accept().await {"] #[doc =
+    "             Ok((stream, _addr)) => {"] #[doc =
+    "                 println!(\"new client!\");"] #[doc = "             }"] #[doc =
+    "             Err(e) => { /* connection failed */ }"] #[doc = "         }"] #[doc =
+    "     }"] #[doc = " }"] #[doc = " ```"] #[cfg_attr(docsrs, doc(alias = "uds"))] pub
+    struct UnixListener { io : PollEvented < mio::net::UnixListener >, }
 }
-
 impl UnixListener {
     pub(crate) fn new(listener: mio::net::UnixListener) -> io::Result<UnixListener> {
-        let io = PollEvented::new(listener)?;
-        Ok(UnixListener { io })
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `UnixListener` bound to the specified path.
     ///
     /// # Panics
@@ -77,23 +56,8 @@ impl UnixListener {
     where
         P: AsRef<Path>,
     {
-        // For now, we handle abstract socket paths on linux here.
-        #[cfg(any(target_os = "linux", target_os = "android"))]
-        let addr = {
-            let os_str_bytes = path.as_ref().as_os_str().as_bytes();
-            if os_str_bytes.starts_with(b"\0") {
-                StdSocketAddr::from_abstract_name(&os_str_bytes[1..])?
-            } else {
-                StdSocketAddr::from_pathname(path)?
-            }
-        };
-        #[cfg(not(any(target_os = "linux", target_os = "android")))]
-        let addr = StdSocketAddr::from_pathname(path)?;
-
-        let addr = SocketAddr::from(addr);
-        UnixListener::bind_addr(&addr)
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `UnixListener` bound to the specified address.
     ///
     /// # Panics
@@ -106,11 +70,8 @@ impl UnixListener {
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     #[track_caller]
     pub fn bind_addr(socket_addr: &SocketAddr) -> io::Result<UnixListener> {
-        let listener = mio::net::UnixListener::bind_addr(&socket_addr.0)?;
-        let io = PollEvented::new(listener)?;
-        Ok(UnixListener { io })
+        panic!("STUB: not implemented");
     }
-
     /// Creates new [`UnixListener`] from a [`std::os::unix::net::UnixListener`].
     ///
     /// This function is intended to be used to wrap a `UnixListener` from the
@@ -154,13 +115,8 @@ impl UnixListener {
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     #[track_caller]
     pub fn from_std(listener: net::UnixListener) -> io::Result<UnixListener> {
-        check_socket_for_blocking(&listener)?;
-
-        let listener = mio::net::UnixListener::from_std(listener);
-        let io = PollEvented::new(listener)?;
-        Ok(UnixListener { io })
+        panic!("STUB: not implemented");
     }
-
     /// Turns a [`tokio::net::UnixListener`] into a [`std::os::unix::net::UnixListener`].
     ///
     /// The returned [`std::os::unix::net::UnixListener`] will have nonblocking mode
@@ -182,22 +138,16 @@ impl UnixListener {
     /// [`std::os::unix::net::UnixListener`]: std::os::unix::net::UnixListener
     /// [`set_nonblocking`]: fn@std::os::unix::net::UnixListener::set_nonblocking
     pub fn into_std(self) -> io::Result<std::os::unix::net::UnixListener> {
-        self.io
-            .into_inner()
-            .map(IntoRawFd::into_raw_fd)
-            .map(|raw_fd| unsafe { net::UnixListener::from_raw_fd(raw_fd) })
+        panic!("STUB: not implemented");
     }
-
     /// Returns the local socket address of this listener.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.io.local_addr().map(SocketAddr)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the value of the `SO_ERROR` option.
     pub fn take_error(&self) -> io::Result<Option<io::Error>> {
-        self.io.take_error()
+        panic!("STUB: not implemented");
     }
-
     /// Accepts a new incoming connection to this listener.
     ///
     /// # Cancel safety
@@ -207,57 +157,43 @@ impl UnixListener {
     /// completes first, then it is guaranteed that no new connections were
     /// accepted by this method.
     pub async fn accept(&self) -> io::Result<(UnixStream, SocketAddr)> {
-        let (mio, addr) = self
-            .io
-            .registration()
-            .async_io(Interest::READABLE, || self.io.accept())
-            .await?;
-
-        let addr = SocketAddr(addr);
-        let stream = UnixStream::new(mio)?;
-        Ok((stream, addr))
+        panic!("STUB: not implemented");
     }
-
     /// Polls to accept a new incoming connection to this listener.
     ///
     /// If there is no connection to accept, `Poll::Pending` is returned and the
     /// current task will be notified by a waker.  Note that on multiple calls
     /// to `poll_accept`, only the `Waker` from the `Context` passed to the most
     /// recent call is scheduled to receive a wakeup.
-    pub fn poll_accept(&self, cx: &mut Context<'_>) -> Poll<io::Result<(UnixStream, SocketAddr)>> {
-        let (sock, addr) = ready!(self.io.registration().poll_read_io(cx, || self.io.accept()))?;
-        let addr = SocketAddr(addr);
-        let sock = UnixStream::new(sock)?;
-        Poll::Ready(Ok((sock, addr)))
+    pub fn poll_accept(
+        &self,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<(UnixStream, SocketAddr)>> {
+        panic!("STUB: not implemented");
     }
 }
-
 impl TryFrom<std::os::unix::net::UnixListener> for UnixListener {
     type Error = io::Error;
-
     /// Consumes stream, returning the tokio I/O object.
     ///
     /// This is equivalent to
     /// [`UnixListener::from_std(stream)`](UnixListener::from_std).
     fn try_from(stream: std::os::unix::net::UnixListener) -> io::Result<Self> {
-        Self::from_std(stream)
+        panic!("STUB: not implemented");
     }
 }
-
 impl fmt::Debug for UnixListener {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (*self.io).fmt(f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRawFd for UnixListener {
     fn as_raw_fd(&self) -> RawFd {
-        self.io.as_raw_fd()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsFd for UnixListener {
     fn as_fd(&self) -> BorrowedFd<'_> {
-        unsafe { BorrowedFd::borrow_raw(self.as_raw_fd()) }
+        panic!("STUB: not implemented");
     }
 }

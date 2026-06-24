@@ -1,22 +1,18 @@
 #![cfg_attr(loom, allow(unused_imports))]
-
 use crate::runtime::handle::Handle;
 use crate::runtime::{
     blocking, driver, Callback, HistogramBuilder, Runtime, TaskCallback, TimerFlavor,
 };
 #[cfg(tokio_unstable)]
 use crate::runtime::{metrics::HistogramConfiguration, TaskMeta};
-
 use crate::runtime::{LocalOptions, LocalRuntime};
 use crate::util::rand::{RngSeed, RngSeedGenerator};
-
 use crate::runtime::blocking::BlockingPool;
 use crate::runtime::scheduler::CurrentThread;
 use std::fmt;
 use std::io;
 use std::thread::ThreadId;
 use std::time::Duration;
-
 /// Builds Tokio Runtime with custom configuration values.
 ///
 /// Methods can be chained in order to set the configuration values. The
@@ -55,63 +51,45 @@ use std::time::Duration;
 pub struct Builder {
     /// Runtime type
     kind: Kind,
-
     /// Name of the runtime.
     name: Option<String>,
-
     /// Whether or not to enable the I/O driver
     enable_io: bool,
     nevents: usize,
-
     /// Whether or not to enable the time driver
     enable_time: bool,
-
     /// Whether or not the clock should start paused.
     start_paused: bool,
-
     /// The number of worker threads, used by Runtime.
     ///
     /// Only used when not using the current-thread executor.
     worker_threads: Option<usize>,
-
     /// Cap on thread usage.
     max_blocking_threads: usize,
-
     /// Name fn used for threads spawned by the runtime.
     pub(super) thread_name: ThreadNameFn,
-
     /// Stack size used for threads spawned by the runtime.
     pub(super) thread_stack_size: Option<usize>,
-
     /// Callback to run after each thread starts.
     pub(super) after_start: Option<Callback>,
-
     /// To run before each worker thread stops
     pub(super) before_stop: Option<Callback>,
-
     /// To run before each worker thread is parked.
     pub(super) before_park: Option<Callback>,
-
     /// To run after each thread is unparked.
     pub(super) after_unpark: Option<Callback>,
-
     /// To run before each task is spawned.
     pub(super) before_spawn: Option<TaskCallback>,
-
     /// To run before each poll
     #[cfg(tokio_unstable)]
     pub(super) before_poll: Option<TaskCallback>,
-
     /// To run after each poll
     #[cfg(tokio_unstable)]
     pub(super) after_poll: Option<TaskCallback>,
-
     /// To run after each task is terminated.
     pub(super) after_termination: Option<TaskCallback>,
-
     /// Customizable keep alive timeout for `BlockingPool`
     pub(super) keep_alive: Option<Duration>,
-
     /// How many ticks before pulling a task from the global/remote queue?
     ///
     /// When `None`, the value is unspecified and behavior details are left to
@@ -120,133 +98,78 @@ pub struct Builder {
     /// global queue. For example, the multi-threaded scheduler uses a
     /// self-tuning strategy based on mean task poll times.
     pub(super) global_queue_interval: Option<u32>,
-
     /// How many ticks before yielding to the driver for timer and I/O events?
     pub(super) event_interval: u32,
-
     /// When true, the multi-threade scheduler LIFO slot should not be used.
     ///
     /// This option should only be exposed as unstable.
     pub(super) disable_lifo_slot: bool,
-
     /// Specify a random number generator seed to provide deterministic results
     pub(super) seed_generator: RngSeedGenerator,
-
     /// When true, enables task poll count histogram instrumentation.
     pub(super) metrics_poll_count_histogram_enable: bool,
-
     /// Configures the task poll count histogram
     pub(super) metrics_poll_count_histogram: HistogramBuilder,
-
     /// When true, enables task schedule latency instrumentation.
     pub(super) metrics_schedule_latency_histogram_enabled: bool,
-
     /// Configures the task schedule latency histogram.
     pub(super) metrics_schedule_latency_histogram: HistogramBuilder,
-
     #[cfg(tokio_unstable)]
     pub(super) unhandled_panic: UnhandledPanic,
-
     timer_flavor: TimerFlavor,
-
     /// Whether or not to enable eager hand-off for the I/O and time drivers (in
     /// `tokio_unstable`).
     enable_eager_driver_handoff: bool,
 }
-
 cfg_unstable! {
-    /// How the runtime should respond to unhandled panics.
-    ///
-    /// Instances of `UnhandledPanic` are passed to `Builder::unhandled_panic`
-    /// to configure the runtime behavior when a spawned task panics.
-    ///
-    /// See [`Builder::unhandled_panic`] for more details.
-    #[derive(Debug, Clone)]
-    #[non_exhaustive]
-    pub enum UnhandledPanic {
-        /// The runtime should ignore panics on spawned tasks.
-        ///
-        /// The panic is forwarded to the task's [`JoinHandle`] and all spawned
-        /// tasks continue running normally.
-        ///
-        /// This is the default behavior.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime::{self, UnhandledPanic};
-        ///
-        /// # pub fn main() {
-        /// let rt = runtime::Builder::new_current_thread()
-        ///     .unhandled_panic(UnhandledPanic::Ignore)
-        ///     .build()
-        ///     .unwrap();
-        ///
-        /// let task1 = rt.spawn(async { panic!("boom"); });
-        /// let task2 = rt.spawn(async {
-        ///     // This task completes normally
-        ///     "done"
-        /// });
-        ///
-        /// rt.block_on(async {
-        ///     // The panic on the first task is forwarded to the `JoinHandle`
-        ///     assert!(task1.await.is_err());
-        ///
-        ///     // The second task completes normally
-        ///     assert!(task2.await.is_ok());
-        /// })
-        /// # }
-        /// # }
-        /// ```
-        ///
-        /// [`JoinHandle`]: struct@crate::task::JoinHandle
-        Ignore,
-
-        /// The runtime should immediately shutdown if a spawned task panics.
-        ///
-        /// The runtime will immediately shutdown even if the panicked task's
-        /// [`JoinHandle`] is still available. All further spawned tasks will be
-        /// immediately dropped and call to [`Runtime::block_on`] will panic.
-        ///
-        /// # Examples
-        ///
-        /// ```should_panic
-        /// use tokio::runtime::{self, UnhandledPanic};
-        ///
-        /// # pub fn main() {
-        /// let rt = runtime::Builder::new_current_thread()
-        ///     .unhandled_panic(UnhandledPanic::ShutdownRuntime)
-        ///     .build()
-        ///     .unwrap();
-        ///
-        /// rt.spawn(async { panic!("boom"); });
-        /// rt.spawn(async {
-        ///     // This task never completes.
-        /// });
-        ///
-        /// rt.block_on(async {
-        ///     // Do some work
-        /// # loop { tokio::task::yield_now().await; }
-        /// })
-        /// # }
-        /// ```
-        ///
-        /// [`JoinHandle`]: struct@crate::task::JoinHandle
-        ShutdownRuntime,
-    }
+    #[doc = " How the runtime should respond to unhandled panics."] #[doc = ""] #[doc =
+    " Instances of `UnhandledPanic` are passed to `Builder::unhandled_panic`"] #[doc =
+    " to configure the runtime behavior when a spawned task panics."] #[doc = ""] #[doc =
+    " See [`Builder::unhandled_panic`] for more details."] #[derive(Debug, Clone)]
+    #[non_exhaustive] pub enum UnhandledPanic { #[doc =
+    " The runtime should ignore panics on spawned tasks."] #[doc = ""] #[doc =
+    " The panic is forwarded to the task's [`JoinHandle`] and all spawned"] #[doc =
+    " tasks continue running normally."] #[doc = ""] #[doc =
+    " This is the default behavior."] #[doc = ""] #[doc = " # Examples"] #[doc = ""]
+    #[doc = " ```"] #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"]
+    #[doc = " use tokio::runtime::{self, UnhandledPanic};"] #[doc = ""] #[doc =
+    " # pub fn main() {"] #[doc = " let rt = runtime::Builder::new_current_thread()"]
+    #[doc = "     .unhandled_panic(UnhandledPanic::Ignore)"] #[doc = "     .build()"]
+    #[doc = "     .unwrap();"] #[doc = ""] #[doc =
+    " let task1 = rt.spawn(async { panic!(\"boom\"); });"] #[doc =
+    " let task2 = rt.spawn(async {"] #[doc = "     // This task completes normally"]
+    #[doc = "     \"done\""] #[doc = " });"] #[doc = ""] #[doc = " rt.block_on(async {"]
+    #[doc = "     // The panic on the first task is forwarded to the `JoinHandle`"] #[doc
+    = "     assert!(task1.await.is_err());"] #[doc = ""] #[doc =
+    "     // The second task completes normally"] #[doc =
+    "     assert!(task2.await.is_ok());"] #[doc = " })"] #[doc = " # }"] #[doc = " # }"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " [`JoinHandle`]: struct@crate::task::JoinHandle"] Ignore, #[doc =
+    " The runtime should immediately shutdown if a spawned task panics."] #[doc = ""]
+    #[doc = " The runtime will immediately shutdown even if the panicked task's"] #[doc =
+    " [`JoinHandle`] is still available. All further spawned tasks will be"] #[doc =
+    " immediately dropped and call to [`Runtime::block_on`] will panic."] #[doc = ""]
+    #[doc = " # Examples"] #[doc = ""] #[doc = " ```should_panic"] #[doc =
+    " use tokio::runtime::{self, UnhandledPanic};"] #[doc = ""] #[doc =
+    " # pub fn main() {"] #[doc = " let rt = runtime::Builder::new_current_thread()"]
+    #[doc = "     .unhandled_panic(UnhandledPanic::ShutdownRuntime)"] #[doc =
+    "     .build()"] #[doc = "     .unwrap();"] #[doc = ""] #[doc =
+    " rt.spawn(async { panic!(\"boom\"); });"] #[doc = " rt.spawn(async {"] #[doc =
+    "     // This task never completes."] #[doc = " });"] #[doc = ""] #[doc =
+    " rt.block_on(async {"] #[doc = "     // Do some work"] #[doc =
+    " # loop { tokio::task::yield_now().await; }"] #[doc = " })"] #[doc = " # }"] #[doc =
+    " ```"] #[doc = ""] #[doc = " [`JoinHandle`]: struct@crate::task::JoinHandle"]
+    ShutdownRuntime, }
 }
-
-pub(crate) type ThreadNameFn = std::sync::Arc<dyn Fn() -> String + Send + Sync + 'static>;
-
+pub(crate) type ThreadNameFn = std::sync::Arc<
+    dyn Fn() -> String + Send + Sync + 'static,
+>;
 #[derive(Clone, Copy)]
 pub(crate) enum Kind {
     CurrentThread,
     #[cfg(feature = "rt-multi-thread")]
     MultiThread,
 }
-
 impl Builder {
     /// Returns a new builder with the current thread scheduler selected.
     ///
@@ -259,101 +182,23 @@ impl Builder {
     /// [`LocalRuntime`]: crate::runtime::LocalRuntime
     /// [`build_local`]: crate::runtime::Builder::build_local
     pub fn new_current_thread() -> Builder {
-        #[cfg(loom)]
-        const EVENT_INTERVAL: u32 = 4;
-        // The number `61` is fairly arbitrary. I believe this value was copied from golang.
-        #[cfg(not(loom))]
-        const EVENT_INTERVAL: u32 = 61;
-
-        Builder::new(Kind::CurrentThread, EVENT_INTERVAL)
+        panic!("STUB: not implemented");
     }
-
     /// Returns a new builder with the multi thread scheduler selected.
     ///
     /// Configuration methods can be chained on the return value.
     #[cfg(feature = "rt-multi-thread")]
     #[cfg_attr(docsrs, doc(cfg(feature = "rt-multi-thread")))]
     pub fn new_multi_thread() -> Builder {
-        // The number `61` is fairly arbitrary. I believe this value was copied from golang.
-        Builder::new(Kind::MultiThread, 61)
+        panic!("STUB: not implemented");
     }
-
     /// Returns a new runtime builder initialized with default configuration
     /// values.
     ///
     /// Configuration methods can be chained on the return value.
     pub(crate) fn new(kind: Kind, event_interval: u32) -> Builder {
-        Builder {
-            kind,
-
-            // Default runtime name
-            name: None,
-
-            // I/O defaults to "off"
-            enable_io: false,
-            nevents: 1024,
-
-            // Time defaults to "off"
-            enable_time: false,
-
-            // The clock starts not-paused
-            start_paused: false,
-
-            // Read from environment variable first in multi-threaded mode.
-            // Default to lazy auto-detection (one thread per CPU core)
-            worker_threads: None,
-
-            max_blocking_threads: 512,
-
-            // Default thread name
-            thread_name: std::sync::Arc::new(|| "tokio-rt-worker".into()),
-
-            // Do not set a stack size by default
-            thread_stack_size: None,
-
-            // No worker thread callbacks
-            after_start: None,
-            before_stop: None,
-            before_park: None,
-            after_unpark: None,
-
-            before_spawn: None,
-            after_termination: None,
-
-            #[cfg(tokio_unstable)]
-            before_poll: None,
-            #[cfg(tokio_unstable)]
-            after_poll: None,
-
-            keep_alive: None,
-
-            // Defaults for these values depend on the scheduler kind, so we get them
-            // as parameters.
-            global_queue_interval: None,
-            event_interval,
-
-            seed_generator: RngSeedGenerator::new(RngSeed::new()),
-
-            #[cfg(tokio_unstable)]
-            unhandled_panic: UnhandledPanic::Ignore,
-
-            metrics_poll_count_histogram_enable: false,
-
-            metrics_poll_count_histogram: HistogramBuilder::default(),
-
-            metrics_schedule_latency_histogram_enabled: false,
-
-            metrics_schedule_latency_histogram: HistogramBuilder::default(),
-
-            disable_lifo_slot: false,
-
-            timer_flavor: TimerFlavor::Traditional,
-
-            // Eager driver handoff is disabled by default.
-            enable_eager_driver_handoff: false,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Enables both I/O and time drivers.
     ///
     /// Doing this is a shorthand for calling `enable_io` and `enable_time`
@@ -374,28 +219,8 @@ impl Builder {
     /// # }
     /// ```
     pub fn enable_all(&mut self) -> &mut Self {
-        #[cfg(any(
-            feature = "net",
-            all(unix, feature = "process"),
-            all(unix, feature = "signal")
-        ))]
-        self.enable_io();
-
-        #[cfg(all(
-            tokio_unstable,
-            feature = "io-uring",
-            feature = "rt",
-            feature = "fs",
-            target_os = "linux",
-        ))]
-        self.enable_io_uring();
-
-        #[cfg(feature = "time")]
-        self.enable_time();
-
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Enables the alternative timer implementation, which is disabled by default.
     ///
     /// The alternative timer implementation is an unstable feature that may
@@ -426,11 +251,8 @@ impl Builder {
         doc(cfg(all(tokio_unstable, feature = "time", feature = "rt-multi-thread")))
     )]
     pub fn enable_alt_timer(&mut self) -> &mut Self {
-        self.enable_time();
-        self.timer_flavor = TimerFlavor::Alternative;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Enable eager hand-off of the I/O and time drivers for multi-threaded
     /// runtimes, which is disabled by default.
     ///
@@ -461,10 +283,8 @@ impl Builder {
     #[cfg(all(tokio_unstable, feature = "rt-multi-thread"))]
     #[cfg_attr(docsrs, doc(cfg(all(tokio_unstable, feature = "rt-multi-thread"))))]
     pub fn enable_eager_driver_handoff(&mut self) -> &mut Self {
-        self.enable_eager_driver_handoff = true;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets the number of worker threads the `Runtime` will use.
     ///
     /// This can be any number above 0 though it is advised to keep this value
@@ -517,11 +337,8 @@ impl Builder {
     /// This will panic if `val` is not larger than `0`.
     #[track_caller]
     pub fn worker_threads(&mut self, val: usize) -> &mut Self {
-        assert!(val > 0, "Worker threads cannot be set to 0");
-        self.worker_threads = Some(val);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Specifies the limit for additional threads spawned by the Runtime.
     ///
     /// These threads are used for blocking operations like tasks spawned
@@ -568,11 +385,8 @@ impl Builder {
     #[track_caller]
     #[cfg_attr(docsrs, doc(alias = "max_threads"))]
     pub fn max_blocking_threads(&mut self, val: usize) -> &mut Self {
-        assert!(val > 0, "Max blocking threads cannot be set to 0");
-        self.max_blocking_threads = val;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets name of threads spawned by the `Runtime`'s thread pool.
     ///
     /// The default name is "tokio-rt-worker".
@@ -592,11 +406,8 @@ impl Builder {
     /// # }
     /// ```
     pub fn thread_name(&mut self, val: impl Into<String>) -> &mut Self {
-        let val = val.into();
-        self.thread_name = std::sync::Arc::new(move || val.clone());
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets the name of the runtime.
     ///
     /// # Examples
@@ -619,12 +430,8 @@ impl Builder {
     ///
     #[track_caller]
     pub fn name(&mut self, val: impl Into<String>) -> &mut Self {
-        let val = val.into();
-        assert!(!val.trim().is_empty(), "runtime name shouldn't be empty");
-        self.name = Some(val);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets a function used to generate the name of threads spawned by the `Runtime`'s thread pool.
     ///
     /// The default name fn is `|| "tokio-rt-worker".into()`.
@@ -651,10 +458,8 @@ impl Builder {
     where
         F: Fn() -> String + Send + Sync + 'static,
     {
-        self.thread_name = std::sync::Arc::new(f);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets the stack size (in bytes) for worker threads.
     ///
     /// The actual stack size may be greater than this value if the platform
@@ -678,10 +483,8 @@ impl Builder {
     /// # }
     /// ```
     pub fn thread_stack_size(&mut self, val: usize) -> &mut Self {
-        self.thread_stack_size = Some(val);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Executes function `f` after each thread is started but before it starts
     /// doing work.
     ///
@@ -707,10 +510,8 @@ impl Builder {
     where
         F: Fn() + Send + Sync + 'static,
     {
-        self.after_start = Some(std::sync::Arc::new(f));
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Executes function `f` before each thread stops.
     ///
     /// This is intended for bookkeeping and monitoring use cases.
@@ -735,10 +536,8 @@ impl Builder {
     where
         F: Fn() + Send + Sync + 'static,
     {
-        self.before_stop = Some(std::sync::Arc::new(f));
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Executes function `f` just before a thread is parked (goes idle).
     /// `f` is called within the Tokio context, so functions like [`tokio::spawn`](crate::spawn)
     /// can be called, and may result in this thread being unparked immediately.
@@ -816,10 +615,8 @@ impl Builder {
     where
         F: Fn() + Send + Sync + 'static,
     {
-        self.before_park = Some(std::sync::Arc::new(f));
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Executes function `f` just after a thread unparks (starts executing tasks).
     ///
     /// This is intended for bookkeeping and monitoring use cases; note that work
@@ -854,10 +651,8 @@ impl Builder {
     where
         F: Fn() + Send + Sync + 'static,
     {
-        self.after_unpark = Some(std::sync::Arc::new(f));
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Executes function `f` just before a task is spawned.
     ///
     /// `f` is called within the Tokio context, so functions like
@@ -904,10 +699,8 @@ impl Builder {
     where
         F: Fn(&TaskMeta<'_>) + Send + Sync + 'static,
     {
-        self.before_spawn = Some(std::sync::Arc::new(f));
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Executes function `f` just before a task is polled
     ///
     /// `f` is called within the Tokio context, so functions like
@@ -951,10 +744,8 @@ impl Builder {
     where
         F: Fn(&TaskMeta<'_>) + Send + Sync + 'static,
     {
-        self.before_poll = Some(std::sync::Arc::new(f));
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Executes function `f` just after a task is polled
     ///
     /// `f` is called within the Tokio context, so functions like
@@ -998,10 +789,8 @@ impl Builder {
     where
         F: Fn(&TaskMeta<'_>) + Send + Sync + 'static,
     {
-        self.after_poll = Some(std::sync::Arc::new(f));
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Executes function `f` just after a task is terminated.
     ///
     /// `f` is called within the Tokio context, so functions like
@@ -1047,10 +836,8 @@ impl Builder {
     where
         F: Fn(&TaskMeta<'_>) + Send + Sync + 'static,
     {
-        self.after_termination = Some(std::sync::Arc::new(f));
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Creates the configured `Runtime`.
     ///
     /// The returned `Runtime` instance is ready to spawn tasks.
@@ -1070,13 +857,8 @@ impl Builder {
     /// # }
     /// ```
     pub fn build(&mut self) -> io::Result<Runtime> {
-        match &self.kind {
-            Kind::CurrentThread => self.build_current_thread_runtime(),
-            #[cfg(feature = "rt-multi-thread")]
-            Kind::MultiThread => self.build_threaded_runtime(),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Creates the configured [`LocalRuntime`].
     ///
     /// The returned [`LocalRuntime`] instance is ready to spawn tasks.
@@ -1102,28 +884,11 @@ impl Builder {
     /// ```
     #[allow(unused_variables, unreachable_patterns)]
     pub fn build_local(&mut self, options: LocalOptions) -> io::Result<LocalRuntime> {
-        match &self.kind {
-            Kind::CurrentThread => self.build_current_thread_local_runtime(),
-            #[cfg(feature = "rt-multi-thread")]
-            Kind::MultiThread => panic!("multi_thread is not supported for LocalRuntime"),
-        }
+        panic!("STUB: not implemented");
     }
-
     fn get_cfg(&self) -> driver::Cfg {
-        driver::Cfg {
-            enable_pause_time: match self.kind {
-                Kind::CurrentThread => true,
-                #[cfg(feature = "rt-multi-thread")]
-                Kind::MultiThread => false,
-            },
-            enable_io: self.enable_io,
-            enable_time: self.enable_time,
-            start_paused: self.start_paused,
-            nevents: self.nevents,
-            timer_flavor: self.timer_flavor,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Sets a custom timeout for a thread in the blocking pool.
     ///
     /// By default, the timeout for a thread is set to 10 seconds. This can
@@ -1144,10 +909,8 @@ impl Builder {
     /// # }
     /// ```
     pub fn thread_keep_alive(&mut self, duration: Duration) -> &mut Self {
-        self.keep_alive = Some(duration);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets the number of scheduler ticks after which the scheduler will poll the global
     /// task queue.
     ///
@@ -1186,11 +949,8 @@ impl Builder {
     /// ```
     #[track_caller]
     pub fn global_queue_interval(&mut self, val: u32) -> &mut Self {
-        assert!(val > 0, "global_queue_interval must be greater than 0");
-        self.global_queue_interval = Some(val);
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets the number of scheduler ticks after which the scheduler will poll for
     /// external events (timers, I/O, and so on).
     ///
@@ -1227,866 +987,439 @@ impl Builder {
     /// ```
     #[track_caller]
     pub fn event_interval(&mut self, val: u32) -> &mut Self {
-        assert!(val > 0, "event_interval must be greater than 0");
-        self.event_interval = val;
-        self
+        panic!("STUB: not implemented");
     }
-
     cfg_unstable! {
-        /// Configure how the runtime responds to an unhandled panic on a
-        /// spawned task.
-        ///
-        /// By default, an unhandled panic (i.e. a panic not caught by
-        /// [`std::panic::catch_unwind`]) has no impact on the runtime's
-        /// execution. The panic's error value is forwarded to the task's
-        /// [`JoinHandle`] and all other spawned tasks continue running.
-        ///
-        /// The `unhandled_panic` option enables configuring this behavior.
-        ///
-        /// * `UnhandledPanic::Ignore` is the default behavior. Panics on
-        ///   spawned tasks have no impact on the runtime's execution.
-        /// * `UnhandledPanic::ShutdownRuntime` will force the runtime to
-        ///   shutdown immediately when a spawned task panics even if that
-        ///   task's `JoinHandle` has not been dropped. All other spawned tasks
-        ///   will immediately terminate and further calls to
-        ///   [`Runtime::block_on`] will panic.
-        ///
-        /// # Panics
-        /// This method panics if called with [`UnhandledPanic::ShutdownRuntime`]
-        /// on a runtime other than the current thread runtime.
-        ///
-        /// # Unstable
-        ///
-        /// This option is currently unstable and its implementation is
-        /// incomplete. The API may change or be removed in the future. See
-        /// issue [tokio-rs/tokio#4516] for more details.
-        ///
-        /// # Examples
-        ///
-        /// The following demonstrates a runtime configured to shutdown on
-        /// panic. The first spawned task panics and results in the runtime
-        /// shutting down. The second spawned task never has a chance to
-        /// execute. The call to `block_on` will panic due to the runtime being
-        /// forcibly shutdown.
-        ///
-        /// ```should_panic
-        /// use tokio::runtime::{self, UnhandledPanic};
-        ///
-        /// # pub fn main() {
-        /// let rt = runtime::Builder::new_current_thread()
-        ///     .unhandled_panic(UnhandledPanic::ShutdownRuntime)
-        ///     .build()
-        ///     .unwrap();
-        ///
-        /// rt.spawn(async { panic!("boom"); });
-        /// rt.spawn(async {
-        ///     // This task never completes.
-        /// });
-        ///
-        /// rt.block_on(async {
-        ///     // Do some work
-        /// # loop { tokio::task::yield_now().await; }
-        /// })
-        /// # }
-        /// ```
-        ///
-        /// [`JoinHandle`]: struct@crate::task::JoinHandle
-        /// [tokio-rs/tokio#4516]: https://github.com/tokio-rs/tokio/issues/4516
-        pub fn unhandled_panic(&mut self, behavior: UnhandledPanic) -> &mut Self {
-            if !matches!(self.kind, Kind::CurrentThread) && matches!(behavior, UnhandledPanic::ShutdownRuntime) {
-                panic!("UnhandledPanic::ShutdownRuntime is only supported in current thread runtime");
-            }
-
-            self.unhandled_panic = behavior;
-            self
-        }
-
-        /// Disables the LIFO task scheduler heuristic.
-        ///
-        /// The multi-threaded scheduler includes a heuristic for optimizing
-        /// message-passing patterns. This heuristic results in the **last**
-        /// scheduled task being polled first.
-        ///
-        /// To implement this heuristic, each worker thread has a slot which
-        /// holds the task that should be polled next. However, this slot cannot
-        /// be stolen by other worker threads, which can result in lower total
-        /// throughput when tasks tend to have longer poll times.
-        ///
-        /// This configuration option will disable this heuristic resulting in
-        /// all scheduled tasks being pushed into the worker-local queue, which
-        /// is stealable.
-        ///
-        /// Consider trying this option when the task "scheduled" time is high
-        /// but the runtime is underutilized. Use [tokio-rs/tokio-metrics] to
-        /// collect this data.
-        ///
-        /// # Unstable
-        ///
-        /// This configuration option is considered a workaround for the LIFO
-        /// slot not being stealable. When the slot becomes stealable, we will
-        /// revisit whether or not this option is necessary. See
-        /// issue [tokio-rs/tokio#4941].
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime;
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .disable_lifo_slot()
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        ///
-        /// [tokio-rs/tokio-metrics]: https://github.com/tokio-rs/tokio-metrics
-        /// [tokio-rs/tokio#4941]: https://github.com/tokio-rs/tokio/issues/4941
-        pub fn disable_lifo_slot(&mut self) -> &mut Self {
-            self.disable_lifo_slot = true;
-            self
-        }
-
-        /// Specifies the random number generation seed to use within all
-        /// threads associated with the runtime being built.
-        ///
-        /// This option is intended to make certain parts of the runtime
-        /// deterministic (e.g. the [`tokio::select!`] macro). In the case of
-        /// [`tokio::select!`] it will ensure that the order that branches are
-        /// polled is deterministic.
-        ///
-        /// In addition to the code specifying `rng_seed` and interacting with
-        /// the runtime, the internals of Tokio and the Rust compiler may affect
-        /// the sequences of random numbers. In order to ensure repeatable
-        /// results, the version of Tokio, the versions of all other
-        /// dependencies that interact with Tokio, and the Rust compiler version
-        /// should also all remain constant.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # use tokio::runtime::{self, RngSeed};
-        /// # pub fn main() {
-        /// let seed = RngSeed::from_bytes(b"place your seed here");
-        /// let rt = runtime::Builder::new_current_thread()
-        ///     .rng_seed(seed)
-        ///     .build();
-        /// # }
-        /// ```
-        ///
-        /// [`tokio::select!`]: crate::select
-        pub fn rng_seed(&mut self, seed: RngSeed) -> &mut Self {
-            self.seed_generator = RngSeedGenerator::new(seed);
-            self
-        }
+        #[doc = " Configure how the runtime responds to an unhandled panic on a"] #[doc =
+        " spawned task."] #[doc = ""] #[doc =
+        " By default, an unhandled panic (i.e. a panic not caught by"] #[doc =
+        " [`std::panic::catch_unwind`]) has no impact on the runtime's"] #[doc =
+        " execution. The panic's error value is forwarded to the task's"] #[doc =
+        " [`JoinHandle`] and all other spawned tasks continue running."] #[doc = ""]
+        #[doc = " The `unhandled_panic` option enables configuring this behavior."] #[doc
+        = ""] #[doc = " * `UnhandledPanic::Ignore` is the default behavior. Panics on"]
+        #[doc = "   spawned tasks have no impact on the runtime's execution."] #[doc =
+        " * `UnhandledPanic::ShutdownRuntime` will force the runtime to"] #[doc =
+        "   shutdown immediately when a spawned task panics even if that"] #[doc =
+        "   task's `JoinHandle` has not been dropped. All other spawned tasks"] #[doc =
+        "   will immediately terminate and further calls to"] #[doc =
+        "   [`Runtime::block_on`] will panic."] #[doc = ""] #[doc = " # Panics"] #[doc =
+        " This method panics if called with [`UnhandledPanic::ShutdownRuntime`]"] #[doc =
+        " on a runtime other than the current thread runtime."] #[doc = ""] #[doc =
+        " # Unstable"] #[doc = ""] #[doc =
+        " This option is currently unstable and its implementation is"] #[doc =
+        " incomplete. The API may change or be removed in the future. See"] #[doc =
+        " issue [tokio-rs/tokio#4516] for more details."] #[doc = ""] #[doc =
+        " # Examples"] #[doc = ""] #[doc =
+        " The following demonstrates a runtime configured to shutdown on"] #[doc =
+        " panic. The first spawned task panics and results in the runtime"] #[doc =
+        " shutting down. The second spawned task never has a chance to"] #[doc =
+        " execute. The call to `block_on` will panic due to the runtime being"] #[doc =
+        " forcibly shutdown."] #[doc = ""] #[doc = " ```should_panic"] #[doc =
+        " use tokio::runtime::{self, UnhandledPanic};"] #[doc = ""] #[doc =
+        " # pub fn main() {"] #[doc = " let rt = runtime::Builder::new_current_thread()"]
+        #[doc = "     .unhandled_panic(UnhandledPanic::ShutdownRuntime)"] #[doc =
+        "     .build()"] #[doc = "     .unwrap();"] #[doc = ""] #[doc =
+        " rt.spawn(async { panic!(\"boom\"); });"] #[doc = " rt.spawn(async {"] #[doc =
+        "     // This task never completes."] #[doc = " });"] #[doc = ""] #[doc =
+        " rt.block_on(async {"] #[doc = "     // Do some work"] #[doc =
+        " # loop { tokio::task::yield_now().await; }"] #[doc = " })"] #[doc = " # }"]
+        #[doc = " ```"] #[doc = ""] #[doc =
+        " [`JoinHandle`]: struct@crate::task::JoinHandle"] #[doc =
+        " [tokio-rs/tokio#4516]: https://github.com/tokio-rs/tokio/issues/4516"] pub fn
+        unhandled_panic(& mut self, behavior : UnhandledPanic) -> & mut Self { if !
+        matches!(self.kind, Kind::CurrentThread) && matches!(behavior,
+        UnhandledPanic::ShutdownRuntime) {
+        panic!("UnhandledPanic::ShutdownRuntime is only supported in current thread runtime");
+        } self.unhandled_panic = behavior; self } #[doc =
+        " Disables the LIFO task scheduler heuristic."] #[doc = ""] #[doc =
+        " The multi-threaded scheduler includes a heuristic for optimizing"] #[doc =
+        " message-passing patterns. This heuristic results in the **last**"] #[doc =
+        " scheduled task being polled first."] #[doc = ""] #[doc =
+        " To implement this heuristic, each worker thread has a slot which"] #[doc =
+        " holds the task that should be polled next. However, this slot cannot"] #[doc =
+        " be stolen by other worker threads, which can result in lower total"] #[doc =
+        " throughput when tasks tend to have longer poll times."] #[doc = ""] #[doc =
+        " This configuration option will disable this heuristic resulting in"] #[doc =
+        " all scheduled tasks being pushed into the worker-local queue, which"] #[doc =
+        " is stealable."] #[doc = ""] #[doc =
+        " Consider trying this option when the task \"scheduled\" time is high"] #[doc =
+        " but the runtime is underutilized. Use [tokio-rs/tokio-metrics] to"] #[doc =
+        " collect this data."] #[doc = ""] #[doc = " # Unstable"] #[doc = ""] #[doc =
+        " This configuration option is considered a workaround for the LIFO"] #[doc =
+        " slot not being stealable. When the slot becomes stealable, we will"] #[doc =
+        " revisit whether or not this option is necessary. See"] #[doc =
+        " issue [tokio-rs/tokio#4941]."] #[doc = ""] #[doc = " # Examples"] #[doc = ""]
+        #[doc = " ```"] #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc =
+        " # {"] #[doc = " use tokio::runtime;"] #[doc = ""] #[doc =
+        " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+        "     .disable_lifo_slot()"] #[doc = "     .build()"] #[doc = "     .unwrap();"]
+        #[doc = " # }"] #[doc = " ```"] #[doc = ""] #[doc =
+        " [tokio-rs/tokio-metrics]: https://github.com/tokio-rs/tokio-metrics"] #[doc =
+        " [tokio-rs/tokio#4941]: https://github.com/tokio-rs/tokio/issues/4941"] pub fn
+        disable_lifo_slot(& mut self) -> & mut Self { self.disable_lifo_slot = true; self
+        } #[doc = " Specifies the random number generation seed to use within all"] #[doc
+        = " threads associated with the runtime being built."] #[doc = ""] #[doc =
+        " This option is intended to make certain parts of the runtime"] #[doc =
+        " deterministic (e.g. the [`tokio::select!`] macro). In the case of"] #[doc =
+        " [`tokio::select!`] it will ensure that the order that branches are"] #[doc =
+        " polled is deterministic."] #[doc = ""] #[doc =
+        " In addition to the code specifying `rng_seed` and interacting with"] #[doc =
+        " the runtime, the internals of Tokio and the Rust compiler may affect"] #[doc =
+        " the sequences of random numbers. In order to ensure repeatable"] #[doc =
+        " results, the version of Tokio, the versions of all other"] #[doc =
+        " dependencies that interact with Tokio, and the Rust compiler version"] #[doc =
+        " should also all remain constant."] #[doc = ""] #[doc = " # Examples"] #[doc =
+        ""] #[doc = " ```"] #[doc = " # use tokio::runtime::{self, RngSeed};"] #[doc =
+        " # pub fn main() {"] #[doc =
+        " let seed = RngSeed::from_bytes(b\"place your seed here\");"] #[doc =
+        " let rt = runtime::Builder::new_current_thread()"] #[doc =
+        "     .rng_seed(seed)"] #[doc = "     .build();"] #[doc = " # }"] #[doc = " ```"]
+        #[doc = ""] #[doc = " [`tokio::select!`]: crate::select"] pub fn rng_seed(& mut
+        self, seed : RngSeed) -> & mut Self { self.seed_generator =
+        RngSeedGenerator::new(seed); self }
     }
-
     cfg_unstable_metrics! {
-        /// Enables tracking the distribution of task poll times.
-        ///
-        /// Task poll times are not instrumented by default as doing so requires
-        /// calling [`Instant::now()`] twice per task poll, which could add
-        /// measurable overhead. Use the [`Handle::metrics()`] to access the
-        /// metrics data.
-        ///
-        /// The histogram uses fixed bucket sizes. In other words, the histogram
-        /// buckets are not dynamic based on input values. Use the
-        /// `metrics_poll_time_histogram` builder methods to configure the
-        /// histogram details.
-        ///
-        /// By default, a linear histogram with 10 buckets each 100 microseconds wide will be used.
-        /// This has an extremely low memory footprint, but may not provide enough granularity. For
-        /// better granularity with low memory usage, use [`metrics_poll_time_histogram_configuration()`]
-        /// to select [`LogHistogram`] instead.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime;
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_poll_time_histogram()
-        ///     .build()
-        ///     .unwrap();
-        /// # // Test default values here
-        /// # fn us(n: u64) -> std::time::Duration { std::time::Duration::from_micros(n) }
-        /// # let m = rt.handle().metrics();
-        /// # assert_eq!(m.poll_time_histogram_num_buckets(), 10);
-        /// # assert_eq!(m.poll_time_histogram_bucket_range(0), us(0)..us(100));
-        /// # assert_eq!(m.poll_time_histogram_bucket_range(1), us(100)..us(200));
-        /// # }
-        /// ```
-        ///
-        /// [`Handle::metrics()`]: crate::runtime::Handle::metrics
-        /// [`Instant::now()`]: std::time::Instant::now
-        /// [`LogHistogram`]: crate::runtime::LogHistogram
-        /// [`metrics_poll_time_histogram_configuration()`]: Builder::metrics_poll_time_histogram_configuration
-        pub fn enable_metrics_poll_time_histogram(&mut self) -> &mut Self {
-            self.metrics_poll_count_histogram_enable = true;
-            self
-        }
-
-        /// Deprecated. Use [`enable_metrics_poll_time_histogram()`] instead.
-        ///
-        /// [`enable_metrics_poll_time_histogram()`]: Builder::enable_metrics_poll_time_histogram
-        #[deprecated(note = "`poll_count_histogram` related methods have been renamed `poll_time_histogram` to better reflect their functionality.")]
-        #[doc(hidden)]
-        pub fn enable_metrics_poll_count_histogram(&mut self) -> &mut Self {
-            self.enable_metrics_poll_time_histogram()
-        }
-
-        /// Sets the histogram scale for tracking the distribution of task poll
-        /// times.
-        ///
-        /// Tracking the distribution of task poll times can be done using a
-        /// linear or log scale. When using linear scale, each histogram bucket
-        /// will represent the same range of poll times. When using log scale,
-        /// each histogram bucket will cover a range twice as big as the
-        /// previous bucket.
-        ///
-        /// **Default:** linear scale.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime::{self, HistogramScale};
-        ///
-        /// # #[allow(deprecated)]
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_poll_time_histogram()
-        ///     .metrics_poll_count_histogram_scale(HistogramScale::Log)
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        #[deprecated(note = "use `metrics_poll_time_histogram_configuration`")]
-        pub fn metrics_poll_count_histogram_scale(&mut self, histogram_scale: crate::runtime::HistogramScale) -> &mut Self {
-            self.metrics_poll_count_histogram.legacy_mut(|b|b.scale = histogram_scale);
-            self
-        }
-
-        /// Configure the histogram for tracking poll times
-        ///
-        /// By default, a linear histogram with 10 buckets each 100 microseconds wide will be used.
-        /// This has an extremely low memory footprint, but may not provide enough granularity. For
-        /// better granularity with low memory usage, use [`LogHistogram`] instead.
-        ///
-        /// # Examples
-        /// Configure a [`LogHistogram`] with [default configuration]:
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime;
-        /// use tokio::runtime::{HistogramConfiguration, LogHistogram};
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_poll_time_histogram()
-        ///     .metrics_poll_time_histogram_configuration(
-        ///         HistogramConfiguration::log(LogHistogram::default())
-        ///     )
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        ///
-        /// Configure a linear histogram with 100 buckets, each 10μs wide
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime;
-        /// use std::time::Duration;
-        /// use tokio::runtime::HistogramConfiguration;
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_poll_time_histogram()
-        ///     .metrics_poll_time_histogram_configuration(
-        ///         HistogramConfiguration::linear(Duration::from_micros(10), 100)
-        ///     )
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        ///
-        /// Configure a [`LogHistogram`] with the following settings:
-        /// - Measure times from 100ns to 120s
-        /// - Max error of 0.1
-        /// - No more than 1024 buckets
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use std::time::Duration;
-        /// use tokio::runtime;
-        /// use tokio::runtime::{HistogramConfiguration, LogHistogram};
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_poll_time_histogram()
-        ///     .metrics_poll_time_histogram_configuration(
-        ///         HistogramConfiguration::log(LogHistogram::builder()
-        ///             .max_value(Duration::from_secs(120))
-        ///             .min_value(Duration::from_nanos(100))
-        ///             .max_error(0.1)
-        ///             .max_buckets(1024)
-        ///             .expect("configuration uses 488 buckets")
-        ///         )
-        ///     )
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        ///
-        /// When migrating from the legacy histogram ([`HistogramScale::Log`]) and wanting
-        /// to match the previous behavior, use `precision_exact(0)`. This creates a histogram
-        /// where each bucket is twice the size of the previous bucket.
-        /// ```rust
-        /// use std::time::Duration;
-        /// use tokio::runtime::{HistogramConfiguration, LogHistogram};
-        /// let rt = tokio::runtime::Builder::new_current_thread()
-        ///     .enable_all()
-        ///     .enable_metrics_poll_time_histogram()
-        ///     .metrics_poll_time_histogram_configuration(HistogramConfiguration::log(
-        ///         LogHistogram::builder()
-        ///             .min_value(Duration::from_micros(20))
-        ///             .max_value(Duration::from_millis(4))
-        ///             // Set `precision_exact` to `0` to match `HistogramScale::Log`
-        ///             .precision_exact(0)
-        ///             .max_buckets(10)
-        ///             .unwrap(),
-        ///     ))
-        ///     .build()
-        ///     .unwrap();
-        /// ```
-        ///
-        /// [`LogHistogram`]: crate::runtime::LogHistogram
-        /// [default configuration]: crate::runtime::LogHistogramBuilder
-        /// [`HistogramScale::Log`]: crate::runtime::HistogramScale::Log
-        pub fn metrics_poll_time_histogram_configuration(&mut self, configuration: HistogramConfiguration) -> &mut Self {
-            self.metrics_poll_count_histogram.histogram_type = configuration.inner;
-            self
-        }
-
-        /// Sets the histogram resolution for tracking the distribution of task
-        /// poll times.
-        ///
-        /// The resolution is the histogram's first bucket's range. When using a
-        /// linear histogram scale, each bucket will cover the same range. When
-        /// using a log scale, each bucket will cover a range twice as big as
-        /// the previous bucket. In the log case, the resolution represents the
-        /// smallest bucket range.
-        ///
-        /// Note that, when using log scale, the resolution is rounded up to the
-        /// nearest power of 2 in nanoseconds.
-        ///
-        /// **Default:** 100 microseconds.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime;
-        /// use std::time::Duration;
-        ///
-        /// # #[allow(deprecated)]
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_poll_time_histogram()
-        ///     .metrics_poll_count_histogram_resolution(Duration::from_micros(100))
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        #[deprecated(note = "use `metrics_poll_time_histogram_configuration`")]
-        pub fn metrics_poll_count_histogram_resolution(&mut self, resolution: Duration) -> &mut Self {
-            assert!(resolution > Duration::from_secs(0));
-            // Sanity check the argument and also make the cast below safe.
-            assert!(resolution <= Duration::from_secs(1));
-
-            let resolution = resolution.as_nanos() as u64;
-
-            self.metrics_poll_count_histogram.legacy_mut(|b|b.resolution = resolution);
-            self
-        }
-
-        /// Sets the number of buckets for the histogram tracking the
-        /// distribution of task poll times.
-        ///
-        /// The last bucket tracks all greater values that fall out of other
-        /// ranges. So, configuring the histogram using a linear scale,
-        /// resolution of 50ms, and 10 buckets, the 10th bucket will track task
-        /// polls that take more than 450ms to complete.
-        ///
-        /// **Default:** 10
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime;
-        ///
-        /// # #[allow(deprecated)]
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_poll_time_histogram()
-        ///     .metrics_poll_count_histogram_buckets(15)
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        #[deprecated(note = "use `metrics_poll_time_histogram_configuration`")]
-        pub fn metrics_poll_count_histogram_buckets(&mut self, buckets: usize) -> &mut Self {
-            self.metrics_poll_count_histogram.legacy_mut(|b|b.num_buckets = buckets);
-            self
+        #[doc = " Enables tracking the distribution of task poll times."] #[doc = ""]
+        #[doc = " Task poll times are not instrumented by default as doing so requires"]
+        #[doc = " calling [`Instant::now()`] twice per task poll, which could add"] #[doc
+        = " measurable overhead. Use the [`Handle::metrics()`] to access the"] #[doc =
+        " metrics data."] #[doc = ""] #[doc =
+        " The histogram uses fixed bucket sizes. In other words, the histogram"] #[doc =
+        " buckets are not dynamic based on input values. Use the"] #[doc =
+        " `metrics_poll_time_histogram` builder methods to configure the"] #[doc =
+        " histogram details."] #[doc = ""] #[doc =
+        " By default, a linear histogram with 10 buckets each 100 microseconds wide will be used."]
+        #[doc =
+        " This has an extremely low memory footprint, but may not provide enough granularity. For"]
+        #[doc =
+        " better granularity with low memory usage, use [`metrics_poll_time_histogram_configuration()`]"]
+        #[doc = " to select [`LogHistogram`] instead."] #[doc = ""] #[doc =
+        " # Examples"] #[doc = ""] #[doc = " ```"] #[doc =
+        " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+        " use tokio::runtime;"] #[doc = ""] #[doc =
+        " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+        "     .enable_metrics_poll_time_histogram()"] #[doc = "     .build()"] #[doc =
+        "     .unwrap();"] #[doc = " # // Test default values here"] #[doc =
+        " # fn us(n: u64) -> std::time::Duration { std::time::Duration::from_micros(n) }"]
+        #[doc = " # let m = rt.handle().metrics();"] #[doc =
+        " # assert_eq!(m.poll_time_histogram_num_buckets(), 10);"] #[doc =
+        " # assert_eq!(m.poll_time_histogram_bucket_range(0), us(0)..us(100));"] #[doc =
+        " # assert_eq!(m.poll_time_histogram_bucket_range(1), us(100)..us(200));"] #[doc
+        = " # }"] #[doc = " ```"] #[doc = ""] #[doc =
+        " [`Handle::metrics()`]: crate::runtime::Handle::metrics"] #[doc =
+        " [`Instant::now()`]: std::time::Instant::now"] #[doc =
+        " [`LogHistogram`]: crate::runtime::LogHistogram"] #[doc =
+        " [`metrics_poll_time_histogram_configuration()`]: Builder::metrics_poll_time_histogram_configuration"]
+        pub fn enable_metrics_poll_time_histogram(& mut self) -> & mut Self { self
+        .metrics_poll_count_histogram_enable = true; self } #[doc =
+        " Deprecated. Use [`enable_metrics_poll_time_histogram()`] instead."] #[doc = ""]
+        #[doc =
+        " [`enable_metrics_poll_time_histogram()`]: Builder::enable_metrics_poll_time_histogram"]
+        #[deprecated(note =
+        "`poll_count_histogram` related methods have been renamed `poll_time_histogram` to better reflect their functionality.")]
+        #[doc(hidden)] pub fn enable_metrics_poll_count_histogram(& mut self) -> & mut
+        Self { self.enable_metrics_poll_time_histogram() } #[doc =
+        " Sets the histogram scale for tracking the distribution of task poll"] #[doc =
+        " times."] #[doc = ""] #[doc =
+        " Tracking the distribution of task poll times can be done using a"] #[doc =
+        " linear or log scale. When using linear scale, each histogram bucket"] #[doc =
+        " will represent the same range of poll times. When using log scale,"] #[doc =
+        " each histogram bucket will cover a range twice as big as the"] #[doc =
+        " previous bucket."] #[doc = ""] #[doc = " **Default:** linear scale."] #[doc =
+        ""] #[doc = " # Examples"] #[doc = ""] #[doc = " ```"] #[doc =
+        " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+        " use tokio::runtime::{self, HistogramScale};"] #[doc = ""] #[doc =
+        " # #[allow(deprecated)]"] #[doc =
+        " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+        "     .enable_metrics_poll_time_histogram()"] #[doc =
+        "     .metrics_poll_count_histogram_scale(HistogramScale::Log)"] #[doc =
+        "     .build()"] #[doc = "     .unwrap();"] #[doc = " # }"] #[doc = " ```"]
+        #[deprecated(note = "use `metrics_poll_time_histogram_configuration`")] pub fn
+        metrics_poll_count_histogram_scale(& mut self, histogram_scale : crate
+        ::runtime::HistogramScale) -> & mut Self { self.metrics_poll_count_histogram
+        .legacy_mut(| b | b.scale = histogram_scale); self } #[doc =
+        " Configure the histogram for tracking poll times"] #[doc = ""] #[doc =
+        " By default, a linear histogram with 10 buckets each 100 microseconds wide will be used."]
+        #[doc =
+        " This has an extremely low memory footprint, but may not provide enough granularity. For"]
+        #[doc =
+        " better granularity with low memory usage, use [`LogHistogram`] instead."] #[doc
+        = ""] #[doc = " # Examples"] #[doc =
+        " Configure a [`LogHistogram`] with [default configuration]:"] #[doc = " ```"]
+        #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+        " use tokio::runtime;"] #[doc =
+        " use tokio::runtime::{HistogramConfiguration, LogHistogram};"] #[doc = ""] #[doc
+        = " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+        "     .enable_metrics_poll_time_histogram()"] #[doc =
+        "     .metrics_poll_time_histogram_configuration("] #[doc =
+        "         HistogramConfiguration::log(LogHistogram::default())"] #[doc =
+        "     )"] #[doc = "     .build()"] #[doc = "     .unwrap();"] #[doc = " # }"]
+        #[doc = " ```"] #[doc = ""] #[doc =
+        " Configure a linear histogram with 100 buckets, each 10μs wide"] #[doc =
+        " ```"] #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc
+        = " use tokio::runtime;"] #[doc = " use std::time::Duration;"] #[doc =
+        " use tokio::runtime::HistogramConfiguration;"] #[doc = ""] #[doc =
+        " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+        "     .enable_metrics_poll_time_histogram()"] #[doc =
+        "     .metrics_poll_time_histogram_configuration("] #[doc =
+        "         HistogramConfiguration::linear(Duration::from_micros(10), 100)"] #[doc
+        = "     )"] #[doc = "     .build()"] #[doc = "     .unwrap();"] #[doc = " # }"]
+        #[doc = " ```"] #[doc = ""] #[doc =
+        " Configure a [`LogHistogram`] with the following settings:"] #[doc =
+        " - Measure times from 100ns to 120s"] #[doc = " - Max error of 0.1"] #[doc =
+        " - No more than 1024 buckets"] #[doc = " ```"] #[doc =
+        " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+        " use std::time::Duration;"] #[doc = " use tokio::runtime;"] #[doc =
+        " use tokio::runtime::{HistogramConfiguration, LogHistogram};"] #[doc = ""] #[doc
+        = " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+        "     .enable_metrics_poll_time_histogram()"] #[doc =
+        "     .metrics_poll_time_histogram_configuration("] #[doc =
+        "         HistogramConfiguration::log(LogHistogram::builder()"] #[doc =
+        "             .max_value(Duration::from_secs(120))"] #[doc =
+        "             .min_value(Duration::from_nanos(100))"] #[doc =
+        "             .max_error(0.1)"] #[doc = "             .max_buckets(1024)"] #[doc
+        = "             .expect(\"configuration uses 488 buckets\")"] #[doc =
+        "         )"] #[doc = "     )"] #[doc = "     .build()"] #[doc =
+        "     .unwrap();"] #[doc = " # }"] #[doc = " ```"] #[doc = ""] #[doc =
+        " When migrating from the legacy histogram ([`HistogramScale::Log`]) and wanting"]
+        #[doc =
+        " to match the previous behavior, use `precision_exact(0)`. This creates a histogram"]
+        #[doc = " where each bucket is twice the size of the previous bucket."] #[doc =
+        " ```rust"] #[doc = " use std::time::Duration;"] #[doc =
+        " use tokio::runtime::{HistogramConfiguration, LogHistogram};"] #[doc =
+        " let rt = tokio::runtime::Builder::new_current_thread()"] #[doc =
+        "     .enable_all()"] #[doc = "     .enable_metrics_poll_time_histogram()"] #[doc
+        = "     .metrics_poll_time_histogram_configuration(HistogramConfiguration::log("]
+        #[doc = "         LogHistogram::builder()"] #[doc =
+        "             .min_value(Duration::from_micros(20))"] #[doc =
+        "             .max_value(Duration::from_millis(4))"] #[doc =
+        "             // Set `precision_exact` to `0` to match `HistogramScale::Log`"]
+        #[doc = "             .precision_exact(0)"] #[doc =
+        "             .max_buckets(10)"] #[doc = "             .unwrap(),"] #[doc =
+        "     ))"] #[doc = "     .build()"] #[doc = "     .unwrap();"] #[doc = " ```"]
+        #[doc = ""] #[doc = " [`LogHistogram`]: crate::runtime::LogHistogram"] #[doc =
+        " [default configuration]: crate::runtime::LogHistogramBuilder"] #[doc =
+        " [`HistogramScale::Log`]: crate::runtime::HistogramScale::Log"] pub fn
+        metrics_poll_time_histogram_configuration(& mut self, configuration :
+        HistogramConfiguration) -> & mut Self { self.metrics_poll_count_histogram
+        .histogram_type = configuration.inner; self } #[doc =
+        " Sets the histogram resolution for tracking the distribution of task"] #[doc =
+        " poll times."] #[doc = ""] #[doc =
+        " The resolution is the histogram's first bucket's range. When using a"] #[doc =
+        " linear histogram scale, each bucket will cover the same range. When"] #[doc =
+        " using a log scale, each bucket will cover a range twice as big as"] #[doc =
+        " the previous bucket. In the log case, the resolution represents the"] #[doc =
+        " smallest bucket range."] #[doc = ""] #[doc =
+        " Note that, when using log scale, the resolution is rounded up to the"] #[doc =
+        " nearest power of 2 in nanoseconds."] #[doc = ""] #[doc =
+        " **Default:** 100 microseconds."] #[doc = ""] #[doc = " # Examples"] #[doc = ""]
+        #[doc = " ```"] #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc =
+        " # {"] #[doc = " use tokio::runtime;"] #[doc = " use std::time::Duration;"]
+        #[doc = ""] #[doc = " # #[allow(deprecated)]"] #[doc =
+        " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+        "     .enable_metrics_poll_time_histogram()"] #[doc =
+        "     .metrics_poll_count_histogram_resolution(Duration::from_micros(100))"]
+        #[doc = "     .build()"] #[doc = "     .unwrap();"] #[doc = " # }"] #[doc =
+        " ```"] #[deprecated(note = "use `metrics_poll_time_histogram_configuration`")]
+        pub fn metrics_poll_count_histogram_resolution(& mut self, resolution : Duration)
+        -> & mut Self { assert!(resolution > Duration::from_secs(0)); assert!(resolution
+        <= Duration::from_secs(1)); let resolution = resolution.as_nanos() as u64; self
+        .metrics_poll_count_histogram.legacy_mut(| b | b.resolution = resolution); self }
+        #[doc = " Sets the number of buckets for the histogram tracking the"] #[doc =
+        " distribution of task poll times."] #[doc = ""] #[doc =
+        " The last bucket tracks all greater values that fall out of other"] #[doc =
+        " ranges. So, configuring the histogram using a linear scale,"] #[doc =
+        " resolution of 50ms, and 10 buckets, the 10th bucket will track task"] #[doc =
+        " polls that take more than 450ms to complete."] #[doc = ""] #[doc =
+        " **Default:** 10"] #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc =
+        " ```"] #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc
+        = " use tokio::runtime;"] #[doc = ""] #[doc = " # #[allow(deprecated)]"] #[doc =
+        " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+        "     .enable_metrics_poll_time_histogram()"] #[doc =
+        "     .metrics_poll_count_histogram_buckets(15)"] #[doc = "     .build()"] #[doc
+        = "     .unwrap();"] #[doc = " # }"] #[doc = " ```"] #[deprecated(note =
+        "use `metrics_poll_time_histogram_configuration`")] pub fn
+        metrics_poll_count_histogram_buckets(& mut self, buckets : usize) -> & mut Self {
+        self.metrics_poll_count_histogram.legacy_mut(| b | b.num_buckets = buckets); self
         }
     }
-
     fn build_current_thread_runtime(&mut self) -> io::Result<Runtime> {
-        use crate::runtime::runtime::Scheduler;
-
-        let (scheduler, handle, blocking_pool) =
-            self.build_current_thread_runtime_components(None)?;
-
-        Ok(Runtime::from_parts(
-            Scheduler::CurrentThread(scheduler),
-            handle,
-            blocking_pool,
-        ))
+        panic!("STUB: not implemented");
     }
-
     fn build_current_thread_local_runtime(&mut self) -> io::Result<LocalRuntime> {
-        use crate::runtime::local_runtime::LocalRuntimeScheduler;
-
-        let tid = std::thread::current().id();
-
-        let (scheduler, handle, blocking_pool) =
-            self.build_current_thread_runtime_components(Some(tid))?;
-
-        Ok(LocalRuntime::from_parts(
-            LocalRuntimeScheduler::CurrentThread(scheduler),
-            handle,
-            blocking_pool,
-        ))
+        panic!("STUB: not implemented");
     }
-
     fn build_current_thread_runtime_components(
         &mut self,
         local_tid: Option<ThreadId>,
     ) -> io::Result<(CurrentThread, Handle, BlockingPool)> {
-        use crate::runtime::scheduler;
-        use crate::runtime::Config;
-
-        let mut cfg = self.get_cfg();
-        cfg.timer_flavor = TimerFlavor::Traditional;
-        let (driver, driver_handle) = driver::Driver::new(cfg)?;
-
-        // Blocking pool
-        let blocking_pool = blocking::create_blocking_pool(self, self.max_blocking_threads);
-        let blocking_spawner = blocking_pool.spawner().clone();
-
-        // Generate a rng seed for this runtime.
-        let seed_generator_1 = self.seed_generator.next_generator();
-        let seed_generator_2 = self.seed_generator.next_generator();
-
-        // And now put a single-threaded scheduler on top of the timer. When
-        // there are no futures ready to do something, it'll let the timer or
-        // the reactor to generate some new stimuli for the futures to continue
-        // in their life.
-        let (scheduler, handle) = CurrentThread::new(
-            driver,
-            driver_handle,
-            blocking_spawner,
-            seed_generator_2,
-            Config {
-                before_park: self.before_park.clone(),
-                after_unpark: self.after_unpark.clone(),
-                before_spawn: self.before_spawn.clone(),
-                #[cfg(tokio_unstable)]
-                before_poll: self.before_poll.clone(),
-                #[cfg(tokio_unstable)]
-                after_poll: self.after_poll.clone(),
-                after_termination: self.after_termination.clone(),
-                global_queue_interval: self.global_queue_interval,
-                event_interval: self.event_interval,
-                #[cfg(tokio_unstable)]
-                unhandled_panic: self.unhandled_panic.clone(),
-                disable_lifo_slot: self.disable_lifo_slot,
-                // This setting never makes sense for a current thread runtime,
-                // as it only configures how the I/O driver is stolen across
-                // workers.
-                enable_eager_driver_handoff: false,
-                seed_generator: seed_generator_1,
-                metrics_poll_count_histogram: self.metrics_poll_count_histogram_builder(),
-                metrics_schedule_latency_histogram: self
-                    .metrics_schedule_latency_histogram_builder(),
-            },
-            local_tid,
-            self.name.clone(),
-        );
-
-        let handle = Handle {
-            inner: scheduler::Handle::CurrentThread(handle),
-        };
-
-        Ok((scheduler, handle, blocking_pool))
+        panic!("STUB: not implemented");
     }
-
     fn metrics_poll_count_histogram_builder(&self) -> Option<HistogramBuilder> {
-        if self.metrics_poll_count_histogram_enable {
-            Some(self.metrics_poll_count_histogram.clone())
-        } else {
-            None
-        }
+        panic!("STUB: not implemented");
     }
-
     fn metrics_schedule_latency_histogram_builder(&self) -> Option<HistogramBuilder> {
-        if self.metrics_schedule_latency_histogram_enabled {
-            Some(self.metrics_schedule_latency_histogram.clone())
-        } else {
-            None
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 cfg_io_driver! {
-    impl Builder {
-        /// Enables the I/O driver.
-        ///
-        /// Doing this enables using net, process, signal, and some I/O types on
-        /// the runtime.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// use tokio::runtime;
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_io()
-        ///     .build()
-        ///     .unwrap();
-        /// ```
-        pub fn enable_io(&mut self) -> &mut Self {
-            self.enable_io = true;
-            self
-        }
-
-        /// Enables the I/O driver and configures the max number of events to be
-        /// processed per tick.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// use tokio::runtime;
-        ///
-        /// let rt = runtime::Builder::new_current_thread()
-        ///     .enable_io()
-        ///     .max_io_events_per_tick(1024)
-        ///     .build()
-        ///     .unwrap();
-        /// ```
-        pub fn max_io_events_per_tick(&mut self, capacity: usize) -> &mut Self {
-            self.nevents = capacity;
-            self
-        }
-    }
+    impl Builder { #[doc = " Enables the I/O driver."] #[doc = ""] #[doc =
+    " Doing this enables using net, process, signal, and some I/O types on"] #[doc =
+    " the runtime."] #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc = " ```"] #[doc
+    = " use tokio::runtime;"] #[doc = ""] #[doc =
+    " let rt = runtime::Builder::new_multi_thread()"] #[doc = "     .enable_io()"] #[doc
+    = "     .build()"] #[doc = "     .unwrap();"] #[doc = " ```"] pub fn enable_io(& mut
+    self) -> & mut Self { self.enable_io = true; self } #[doc =
+    " Enables the I/O driver and configures the max number of events to be"] #[doc =
+    " processed per tick."] #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc =
+    " ```"] #[doc = " use tokio::runtime;"] #[doc = ""] #[doc =
+    " let rt = runtime::Builder::new_current_thread()"] #[doc = "     .enable_io()"]
+    #[doc = "     .max_io_events_per_tick(1024)"] #[doc = "     .build()"] #[doc =
+    "     .unwrap();"] #[doc = " ```"] pub fn max_io_events_per_tick(& mut self, capacity
+    : usize) -> & mut Self { self.nevents = capacity; self } }
 }
-
 cfg_time! {
-    impl Builder {
-        /// Enables the time driver.
-        ///
-        /// Doing this enables using `tokio::time` on the runtime.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime;
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_time()
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        pub fn enable_time(&mut self) -> &mut Self {
-            self.enable_time = true;
-            self
-        }
-    }
+    impl Builder { #[doc = " Enables the time driver."] #[doc = ""] #[doc =
+    " Doing this enables using `tokio::time` on the runtime."] #[doc = ""] #[doc =
+    " # Examples"] #[doc = ""] #[doc = " ```"] #[doc =
+    " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+    " use tokio::runtime;"] #[doc = ""] #[doc =
+    " let rt = runtime::Builder::new_multi_thread()"] #[doc = "     .enable_time()"]
+    #[doc = "     .build()"] #[doc = "     .unwrap();"] #[doc = " # }"] #[doc = " ```"]
+    pub fn enable_time(& mut self) -> & mut Self { self.enable_time = true; self } }
 }
-
 cfg_io_uring! {
-    impl Builder {
-        /// Enables the tokio's io_uring driver.
-        ///
-        /// Doing this enables using io_uring operations on the runtime.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// use tokio::runtime;
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_io_uring()
-        ///     .build()
-        ///     .unwrap();
-        /// ```
-        #[cfg_attr(docsrs, doc(cfg(feature = "io-uring")))]
-        pub fn enable_io_uring(&mut self) -> &mut Self {
-            // Currently, the uring flag is equivalent to `enable_io`.
-            self.enable_io = true;
-            self
-        }
-    }
+    impl Builder { #[doc = " Enables the tokio's io_uring driver."] #[doc = ""] #[doc =
+    " Doing this enables using io_uring operations on the runtime."] #[doc = ""] #[doc =
+    " # Examples"] #[doc = ""] #[doc = " ```"] #[doc = " use tokio::runtime;"] #[doc =
+    ""] #[doc = " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+    "     .enable_io_uring()"] #[doc = "     .build()"] #[doc = "     .unwrap();"] #[doc
+    = " ```"] #[cfg_attr(docsrs, doc(cfg(feature = "io-uring")))] pub fn
+    enable_io_uring(& mut self) -> & mut Self { self.enable_io = true; self } }
 }
-
 cfg_test_util! {
-    impl Builder {
-        /// Controls if the runtime's clock starts paused or advancing.
-        ///
-        /// Pausing time requires the current-thread runtime; construction of
-        /// the runtime will panic otherwise.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// use tokio::runtime;
-        ///
-        /// let rt = runtime::Builder::new_current_thread()
-        ///     .enable_time()
-        ///     .start_paused(true)
-        ///     .build()
-        ///     .unwrap();
-        /// ```
-        pub fn start_paused(&mut self, start_paused: bool) -> &mut Self {
-            self.start_paused = start_paused;
-            self
-        }
-    }
+    impl Builder { #[doc =
+    " Controls if the runtime's clock starts paused or advancing."] #[doc = ""] #[doc =
+    " Pausing time requires the current-thread runtime; construction of"] #[doc =
+    " the runtime will panic otherwise."] #[doc = ""] #[doc = " # Examples"] #[doc = ""]
+    #[doc = " ```"] #[doc = " use tokio::runtime;"] #[doc = ""] #[doc =
+    " let rt = runtime::Builder::new_current_thread()"] #[doc = "     .enable_time()"]
+    #[doc = "     .start_paused(true)"] #[doc = "     .build()"] #[doc =
+    "     .unwrap();"] #[doc = " ```"] pub fn start_paused(& mut self, start_paused :
+    bool) -> & mut Self { self.start_paused = start_paused; self } }
 }
-
 cfg_schedule_latency! {
-    impl Builder {
-        /// Enables tracking the distribution of task schedule latencies. Task
-        /// schedule latency is the time between when a task is scheduled for
-        /// execution and when it is polled.
-        ///
-        /// **This feature is only supported on 64-bit targets.**
-        ///
-        /// Task schedule latencies are not instrumented by default as doing
-        /// so requires calling [`Instant::now()`] when a task is scheduled
-        /// and when it is polled, which could add measurable overhead. Use
-        /// the [`Handle::metrics()`] to access the metrics data.
-        ///
-        /// By default, a linear histogram with 10 buckets each 100 microseconds wide will be used.
-        /// This has an extremely low memory footprint, but may not provide enough granularity. For
-        /// better granularity with low memory usage, use [`metrics_schedule_latency_histogram_configuration()`]
-        /// to select [`LogHistogram`] instead.
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime;
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_schedule_latency_histogram()
-        ///     .build()
-        ///     .unwrap();
-        /// # // Test default values here
-        /// # fn us(n: u64) -> std::time::Duration { std::time::Duration::from_micros(n) }
-        /// # let m = rt.handle().metrics();
-        /// # assert_eq!(m.schedule_latency_histogram_num_buckets(), 10);
-        /// # assert_eq!(m.schedule_latency_histogram_bucket_range(0), us(0)..us(100));
-        /// # assert_eq!(m.schedule_latency_histogram_bucket_range(1), us(100)..us(200));
-        /// # }
-        /// ```
-        ///
-        /// [`Handle::metrics()`]: crate::runtime::Handle::metrics
-        /// [`Instant::now()`]: std::time::Instant::now
-        /// [`LogHistogram`]: crate::runtime::LogHistogram
-        /// [`metrics_schedule_latency_histogram_configuration()`]: Builder::metrics_schedule_latency_histogram_configuration
-        pub fn enable_metrics_schedule_latency_histogram(&mut self) -> &mut Self {
-            self.metrics_schedule_latency_histogram_enabled = true;
-            self
-        }
-
-        /// Configure the histogram for tracking task schedule latencies.
-        ///
-        /// Tracking of task schedule latencies must be enabled with
-        /// [`enable_metrics_schedule_latency_histogram()`] for this function
-        /// to have any effect.
-        ///
-        /// By default, a linear histogram with 10 buckets each 100 microseconds wide will be used.
-        /// This has an extremely low memory footprint, but may not provide enough granularity. For
-        /// better granularity with low memory usage, use [`LogHistogram`] instead.
-        ///
-        /// # Examples
-        /// Configure a [`LogHistogram`] with [default configuration]:
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime;
-        /// use tokio::runtime::{HistogramConfiguration, LogHistogram};
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_schedule_latency_histogram()
-        ///     .metrics_schedule_latency_histogram_configuration(
-        ///         HistogramConfiguration::log(LogHistogram::default())
-        ///     )
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        ///
-        /// Configure a linear histogram with 100 buckets, each 10μs wide
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::runtime;
-        /// use std::time::Duration;
-        /// use tokio::runtime::HistogramConfiguration;
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_schedule_latency_histogram()
-        ///     .metrics_schedule_latency_histogram_configuration(
-        ///         HistogramConfiguration::linear(Duration::from_micros(10), 100)
-        ///     )
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        ///
-        /// Configure a [`LogHistogram`] with the following settings:
-        /// - Measure times from 100ns to 120s
-        /// - Max error of 0.1
-        /// - No more than 1024 buckets
-        /// ```
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use std::time::Duration;
-        /// use tokio::runtime;
-        /// use tokio::runtime::{HistogramConfiguration, LogHistogram};
-        ///
-        /// let rt = runtime::Builder::new_multi_thread()
-        ///     .enable_metrics_schedule_latency_histogram()
-        ///     .metrics_schedule_latency_histogram_configuration(
-        ///         HistogramConfiguration::log(LogHistogram::builder()
-        ///             .max_value(Duration::from_secs(120))
-        ///             .min_value(Duration::from_nanos(100))
-        ///             .max_error(0.1)
-        ///             .max_buckets(1024)
-        ///             .expect("configuration uses 488 buckets")
-        ///         )
-        ///     )
-        ///     .build()
-        ///     .unwrap();
-        /// # }
-        /// ```
-        ///
-        /// [`LogHistogram`]: crate::runtime::LogHistogram
-        /// [`enable_metrics_schedule_latency_histogram()`]: Builder::enable_metrics_schedule_latency_histogram
-        pub fn metrics_schedule_latency_histogram_configuration(&mut self, configuration: HistogramConfiguration) -> &mut Self {
-            self.metrics_schedule_latency_histogram.histogram_type = configuration.inner;
-            self
-        }
-    }
+    impl Builder { #[doc =
+    " Enables tracking the distribution of task schedule latencies. Task"] #[doc =
+    " schedule latency is the time between when a task is scheduled for"] #[doc =
+    " execution and when it is polled."] #[doc = ""] #[doc =
+    " **This feature is only supported on 64-bit targets.**"] #[doc = ""] #[doc =
+    " Task schedule latencies are not instrumented by default as doing"] #[doc =
+    " so requires calling [`Instant::now()`] when a task is scheduled"] #[doc =
+    " and when it is polled, which could add measurable overhead. Use"] #[doc =
+    " the [`Handle::metrics()`] to access the metrics data."] #[doc = ""] #[doc =
+    " By default, a linear histogram with 10 buckets each 100 microseconds wide will be used."]
+    #[doc =
+    " This has an extremely low memory footprint, but may not provide enough granularity. For"]
+    #[doc =
+    " better granularity with low memory usage, use [`metrics_schedule_latency_histogram_configuration()`]"]
+    #[doc = " to select [`LogHistogram`] instead."] #[doc = ""] #[doc = " # Examples"]
+    #[doc = ""] #[doc = " ```"] #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc
+    = " # {"] #[doc = " use tokio::runtime;"] #[doc = ""] #[doc =
+    " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+    "     .enable_metrics_schedule_latency_histogram()"] #[doc = "     .build()"] #[doc =
+    "     .unwrap();"] #[doc = " # // Test default values here"] #[doc =
+    " # fn us(n: u64) -> std::time::Duration { std::time::Duration::from_micros(n) }"]
+    #[doc = " # let m = rt.handle().metrics();"] #[doc =
+    " # assert_eq!(m.schedule_latency_histogram_num_buckets(), 10);"] #[doc =
+    " # assert_eq!(m.schedule_latency_histogram_bucket_range(0), us(0)..us(100));"] #[doc
+    = " # assert_eq!(m.schedule_latency_histogram_bucket_range(1), us(100)..us(200));"]
+    #[doc = " # }"] #[doc = " ```"] #[doc = ""] #[doc =
+    " [`Handle::metrics()`]: crate::runtime::Handle::metrics"] #[doc =
+    " [`Instant::now()`]: std::time::Instant::now"] #[doc =
+    " [`LogHistogram`]: crate::runtime::LogHistogram"] #[doc =
+    " [`metrics_schedule_latency_histogram_configuration()`]: Builder::metrics_schedule_latency_histogram_configuration"]
+    pub fn enable_metrics_schedule_latency_histogram(& mut self) -> & mut Self { self
+    .metrics_schedule_latency_histogram_enabled = true; self } #[doc =
+    " Configure the histogram for tracking task schedule latencies."] #[doc = ""] #[doc =
+    " Tracking of task schedule latencies must be enabled with"] #[doc =
+    " [`enable_metrics_schedule_latency_histogram()`] for this function"] #[doc =
+    " to have any effect."] #[doc = ""] #[doc =
+    " By default, a linear histogram with 10 buckets each 100 microseconds wide will be used."]
+    #[doc =
+    " This has an extremely low memory footprint, but may not provide enough granularity. For"]
+    #[doc = " better granularity with low memory usage, use [`LogHistogram`] instead."]
+    #[doc = ""] #[doc = " # Examples"] #[doc =
+    " Configure a [`LogHistogram`] with [default configuration]:"] #[doc = " ```"] #[doc
+    = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+    " use tokio::runtime;"] #[doc =
+    " use tokio::runtime::{HistogramConfiguration, LogHistogram};"] #[doc = ""] #[doc =
+    " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+    "     .enable_metrics_schedule_latency_histogram()"] #[doc =
+    "     .metrics_schedule_latency_histogram_configuration("] #[doc =
+    "         HistogramConfiguration::log(LogHistogram::default())"] #[doc = "     )"]
+    #[doc = "     .build()"] #[doc = "     .unwrap();"] #[doc = " # }"] #[doc = " ```"]
+    #[doc = ""] #[doc =
+    " Configure a linear histogram with 100 buckets, each 10μs wide"] #[doc = " ```"]
+    #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+    " use tokio::runtime;"] #[doc = " use std::time::Duration;"] #[doc =
+    " use tokio::runtime::HistogramConfiguration;"] #[doc = ""] #[doc =
+    " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+    "     .enable_metrics_schedule_latency_histogram()"] #[doc =
+    "     .metrics_schedule_latency_histogram_configuration("] #[doc =
+    "         HistogramConfiguration::linear(Duration::from_micros(10), 100)"] #[doc =
+    "     )"] #[doc = "     .build()"] #[doc = "     .unwrap();"] #[doc = " # }"] #[doc =
+    " ```"] #[doc = ""] #[doc =
+    " Configure a [`LogHistogram`] with the following settings:"] #[doc =
+    " - Measure times from 100ns to 120s"] #[doc = " - Max error of 0.1"] #[doc =
+    " - No more than 1024 buckets"] #[doc = " ```"] #[doc =
+    " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+    " use std::time::Duration;"] #[doc = " use tokio::runtime;"] #[doc =
+    " use tokio::runtime::{HistogramConfiguration, LogHistogram};"] #[doc = ""] #[doc =
+    " let rt = runtime::Builder::new_multi_thread()"] #[doc =
+    "     .enable_metrics_schedule_latency_histogram()"] #[doc =
+    "     .metrics_schedule_latency_histogram_configuration("] #[doc =
+    "         HistogramConfiguration::log(LogHistogram::builder()"] #[doc =
+    "             .max_value(Duration::from_secs(120))"] #[doc =
+    "             .min_value(Duration::from_nanos(100))"] #[doc =
+    "             .max_error(0.1)"] #[doc = "             .max_buckets(1024)"] #[doc =
+    "             .expect(\"configuration uses 488 buckets\")"] #[doc = "         )"]
+    #[doc = "     )"] #[doc = "     .build()"] #[doc = "     .unwrap();"] #[doc = " # }"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " [`LogHistogram`]: crate::runtime::LogHistogram"] #[doc =
+    " [`enable_metrics_schedule_latency_histogram()`]: Builder::enable_metrics_schedule_latency_histogram"]
+    pub fn metrics_schedule_latency_histogram_configuration(& mut self, configuration :
+    HistogramConfiguration) -> & mut Self { self.metrics_schedule_latency_histogram
+    .histogram_type = configuration.inner; self } }
 }
-
 cfg_rt_multi_thread! {
-    impl Builder {
-        fn build_threaded_runtime(&mut self) -> io::Result<Runtime> {
-            use crate::loom::sys::num_cpus;
-            use crate::runtime::{Config, runtime::Scheduler};
-            use crate::runtime::scheduler::{self, MultiThread};
-
-            let worker_threads = self.worker_threads.unwrap_or_else(num_cpus);
-
-            let (driver, driver_handle) = driver::Driver::new(self.get_cfg())?;
-
-            // Create the blocking pool
-            let blocking_pool =
-                blocking::create_blocking_pool(self, self.max_blocking_threads + worker_threads);
-            let blocking_spawner = blocking_pool.spawner().clone();
-
-            // Generate a rng seed for this runtime.
-            let seed_generator_1 = self.seed_generator.next_generator();
-            let seed_generator_2 = self.seed_generator.next_generator();
-
-            let (scheduler, handle, launch) = MultiThread::new(
-                worker_threads,
-                driver,
-                driver_handle,
-                blocking_spawner,
-                seed_generator_2,
-                Config {
-                    before_park: self.before_park.clone(),
-                    after_unpark: self.after_unpark.clone(),
-                    before_spawn: self.before_spawn.clone(),
-                    #[cfg(tokio_unstable)]
-                    before_poll: self.before_poll.clone(),
-                    #[cfg(tokio_unstable)]
-                    after_poll: self.after_poll.clone(),
-                    after_termination: self.after_termination.clone(),
-                    global_queue_interval: self.global_queue_interval,
-                    event_interval: self.event_interval,
-                    #[cfg(tokio_unstable)]
-                    unhandled_panic: self.unhandled_panic.clone(),
-                    disable_lifo_slot: self.disable_lifo_slot,
-                    enable_eager_driver_handoff: self.enable_eager_driver_handoff,
-                    seed_generator: seed_generator_1,
-                    metrics_poll_count_histogram: self.metrics_poll_count_histogram_builder(),
-                    metrics_schedule_latency_histogram: self.metrics_schedule_latency_histogram_builder(),
-                },
-                self.timer_flavor,
-                self.name.clone(),
-            );
-
-            let handle = Handle { inner: scheduler::Handle::MultiThread(handle) };
-
-            // Spawn the thread pool workers
-            let _enter = handle.enter();
-            launch.launch();
-
-            Ok(Runtime::from_parts(Scheduler::MultiThread(scheduler), handle, blocking_pool))
-        }
-    }
+    impl Builder { fn build_threaded_runtime(& mut self) -> io::Result < Runtime > { use
+    crate ::loom::sys::num_cpus; use crate ::runtime:: { Config, runtime::Scheduler };
+    use crate ::runtime::scheduler:: { self, MultiThread }; let worker_threads = self
+    .worker_threads.unwrap_or_else(num_cpus); let (driver, driver_handle) =
+    driver::Driver::new(self.get_cfg()) ?; let blocking_pool =
+    blocking::create_blocking_pool(self, self.max_blocking_threads + worker_threads); let
+    blocking_spawner = blocking_pool.spawner().clone(); let seed_generator_1 = self
+    .seed_generator.next_generator(); let seed_generator_2 = self.seed_generator
+    .next_generator(); let (scheduler, handle, launch) = MultiThread::new(worker_threads,
+    driver, driver_handle, blocking_spawner, seed_generator_2, Config { before_park :
+    self.before_park.clone(), after_unpark : self.after_unpark.clone(), before_spawn :
+    self.before_spawn.clone(), #[cfg(tokio_unstable)] before_poll : self.before_poll
+    .clone(), #[cfg(tokio_unstable)] after_poll : self.after_poll.clone(),
+    after_termination : self.after_termination.clone(), global_queue_interval : self
+    .global_queue_interval, event_interval : self.event_interval, #[cfg(tokio_unstable)]
+    unhandled_panic : self.unhandled_panic.clone(), disable_lifo_slot : self
+    .disable_lifo_slot, enable_eager_driver_handoff : self.enable_eager_driver_handoff,
+    seed_generator : seed_generator_1, metrics_poll_count_histogram : self
+    .metrics_poll_count_histogram_builder(), metrics_schedule_latency_histogram : self
+    .metrics_schedule_latency_histogram_builder(), }, self.timer_flavor, self.name
+    .clone(),); let handle = Handle { inner : scheduler::Handle::MultiThread(handle) };
+    let _enter = handle.enter(); launch.launch();
+    Ok(Runtime::from_parts(Scheduler::MultiThread(scheduler), handle, blocking_pool)) } }
 }
-
 impl fmt::Debug for Builder {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut debug = fmt.debug_struct("Builder");
-
-        if let Some(name) = &self.name {
-            debug.field("name", name);
-        }
-
-        debug
-            .field("worker_threads", &self.worker_threads)
-            .field("max_blocking_threads", &self.max_blocking_threads)
-            .field(
-                "thread_name",
-                &"<dyn Fn() -> String + Send + Sync + 'static>",
-            )
-            .field("thread_stack_size", &self.thread_stack_size)
-            .field("after_start", &self.after_start.as_ref().map(|_| "..."))
-            .field("before_stop", &self.before_stop.as_ref().map(|_| "..."))
-            .field("before_park", &self.before_park.as_ref().map(|_| "..."))
-            .field("after_unpark", &self.after_unpark.as_ref().map(|_| "..."))
-            .field(
-                "enable_eager_driver_handoff",
-                &self.enable_eager_driver_handoff,
-            );
-
-        if self.name.is_none() {
-            debug.finish_non_exhaustive()
-        } else {
-            debug.finish()
-        }
+        panic!("STUB: not implemented");
     }
 }

@@ -1,8 +1,6 @@
 use super::Notify;
-
 use crate::loom::cell::UnsafeCell;
 use crate::loom::sync::atomic::AtomicBool;
-
 use std::error::Error;
 use std::fmt;
 use std::future::{poll_fn, Future};
@@ -11,18 +9,6 @@ use std::ops::Drop;
 use std::ptr;
 use std::sync::atomic::Ordering;
 use std::task::Poll;
-
-// This file contains an implementation of an SetOnce. The value of SetOnce
-// can only be modified once during initialization.
-//
-//  1. When `value_set` is false, the `value` is not initialized and wait()
-//      future will keep on waiting.
-//  2. When `value_set` is true, the wait() future completes, get() will return
-//      Some(&T)
-//
-// The value cannot be changed after set() is called. Subsequent calls to set()
-// will return a `SetOnceError`.
-
 /// A thread-safe cell that can be written to only once.
 ///
 /// A `SetOnce` is inspired from python's [`asyncio.Event`] type. It can be
@@ -93,66 +79,42 @@ pub struct SetOnce<T> {
     value: UnsafeCell<MaybeUninit<T>>,
     notify: Notify,
 }
-
 impl<T> Default for SetOnce<T> {
     fn default() -> SetOnce<T> {
-        SetOnce::new()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: fmt::Debug> fmt::Debug for SetOnce<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("SetOnce")
-            .field("value", &self.get())
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: Clone> Clone for SetOnce<T> {
     fn clone(&self) -> SetOnce<T> {
-        SetOnce::new_with(self.get().cloned())
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: PartialEq> PartialEq for SetOnce<T> {
     fn eq(&self, other: &SetOnce<T>) -> bool {
-        self.get() == other.get()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: Eq> Eq for SetOnce<T> {}
-
 impl<T> Drop for SetOnce<T> {
     fn drop(&mut self) {
-        // TODO: Use get_mut()
-        if self.value_set.load(Ordering::Relaxed) {
-            // SAFETY: If the value_set is true, then the value is initialized
-            // then there is a value to be dropped and this is safe
-            unsafe { self.value.with_mut(|ptr| ptr::drop_in_place(ptr as *mut T)) }
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> From<T> for SetOnce<T> {
     fn from(value: T) -> Self {
-        SetOnce {
-            value_set: AtomicBool::new(true),
-            value: UnsafeCell::new(MaybeUninit::new(value)),
-            notify: Notify::new(),
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> SetOnce<T> {
     /// Creates a new empty `SetOnce` instance.
     pub fn new() -> Self {
-        Self {
-            value_set: AtomicBool::new(false),
-            value: UnsafeCell::new(MaybeUninit::uninit()),
-            notify: Notify::new(),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new empty `SetOnce` instance.
     ///
     /// Equivalent to `SetOnce::new`, except that it can be used in static
@@ -194,20 +156,14 @@ impl<T> SetOnce<T> {
             notify: Notify::const_new(),
         }
     }
-
     /// Creates a new `SetOnce` that contains the provided value, if any.
     ///
     /// If the `Option` is `None`, this is equivalent to `SetOnce::new`.
     ///
     /// [`SetOnce::new`]: crate::sync::SetOnce::new
     pub fn new_with(value: Option<T>) -> Self {
-        if let Some(v) = value {
-            SetOnce::from(v)
-        } else {
-            SetOnce::new()
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `SetOnce` that contains the provided value.
     ///
     /// # Example
@@ -244,32 +200,19 @@ impl<T> SetOnce<T> {
             notify: Notify::const_new(),
         }
     }
-
     /// Returns `true` if the `SetOnce` currently contains a value, and `false`
     /// otherwise.
     pub fn initialized(&self) -> bool {
-        // Using acquire ordering so we're able to read/catch any writes that
-        // are done with `Ordering::Release`
-        self.value_set.load(Ordering::Acquire)
+        panic!("STUB: not implemented");
     }
-
-    // SAFETY: The SetOnce must not be empty.
     unsafe fn get_unchecked(&self) -> &T {
-        unsafe { &*self.value.with(|ptr| (*ptr).as_ptr()) }
+        panic!("STUB: not implemented");
     }
-
     /// Returns a reference to the value currently stored in the `SetOnce`, or
     /// `None` if the `SetOnce` is empty.
     pub fn get(&self) -> Option<&T> {
-        if self.initialized() {
-            // SAFETY: the SetOnce is initialized, so we can safely
-            // call get_unchecked and return the value
-            Some(unsafe { self.get_unchecked() })
-        } else {
-            None
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Sets the value of the `SetOnce` to the given value if the `SetOnce` is
     /// empty.
     ///
@@ -278,56 +221,13 @@ impl<T> SetOnce<T> {
     ///
     /// [`SetOnceError`]: crate::sync::SetOnceError
     pub fn set(&self, value: T) -> Result<(), SetOnceError<T>> {
-        if self.initialized() {
-            return Err(SetOnceError(value));
-        }
-
-        // SAFETY: lock notify to ensure only one caller of set
-        // can run at a time.
-        let guard = self.notify.lock_waiter_list();
-
-        if self.initialized() {
-            return Err(SetOnceError(value));
-        }
-
-        // SAFETY: We have locked the mutex and checked if the value is
-        // initialized or not, so we can safely write to the value
-        unsafe {
-            self.value.with_mut(|ptr| (*ptr).as_mut_ptr().write(value));
-        }
-
-        // Using release ordering so any threads that read a true from this
-        // atomic is able to read the value we just stored.
-        self.value_set.store(true, Ordering::Release);
-
-        // notify the waiting wakers that the value is set
-        guard.notify_waiters();
-
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Takes the value from the cell, destroying the cell in the process.
     /// Returns `None` if the cell is empty.
     pub fn into_inner(self) -> Option<T> {
-        // TODO: Use get_mut()
-        let value_set = self.value_set.load(Ordering::Relaxed);
-
-        if value_set {
-            // Since we have taken ownership of self, its drop implementation
-            // will be called by the end of this function, to prevent a double
-            // free we will set the value_set to false so that the drop
-            // implementation does not try to drop the value again.
-            self.value_set.store(false, Ordering::Relaxed);
-
-            // SAFETY: The SetOnce is currently initialized, we can assume the
-            // value is initialized and return that, when we return the value
-            // we give the drop handler to the return scope.
-            Some(unsafe { self.value.with_mut(|ptr| ptr::read(ptr).assume_init()) })
-        } else {
-            None
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Waits until the value is set.
     ///
     /// If the `SetOnce` is already initialized, it will return the value
@@ -337,39 +237,11 @@ impl<T> SetOnce<T> {
     ///
     /// This method is cancel safe.
     pub async fn wait(&self) -> &T {
-        loop {
-            if let Some(val) = self.get() {
-                return val;
-            }
-
-            let notify_fut = self.notify.notified();
-            pin!(notify_fut);
-
-            poll_fn(|cx| {
-                // Register under the notify's internal lock.
-                let ret = notify_fut.as_mut().poll(cx);
-                if self.value_set.load(Ordering::Relaxed) {
-                    return Poll::Ready(());
-                }
-                ret
-            })
-            .await;
-        }
+        panic!("STUB: not implemented");
     }
 }
-
-// Since `get` gives us access to immutable references of the SetOnce, SetOnce
-// can only be Sync if T is Sync, otherwise SetOnce would allow sharing
-// references of !Sync values across threads. We need T to be Send in order for
-// SetOnce to by Sync because we can use `set` on `&SetOnce<T>` to send values
-// (of type T) across threads.
 unsafe impl<T: Sync + Send> Sync for SetOnce<T> {}
-
-// Access to SetOnce's value is guarded by the Atomic boolean flag
-// and atomic operations on `value_set`, so as long as T itself is Send
-// it's safe to send it to another thread
 unsafe impl<T: Send> Send for SetOnce<T> {}
-
 /// Error that can be returned from [`SetOnce::set`].
 ///
 /// This error means that the `SetOnce` was already initialized when
@@ -378,11 +250,9 @@ unsafe impl<T: Send> Send for SetOnce<T> {}
 /// [`SetOnce::set`]: crate::sync::SetOnce::set
 #[derive(Debug, PartialEq, Eq)]
 pub struct SetOnceError<T>(pub T);
-
 impl<T> fmt::Display for SetOnceError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SetOnceError")
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: fmt::Debug> Error for SetOnceError<T> {}

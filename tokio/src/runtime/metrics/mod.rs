@@ -7,44 +7,28 @@
 //!
 //! [unstable]: crate#unstable-features
 #![allow(clippy::module_inception)]
-
 mod runtime;
 pub use runtime::RuntimeMetrics;
-
 mod batch;
 pub(crate) use batch::MetricsBatch;
-
 mod worker;
 pub(crate) use worker::WorkerMetrics;
-
 cfg_unstable_metrics! {
-
-    mod histogram;
-    pub(crate) use histogram::{Histogram, HistogramBatch, HistogramBuilder};
-
-    #[allow(unreachable_pub)] // rust-lang/rust#57411
-    pub use histogram::{HistogramScale, HistogramConfiguration, LogHistogram, LogHistogramBuilder, InvalidHistogramConfiguration};
-
-    mod scheduler;
-    pub(crate) use scheduler::SchedulerMetrics;
-
-    cfg_net! {
-        mod io;
-        pub(crate) use io::IoDriverMetrics;
+    mod histogram; pub (crate) use histogram:: { Histogram, HistogramBatch,
+    HistogramBuilder }; #[allow(unreachable_pub)] pub use histogram:: { HistogramScale,
+    HistogramConfiguration, LogHistogram, LogHistogramBuilder,
+    InvalidHistogramConfiguration }; mod scheduler; pub (crate) use
+    scheduler::SchedulerMetrics; cfg_net! { mod io; pub (crate) use io::IoDriverMetrics;
     }
 }
-
 cfg_not_unstable_metrics! {
-    mod mock;
-    pub(crate) use mock::{SchedulerMetrics, HistogramBuilder};
+    mod mock; pub (crate) use mock:: { SchedulerMetrics, HistogramBuilder };
 }
-
 cfg_schedule_latency! {
-    mod schedule_latency;
-    pub(crate) use schedule_latency::{ScheduleLatencyInstant, ScheduleLatencyContext};
+    mod schedule_latency; pub (crate) use schedule_latency:: { ScheduleLatencyInstant,
+    ScheduleLatencyContext };
 }
-
 cfg_not_schedule_latency! {
-    mod schedule_latency_mock;
-    pub(crate) use schedule_latency_mock::{ScheduleLatencyInstant, ScheduleLatencyContext};
+    mod schedule_latency_mock; pub (crate) use schedule_latency_mock:: {
+    ScheduleLatencyInstant, ScheduleLatencyContext };
 }

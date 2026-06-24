@@ -53,22 +53,17 @@
 //! refuse to mark the timer as pending.
 //!
 //! [mark_pending]: TimerHandle::mark_pending
-
 use crate::loom::cell::UnsafeCell;
 use crate::loom::sync::atomic::AtomicU64;
 use crate::loom::sync::atomic::Ordering;
-
 use crate::runtime::scheduler;
 use crate::sync::AtomicWaker;
 use crate::time::Instant;
 use crate::util::linked_list;
-
 use pin_project_lite::pin_project;
 use std::task::{Context, Poll, Waker};
 use std::{marker::PhantomPinned, pin::Pin, ptr::NonNull};
-
 type TimerResult = Result<(), crate::time::error::Error>;
-
 pub(in crate::runtime::time) const STATE_DEREGISTERED: u64 = u64::MAX;
 const STATE_PENDING_FIRE: u64 = STATE_DEREGISTERED - 1;
 const STATE_MIN_VALUE: u64 = STATE_PENDING_FIRE;
@@ -76,7 +71,6 @@ const STATE_MIN_VALUE: u64 = STATE_PENDING_FIRE;
 ///
 /// This value should be updated if any other signal values are added above.
 pub(super) const MAX_SAFE_MILLIS_DURATION: u64 = STATE_MIN_VALUE - 1;
-
 /// This structure holds the current shared state of the timer - its scheduled
 /// time (if registered), or otherwise the result of the timer completing, as
 /// well as the registered waker.
@@ -100,67 +94,35 @@ pub(super) struct StateCell {
     /// The currently-registered waker
     waker: AtomicWaker,
 }
-
 impl Default for StateCell {
     fn default() -> Self {
-        Self::new()
+        panic!("STUB: not implemented");
     }
 }
-
 impl std::fmt::Debug for StateCell {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "StateCell({:?})", self.read_state())
+        panic!("STUB: not implemented");
     }
 }
-
 impl StateCell {
     fn new() -> Self {
-        Self {
-            state: AtomicU64::new(STATE_DEREGISTERED),
-            result: UnsafeCell::new(Ok(())),
-            waker: AtomicWaker::new(),
-        }
+        panic!("STUB: not implemented");
     }
-
     fn is_pending(&self) -> bool {
-        self.state.load(Ordering::Relaxed) == STATE_PENDING_FIRE
+        panic!("STUB: not implemented");
     }
-
     /// Returns the current expiration time, or None if not currently scheduled.
     fn when(&self) -> Option<u64> {
-        let cur_state = self.state.load(Ordering::Relaxed);
-
-        if cur_state == STATE_DEREGISTERED {
-            None
-        } else {
-            Some(cur_state)
-        }
+        panic!("STUB: not implemented");
     }
-
     /// If the timer is completed, returns the result of the timer. Otherwise,
     /// returns None and registers the waker.
     fn poll(&self, waker: &Waker) -> Poll<TimerResult> {
-        // We must register first. This ensures that either `fire` will
-        // observe the new waker, or we will observe a racing fire to have set
-        // the state, or both.
-        self.waker.register_by_ref(waker);
-
-        self.read_state()
+        panic!("STUB: not implemented");
     }
-
     fn read_state(&self) -> Poll<TimerResult> {
-        let cur_state = self.state.load(Ordering::Acquire);
-
-        if cur_state == STATE_DEREGISTERED {
-            // SAFETY: The driver has fired this timer; this involves writing
-            // the result, and then writing (with release ordering) the state
-            // field.
-            Poll::Ready(unsafe { self.result.with(|p| *p) })
-        } else {
-            Poll::Pending
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Marks this timer as being moved to the pending list, if its scheduled
     /// time is not after `not_after`.
     ///
@@ -169,36 +131,8 @@ impl StateCell {
     ///
     /// SAFETY: Must hold the driver lock.
     unsafe fn mark_pending(&self, not_after: u64) -> Result<(), u64> {
-        // Quick initial debug check to see if the timer is already fired. Since
-        // firing the timer can only happen with the driver lock held, we know
-        // we shouldn't be able to "miss" a transition to a fired state, even
-        // with relaxed ordering.
-        let mut cur_state = self.state.load(Ordering::Relaxed);
-
-        loop {
-            // improve the error message for things like
-            // https://github.com/tokio-rs/tokio/issues/3675
-            assert!(
-                cur_state < STATE_MIN_VALUE,
-                "mark_pending called when the timer entry is in an invalid state"
-            );
-
-            if cur_state > not_after {
-                break Err(cur_state);
-            }
-
-            match self.state.compare_exchange_weak(
-                cur_state,
-                STATE_PENDING_FIRE,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => break Ok(()),
-                Err(actual_state) => cur_state = actual_state,
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Fires the timer, setting the result to the provided result.
     ///
     /// Returns:
@@ -209,40 +143,16 @@ impl StateCell {
     ///
     /// SAFETY: The driver lock must be held.
     unsafe fn fire(&self, result: TimerResult) -> Option<Waker> {
-        // Quick initial check to see if the timer is already fired. Since
-        // firing the timer can only happen with the driver lock held, we know
-        // we shouldn't be able to "miss" a transition to a fired state, even
-        // with relaxed ordering.
-        let cur_state = self.state.load(Ordering::Relaxed);
-        if cur_state == STATE_DEREGISTERED {
-            return None;
-        }
-
-        // SAFETY: We assume the driver lock is held and the timer is not
-        // fired, so only the driver is accessing this field.
-        //
-        // We perform a release-ordered store to state below, to ensure this
-        // write is visible before the state update is visible.
-        unsafe { self.result.with_mut(|p| *p = result) };
-
-        self.state.store(STATE_DEREGISTERED, Ordering::Release);
-
-        self.waker.take_waker()
+        panic!("STUB: not implemented");
     }
-
     /// Marks the timer as registered (poll will return None) and sets the
     /// expiration time.
     ///
     /// While this function is memory-safe, it should only be called from a
     /// context holding both `&mut TimerEntry` and the driver lock.
     fn set_expiration(&self, timestamp: u64) {
-        debug_assert!(timestamp < STATE_MIN_VALUE);
-
-        // We can use relaxed ordering because we hold the driver lock and will
-        // fence when we release the lock.
-        self.state.store(timestamp, Ordering::Relaxed);
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to adjust the timer to a new timestamp.
     ///
     /// If the timer has already been fired, is pending firing, or the new
@@ -250,63 +160,23 @@ impl StateCell {
     /// spuriously) returns Err without changing the timer's state. In this
     /// case, the timer must be deregistered and re-registered.
     fn extend_expiration(&self, new_timestamp: u64) -> Result<(), ()> {
-        let mut prior = self.state.load(Ordering::Relaxed);
-        loop {
-            if new_timestamp < prior || prior >= STATE_MIN_VALUE {
-                return Err(());
-            }
-
-            match self.state.compare_exchange_weak(
-                prior,
-                new_timestamp,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => return Ok(()),
-                Err(true_prior) => prior = true_prior,
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns true if the state of this timer indicates that the timer might
     /// be registered with the driver. This check is performed with relaxed
     /// ordering, but is conservative - if it returns false, the timer is
     /// definitely _not_ registered.
     pub(super) fn might_be_registered(&self) -> bool {
-        self.state.load(Ordering::Relaxed) != STATE_DEREGISTERED
+        panic!("STUB: not implemented");
     }
 }
-
 pin_project! {
-    // A timer entry.
-    //
-    // This is the handle to a timer that is controlled by the requester of the
-    // timer. As this participates in intrusive data structures, it must be pinned
-    // before polling.
-    #[derive(Debug)]
-    pub(crate) struct TimerEntry {
-        // Arc reference to the runtime handle. We can only free the driver after
-        // deregistering everything from their respective timer wheels.
-        driver: scheduler::Handle,
-        // Shared inner structure; this is part of an intrusive linked list, and
-        // therefore other references can exist to it while mutable references to
-        // Entry exist.
-        //
-        // This is manipulated only under the inner mutex.
-        #[pin]
-        inner: TimerShared,
-    }
-
-    impl PinnedDrop for TimerEntry {
-        fn drop(this: Pin<&mut Self>) {
-            this.cancel();
-        }
-    }
+    #[derive(Debug)] pub (crate) struct TimerEntry { driver : scheduler::Handle, #[pin]
+    inner : TimerShared, } impl PinnedDrop for TimerEntry { fn drop(this : Pin <& mut
+    Self >) { this.cancel(); } }
 }
-
 unsafe impl Send for TimerEntry {}
 unsafe impl Sync for TimerEntry {}
-
 /// An `TimerHandle` is the (non-enforced) "unique" pointer from the driver to the
 /// timer entry. Generally, at most one `TimerHandle` exists for a timer at a time
 /// (enforced by the timer state machine).
@@ -321,7 +191,6 @@ unsafe impl Sync for TimerEntry {}
 pub(crate) struct TimerHandle {
     inner: NonNull<TimerShared>,
 }
-
 /// The shared state structure of a timer. This structure is shared between the
 /// frontend (`Entry`) and driver backend.
 ///
@@ -332,7 +201,6 @@ pub(crate) struct TimerShared {
     ///
     /// Only accessed under the entry lock.
     pointers: linked_list::Pointers<TimerShared>,
-
     /// The time when the [`TimerEntry`] was registered into the Wheel,
     /// [`STATE_DEREGISTERED`] means it is not registered.
     ///
@@ -343,236 +211,133 @@ pub(crate) struct TimerShared {
     /// is only accessed either when holding the driver lock or through mutable
     /// references to [`TimerEntry`].
     registered_when: AtomicU64,
-
     /// Current state. This records whether the timer entry is currently under
     /// the ownership of the driver, and if not, its current state (not
     /// complete, fired, error, etc).
     state: StateCell,
-
     _p: PhantomPinned,
 }
-
 unsafe impl Send for TimerShared {}
 unsafe impl Sync for TimerShared {}
-
 impl std::fmt::Debug for TimerShared {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TimerShared")
-            .field(
-                "registered_when",
-                &self.registered_when.load(Ordering::Relaxed),
-            )
-            .field("state", &self.state)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 generate_addr_of_methods! {
-    impl<> TimerShared {
-        unsafe fn addr_of_pointers(self: NonNull<Self>) -> NonNull<linked_list::Pointers<TimerShared>> {
-            &self.pointers
-        }
-    }
+    impl <> TimerShared { unsafe fn addr_of_pointers(self : NonNull < Self >) -> NonNull
+    < linked_list::Pointers < TimerShared >> { & self.pointers } }
 }
-
 impl TimerShared {
     pub(super) fn new() -> Self {
-        Self {
-            registered_when: AtomicU64::new(0),
-            pointers: linked_list::Pointers::new(),
-            state: StateCell::default(),
-            _p: PhantomPinned,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Gets the cached time-of-expiration value.
     pub(super) fn registered_when(&self) -> u64 {
-        // Cached-when is only accessed under the driver lock, so we can use relaxed
-        self.registered_when.load(Ordering::Relaxed)
+        panic!("STUB: not implemented");
     }
-
     /// Gets the true time-of-expiration value, and copies it into the cached
     /// time-of-expiration value.
     ///
     /// SAFETY: Must be called with the driver lock held, and when this entry is
     /// not in any timer wheel lists.
     pub(super) unsafe fn sync_when(&self) -> u64 {
-        let true_when = self.true_when();
-
-        self.registered_when.store(true_when, Ordering::Relaxed);
-
-        true_when
+        panic!("STUB: not implemented");
     }
-
     /// Sets the cached time-of-expiration value.
     ///
     /// SAFETY: Must be called with the driver lock held, and when this entry is
     /// not in any timer wheel lists.
     unsafe fn set_registered_when(&self, when: u64) {
-        self.registered_when.store(when, Ordering::Relaxed);
+        panic!("STUB: not implemented");
     }
-
     /// Returns the true time-of-expiration value, with relaxed memory ordering.
     pub(super) fn true_when(&self) -> u64 {
-        self.state.when().expect("Timer already fired")
+        panic!("STUB: not implemented");
     }
-
     /// Sets the true time-of-expiration value, even if it is less than the
     /// current expiration or the timer is deregistered.
     ///
     /// SAFETY: Must only be called with the driver lock held and the entry not
     /// in the timer wheel.
     pub(super) unsafe fn set_expiration(&self, t: u64) {
-        self.state.set_expiration(t);
-        self.registered_when.store(t, Ordering::Relaxed);
+        panic!("STUB: not implemented");
     }
-
     /// Sets the true time-of-expiration only if it is after the current.
     pub(super) fn extend_expiration(&self, t: u64) -> Result<(), ()> {
-        self.state.extend_expiration(t)
+        panic!("STUB: not implemented");
     }
-
     /// Returns a `TimerHandle` for this timer.
     pub(super) fn handle(&self) -> TimerHandle {
-        TimerHandle {
-            inner: NonNull::from(self),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns true if the state of this timer indicates that the timer might
     /// be registered with the driver. This check is performed with relaxed
     /// ordering, but is conservative - if it returns false, the timer is
     /// definitely _not_ registered.
     pub(super) fn might_be_registered(&self) -> bool {
-        self.state.might_be_registered()
+        panic!("STUB: not implemented");
     }
 }
-
 unsafe impl linked_list::Link for TimerShared {
     type Handle = TimerHandle;
-
     type Target = TimerShared;
-
     fn as_raw(handle: &Self::Handle) -> NonNull<Self::Target> {
-        handle.inner
+        panic!("STUB: not implemented");
     }
-
     unsafe fn from_raw(ptr: NonNull<Self::Target>) -> Self::Handle {
-        TimerHandle { inner: ptr }
+        panic!("STUB: not implemented");
     }
-
     unsafe fn pointers(
         target: NonNull<Self::Target>,
     ) -> NonNull<linked_list::Pointers<Self::Target>> {
-        unsafe { TimerShared::addr_of_pointers(target) }
+        panic!("STUB: not implemented");
     }
 }
-
-// ===== impl Entry =====
-
 impl TimerEntry {
     pub(crate) fn new(handle: scheduler::Handle) -> Self {
-        Self {
-            driver: handle,
-            inner: TimerShared::new(),
-        }
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn init(self: Pin<&mut Self>, deadline: Instant) {
-        let tick = self.driver().time_source().deadline_to_tick(deadline);
-
-        unsafe {
-            self.driver()
-                .reregister(&self.driver.driver().io, tick, (&self.inner).into());
-        }
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn is_elapsed(&self) -> bool {
-        // Is this timer still in the timer wheel?
-        !self.inner.might_be_registered()
+        panic!("STUB: not implemented");
     }
-
     /// Cancels and deregisters the timer. This operation is irreversible.
     pub(crate) fn cancel(self: Pin<&mut Self>) {
-        // We need to perform an acq/rel fence with the driver thread, and the
-        // simplest way to do so is to grab the driver lock.
-        //
-        // Why is this necessary? We're about to release this timer's memory for
-        // some other non-timer use. However, we've been doing a bunch of
-        // relaxed (or even non-atomic) writes from the driver thread, and we'll
-        // be doing more from _this thread_ (as this memory is interpreted as
-        // something else).
-        //
-        // It is critical to ensure that, from the point of view of the driver,
-        // those future non-timer writes happen-after the timer is fully fired,
-        // and from the purpose of this thread, the driver's writes all
-        // happen-before we drop the timer. This in turn requires us to perform
-        // an acquire-release barrier in _both_ directions between the driver
-        // and dropping thread.
-        //
-        // The lock acquisition in clear_entry serves this purpose. All of the
-        // driver manipulations happen with the lock held, so we can just take
-        // the lock and be sure that this drop happens-after everything the
-        // driver did so far and happens-before everything the driver does in
-        // the future. While we have the lock held, we also go ahead and
-        // deregister the entry if necessary.
-        unsafe { self.driver().clear_entry(NonNull::from(&self.inner)) };
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn reset(self: Pin<&mut Self>, deadline: Instant) {
-        let tick = self.driver().time_source().deadline_to_tick(deadline);
-
-        if self.inner.extend_expiration(tick).is_ok() {
-            return;
-        }
-
-        unsafe {
-            self.driver()
-                .reregister(&self.driver.driver().io, tick, (&self.inner).into());
-        }
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn poll_elapsed(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(), super::Error>> {
-        assert!(
-            !self.driver().is_shutdown(),
-            "{}",
-            crate::util::error::RUNTIME_SHUTTING_DOWN_ERROR
-        );
-
-        self.inner.state.poll(cx.waker())
+        panic!("STUB: not implemented");
     }
-
     fn driver(&self) -> &super::Handle {
-        self.driver.driver().time()
+        panic!("STUB: not implemented");
     }
 }
-
 impl TimerHandle {
     pub(super) unsafe fn registered_when(&self) -> u64 {
-        unsafe { self.inner.as_ref().registered_when() }
+        panic!("STUB: not implemented");
     }
-
     pub(super) unsafe fn sync_when(&self) -> u64 {
-        unsafe { self.inner.as_ref().sync_when() }
+        panic!("STUB: not implemented");
     }
-
     pub(super) unsafe fn is_pending(&self) -> bool {
-        unsafe { self.inner.as_ref().state.is_pending() }
+        panic!("STUB: not implemented");
     }
-
     /// Forcibly sets the true and cached expiration times to the given tick.
     ///
     /// SAFETY: The caller must ensure that the handle remains valid, the driver
     /// lock is held, and that the timer is not in any wheel linked lists.
     pub(super) unsafe fn set_expiration(&self, tick: u64) {
-        unsafe {
-            self.inner.as_ref().set_expiration(tick);
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to mark this entry as pending. If the expiration time is after
     /// `not_after`, however, returns an Err with the current expiration time.
     ///
@@ -583,23 +348,8 @@ impl TimerHandle {
     /// lock is held, and that the timer is not in any wheel linked lists.
     /// After returning Ok, the entry must be added to the pending list.
     pub(super) unsafe fn mark_pending(&self, not_after: u64) -> Result<(), u64> {
-        match unsafe { self.inner.as_ref().state.mark_pending(not_after) } {
-            Ok(()) => {
-                // mark this as being on the pending queue in registered_when
-                unsafe {
-                    self.inner.as_ref().set_registered_when(STATE_DEREGISTERED);
-                }
-                Ok(())
-            }
-            Err(tick) => {
-                unsafe {
-                    self.inner.as_ref().set_registered_when(tick);
-                }
-                Err(tick)
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to transition to a terminal state. If the state is already a
     /// terminal state, does nothing.
     ///
@@ -612,6 +362,6 @@ impl TimerHandle {
     /// SAFETY: The driver lock must be held while invoking this function, and
     /// the entry must not be in any wheel linked lists.
     pub(super) unsafe fn fire(self, completed_state: TimerResult) -> Option<Waker> {
-        unsafe { self.inner.as_ref().state.fire(completed_state) }
+        panic!("STUB: not implemented");
     }
 }

@@ -5,17 +5,13 @@ use crate::runtime::{context, EnterGuard, Handle};
 use crate::task::JoinHandle;
 use crate::util::error::RUNTIME_SHUTTING_DOWN_ERROR;
 use crate::util::trace::SpawnMeta;
-
 use std::future::Future;
 use std::io;
 use std::mem;
 use std::time::Duration;
-
 cfg_rt_multi_thread! {
-    use crate::runtime::Builder;
-    use crate::runtime::scheduler::MultiThread;
+    use crate ::runtime::Builder; use crate ::runtime::scheduler::MultiThread;
 }
-
 /// The Tokio runtime.
 ///
 /// The runtime provides an I/O driver, task scheduler, [timer], and
@@ -97,14 +93,11 @@ cfg_rt_multi_thread! {
 pub struct Runtime {
     /// Task scheduler
     scheduler: Scheduler,
-
     /// Handle to runtime, also contains driver handles
     handle: Handle,
-
     /// Blocking pool handle, used to signal shutdown
     blocking_pool: BlockingPool,
 }
-
 /// The flavor of a `Runtime`.
 ///
 /// This is the return type for [`Handle::runtime_flavor`](crate::runtime::Handle::runtime_flavor()).
@@ -116,31 +109,23 @@ pub enum RuntimeFlavor {
     /// The flavor that executes tasks across multiple threads.
     MultiThread,
 }
-
 /// The runtime scheduler is either a multi-thread or a current-thread executor.
 #[derive(Debug)]
 pub(super) enum Scheduler {
     /// Execute all tasks on the current-thread.
     CurrentThread(CurrentThread),
-
     /// Execute tasks across multiple threads.
     #[cfg(feature = "rt-multi-thread")]
     MultiThread(MultiThread),
 }
-
 impl Runtime {
     pub(super) fn from_parts(
         scheduler: Scheduler,
         handle: Handle,
         blocking_pool: BlockingPool,
     ) -> Runtime {
-        Runtime {
-            scheduler,
-            handle,
-            blocking_pool,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new runtime instance with default configuration values.
     ///
     /// This results in the multi threaded scheduler, I/O driver, and time driver being
@@ -172,9 +157,8 @@ impl Runtime {
     #[cfg(feature = "rt-multi-thread")]
     #[cfg_attr(docsrs, doc(cfg(feature = "rt-multi-thread")))]
     pub fn new() -> std::io::Result<Runtime> {
-        Builder::new_multi_thread().enable_all().build()
+        panic!("STUB: not implemented");
     }
-
     /// Returns a handle to the runtime's spawner.
     ///
     /// The returned handle can be used to spawn tasks that run on this runtime, and can
@@ -199,9 +183,8 @@ impl Runtime {
     /// # }
     /// ```
     pub fn handle(&self) -> &Handle {
-        &self.handle
+        panic!("STUB: not implemented");
     }
-
     /// Spawns a future onto the Tokio runtime.
     ///
     /// This spawns the given future onto the runtime's executor, usually a
@@ -241,16 +224,8 @@ impl Runtime {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        let fut_size = mem::size_of::<F>();
-        if fut_size > BOX_FUTURE_THRESHOLD {
-            self.handle
-                .spawn_named(Box::pin(future), SpawnMeta::new_unnamed(fut_size))
-        } else {
-            self.handle
-                .spawn_named(future, SpawnMeta::new_unnamed(fut_size))
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Runs the provided function on an executor dedicated to blocking operations.
     ///
     /// # Examples
@@ -277,9 +252,8 @@ impl Runtime {
         F: FnOnce() -> R + Send + 'static,
         R: Send + 'static,
     {
-        self.handle.spawn_blocking(func)
+        panic!("STUB: not implemented");
     }
-
     /// Runs a future to completion on the Tokio runtime. This is the
     /// runtime's entry point.
     ///
@@ -338,47 +312,12 @@ impl Runtime {
     /// [handle]: fn@Handle::block_on
     #[track_caller]
     pub fn block_on<F: Future>(&self, future: F) -> F::Output {
-        let fut_size = mem::size_of::<F>();
-        if fut_size > BOX_FUTURE_THRESHOLD {
-            self.block_on_inner(Box::pin(future), SpawnMeta::new_unnamed(fut_size))
-        } else {
-            self.block_on_inner(future, SpawnMeta::new_unnamed(fut_size))
-        }
+        panic!("STUB: not implemented");
     }
-
     #[track_caller]
     fn block_on_inner<F: Future>(&self, future: F, _meta: SpawnMeta<'_>) -> F::Output {
-        #[cfg(all(
-            tokio_unstable,
-            feature = "taskdump",
-            feature = "rt",
-            target_os = "linux",
-            any(
-                target_arch = "aarch64",
-                target_arch = "x86",
-                target_arch = "x86_64",
-                target_arch = "s390x"
-            )
-        ))]
-        let future = super::task::trace::Trace::root(future);
-
-        #[cfg(all(tokio_unstable, feature = "tracing"))]
-        let future = crate::util::trace::task(
-            future,
-            "block_on",
-            _meta,
-            crate::runtime::task::Id::next().as_u64(),
-        );
-
-        let _enter = self.enter();
-
-        match &self.scheduler {
-            Scheduler::CurrentThread(exec) => exec.block_on(&self.handle.inner, future),
-            #[cfg(feature = "rt-multi-thread")]
-            Scheduler::MultiThread(exec) => exec.block_on(&self.handle.inner, future),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Enters the runtime context.
     ///
     /// This allows you to construct types that must have an executor
@@ -419,9 +358,8 @@ impl Runtime {
     /// # }
     /// ```
     pub fn enter(&self) -> EnterGuard<'_> {
-        self.handle.enter()
+        panic!("STUB: not implemented");
     }
-
     /// Shuts down the runtime, waiting for at most `duration` for all spawned
     /// work to stop.
     ///
@@ -452,11 +390,8 @@ impl Runtime {
     /// # }
     /// ```
     pub fn shutdown_timeout(mut self, duration: Duration) {
-        // Wakeup and shutdown all the worker threads
-        self.handle.inner.shutdown();
-        self.blocking_pool.shutdown(Some(duration));
+        panic!("STUB: not implemented");
     }
-
     /// Shuts down the runtime, without waiting for any spawned work to stop.
     ///
     /// This can be useful if you want to drop a runtime from within another runtime.
@@ -489,68 +424,24 @@ impl Runtime {
     /// # }
     /// ```
     pub fn shutdown_background(self) {
-        self.shutdown_timeout(Duration::from_nanos(0));
+        panic!("STUB: not implemented");
     }
-
     /// Returns a view that lets you get information about how the runtime
     /// is performing.
     pub fn metrics(&self) -> crate::runtime::RuntimeMetrics {
-        self.handle.metrics()
+        panic!("STUB: not implemented");
     }
 }
-
 impl Drop for Runtime {
     fn drop(&mut self) {
-        match &mut self.scheduler {
-            Scheduler::CurrentThread(current_thread) => {
-                // This ensures that tasks spawned on the current-thread
-                // runtime are dropped inside the runtime's context.
-                let _guard = context::try_set_current(&self.handle.inner);
-                current_thread.shutdown(&self.handle.inner);
-            }
-            #[cfg(feature = "rt-multi-thread")]
-            Scheduler::MultiThread(multi_thread) => {
-                // The threaded scheduler drops its tasks on its worker threads, which is
-                // already in the runtime's context.
-                multi_thread.shutdown(&self.handle.inner);
-            }
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl std::panic::UnwindSafe for Runtime {}
-
 impl std::panic::RefUnwindSafe for Runtime {}
-
 fn display_eq(d: impl std::fmt::Display, s: &str) -> bool {
-    use std::fmt::Write;
-
-    struct FormatEq<'r> {
-        remainder: &'r str,
-        unequal: bool,
-    }
-
-    impl<'r> Write for FormatEq<'r> {
-        fn write_str(&mut self, s: &str) -> std::fmt::Result {
-            if !self.unequal {
-                if let Some(new_remainder) = self.remainder.strip_prefix(s) {
-                    self.remainder = new_remainder;
-                } else {
-                    self.unequal = true;
-                }
-            }
-            Ok(())
-        }
-    }
-
-    let mut fmt_eq = FormatEq {
-        remainder: s,
-        unequal: false,
-    };
-    let _ = write!(fmt_eq, "{d}");
-    fmt_eq.remainder.is_empty() && !fmt_eq.unequal
+    panic!("STUB: not implemented");
 }
-
 /// Checks whether the given error was emitted by Tokio when shutting down its runtime.
 ///
 /// # Examples
@@ -580,11 +471,5 @@ fn display_eq(d: impl std::fmt::Display, s: &str) -> bool {
 /// # }
 /// ```
 pub fn is_rt_shutdown_err(err: &io::Error) -> bool {
-    if let Some(inner) = err.get_ref() {
-        err.kind() == io::ErrorKind::Other
-            && inner.source().is_none()
-            && display_eq(inner, RUNTIME_SHUTTING_DOWN_ERROR)
-    } else {
-        false
-    }
+    panic!("STUB: not implemented");
 }

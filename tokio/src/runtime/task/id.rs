@@ -1,7 +1,5 @@
 use crate::runtime::context;
-
 use std::{fmt, num::NonZeroU64};
-
 /// An opaque ID that uniquely identifies a task relative to all other currently
 /// running tasks.
 ///
@@ -30,7 +28,6 @@ use std::{fmt, num::NonZeroU64};
 #[cfg_attr(docsrs, doc(cfg(all(feature = "rt"))))]
 #[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Id(pub(crate) NonZeroU64);
-
 /// Returns the [`Id`] of the currently running task.
 ///
 /// # Panics
@@ -43,9 +40,8 @@ pub struct Id(pub(crate) NonZeroU64);
 /// [task ID]: crate::task::Id
 #[track_caller]
 pub fn id() -> Id {
-    context::current_task_id().expect("Can't get a task id when not inside a task")
+    panic!("STUB: not implemented");
 }
-
 /// Returns the [`Id`] of the currently running task, or `None` if called outside
 /// of a task.
 ///
@@ -56,36 +52,18 @@ pub fn id() -> Id {
 /// [task ID]: crate::task::Id
 #[track_caller]
 pub fn try_id() -> Option<Id> {
-    context::current_task_id()
+    panic!("STUB: not implemented");
 }
-
 impl fmt::Display for Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl Id {
     pub(crate) fn next() -> Self {
-        use crate::loom::sync::atomic::{AtomicU64, Ordering::Relaxed};
-
-        #[cfg(all(test, loom))]
-        crate::loom::lazy_static! {
-            static ref NEXT_ID: AtomicU64 = AtomicU64::new(1);
-        }
-
-        #[cfg(not(all(test, loom)))]
-        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
-
-        loop {
-            let id = NEXT_ID.fetch_add(1, Relaxed);
-            if let Some(id) = NonZeroU64::new(id) {
-                return Self(id);
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn as_u64(&self) -> u64 {
-        self.0.get()
+        panic!("STUB: not implemented");
     }
 }

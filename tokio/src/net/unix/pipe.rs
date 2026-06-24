@@ -1,8 +1,6 @@
 //! Unix pipe types.
-
 use crate::io::interest::Interest;
 use crate::io::{AsyncRead, AsyncWrite, PollEvented, ReadBuf, Ready};
-
 use mio::unix::pipe as mio_pipe;
 use std::fs::File;
 use std::io::{self, Read, Write};
@@ -11,11 +9,9 @@ use std::os::unix::io::{AsFd, AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, OwnedFd
 use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-
 cfg_io_util! {
     use bytes::BufMut;
 }
-
 /// Creates a new anonymous Unix pipe.
 ///
 /// This function will open a new pipe and associate both pipe ends with the default
@@ -65,10 +61,8 @@ cfg_io_util! {
 /// from a future driven by a tokio runtime, otherwise runtime can be set
 /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
 pub fn pipe() -> io::Result<(Sender, Receiver)> {
-    let (tx, rx) = mio_pipe::new()?;
-    Ok((Sender::from_mio(tx)?, Receiver::from_mio(rx)?))
+    panic!("STUB: not implemented");
 }
-
 /// Options and flags which can be used to configure how a FIFO file is opened.
 ///
 /// This builder allows configuring how to create a pipe end from a FIFO file.
@@ -124,19 +118,13 @@ pub struct OpenOptions {
     read_write: bool,
     unchecked: bool,
 }
-
 impl OpenOptions {
     /// Creates a blank new set of options ready for configuration.
     ///
     /// All options are initially set to `false`.
     pub fn new() -> OpenOptions {
-        OpenOptions {
-            #[cfg(any(target_os = "linux", target_os = "android"))]
-            read_write: false,
-            unchecked: false,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Sets the option for read-write access.
     ///
     /// This option, when true, will indicate that a FIFO file will be opened
@@ -171,10 +159,8 @@ impl OpenOptions {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     #[cfg_attr(docsrs, doc(cfg(any(target_os = "linux", target_os = "android"))))]
     pub fn read_write(&mut self, value: bool) -> &mut Self {
-        self.read_write = value;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Sets the option to skip the check for FIFO file type.
     ///
     /// By default, [`open_receiver`] and [`open_sender`] functions will check
@@ -203,10 +189,8 @@ impl OpenOptions {
     /// # }
     /// ```
     pub fn unchecked(&mut self, value: bool) -> &mut Self {
-        self.unchecked = value;
-        self
+        panic!("STUB: not implemented");
     }
-
     /// Creates a [`Receiver`] from a FIFO file with the options specified by `self`.
     ///
     /// This function will open the FIFO file at the specified path, possibly
@@ -227,10 +211,8 @@ impl OpenOptions {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn open_receiver<P: AsRef<Path>>(&self, path: P) -> io::Result<Receiver> {
-        let file = self.open(path.as_ref(), PipeEnd::Receiver)?;
-        Receiver::from_file_unchecked(file)
+        panic!("STUB: not implemented");
     }
-
     /// Creates a [`Sender`] from a FIFO file with the options specified by `self`.
     ///
     /// This function will open the FIFO file at the specified path, possibly
@@ -253,44 +235,22 @@ impl OpenOptions {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn open_sender<P: AsRef<Path>>(&self, path: P) -> io::Result<Sender> {
-        let file = self.open(path.as_ref(), PipeEnd::Sender)?;
-        Sender::from_file_unchecked(file)
+        panic!("STUB: not implemented");
     }
-
     fn open(&self, path: &Path, pipe_end: PipeEnd) -> io::Result<File> {
-        let mut options = std::fs::OpenOptions::new();
-        options
-            .read(pipe_end == PipeEnd::Receiver)
-            .write(pipe_end == PipeEnd::Sender)
-            .custom_flags(libc::O_NONBLOCK);
-
-        #[cfg(any(target_os = "linux", target_os = "android"))]
-        if self.read_write {
-            options.read(true).write(true);
-        }
-
-        let file = options.open(path)?;
-
-        if !self.unchecked && !is_pipe(file.as_fd())? {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a pipe"));
-        }
-
-        Ok(file)
+        panic!("STUB: not implemented");
     }
 }
-
 impl Default for OpenOptions {
     fn default() -> OpenOptions {
-        OpenOptions::new()
+        panic!("STUB: not implemented");
     }
 }
-
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum PipeEnd {
     Sender,
     Receiver,
 }
-
 /// Writing end of a Unix pipe.
 ///
 /// It can be constructed from a FIFO file with [`OpenOptions::open_sender`].
@@ -365,13 +325,10 @@ enum PipeEnd {
 pub struct Sender {
     io: PollEvented<mio_pipe::Sender>,
 }
-
 impl Sender {
     fn from_mio(mio_tx: mio_pipe::Sender) -> io::Result<Sender> {
-        let io = PollEvented::new_with_interest(mio_tx, Interest::WRITABLE)?;
-        Ok(Sender { io })
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `Sender` from a [`File`].
     ///
     /// This function is intended to construct a pipe from a [`File`] representing
@@ -392,9 +349,8 @@ impl Sender {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn from_file(file: File) -> io::Result<Sender> {
-        Sender::from_owned_fd(file.into())
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `Sender` from an [`OwnedFd`].
     ///
     /// This function is intended to construct a pipe from an [`OwnedFd`] representing
@@ -417,22 +373,8 @@ impl Sender {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn from_owned_fd(owned_fd: OwnedFd) -> io::Result<Sender> {
-        if !is_pipe(owned_fd.as_fd())? {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a pipe"));
-        }
-
-        let flags = get_file_flags(owned_fd.as_fd())?;
-        if has_write_access(flags) {
-            set_nonblocking(owned_fd.as_fd(), flags)?;
-            Sender::from_owned_fd_unchecked(owned_fd)
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "not in O_WRONLY or O_RDWR access mode",
-            ))
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `Sender` from a [`File`] without checking pipe properties.
     ///
     /// This function is intended to construct a pipe from a File representing
@@ -472,9 +414,8 @@ impl Sender {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn from_file_unchecked(file: File) -> io::Result<Sender> {
-        Sender::from_owned_fd_unchecked(file.into())
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `Sender` from an [`OwnedFd`] without checking pipe properties.
     ///
     /// This function is intended to construct a pipe from an [`OwnedFd`] representing
@@ -492,11 +433,8 @@ impl Sender {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn from_owned_fd_unchecked(owned_fd: OwnedFd) -> io::Result<Sender> {
-        // Safety: OwnedFd represents a valid, open file descriptor.
-        let mio_tx = unsafe { mio_pipe::Sender::from_raw_fd(owned_fd.into_raw_fd()) };
-        Sender::from_mio(mio_tx)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states.
     ///
     /// This function can be used instead of [`writable()`] to check the returned
@@ -517,10 +455,8 @@ impl Sender {
     /// consumed by an attempt to write that fails with `WouldBlock` or
     /// `Poll::Pending`.
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        let event = self.io.registration().readiness(interest).await?;
-        Ok(event.ready)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the pipe to become writable.
     ///
     /// This function is equivalent to `ready(Interest::WRITABLE)` and is usually
@@ -562,10 +498,8 @@ impl Sender {
     /// }
     /// ```
     pub async fn writable(&self) -> io::Result<()> {
-        self.ready(Interest::WRITABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for write readiness.
     ///
     /// If the pipe is not currently ready for writing, this method will
@@ -594,9 +528,8 @@ impl Sender {
     ///
     /// This function may encounter any standard I/O error except `WouldBlock`.
     pub fn poll_write_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_write_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write a buffer to the pipe, returning how many bytes were
     /// written.
     ///
@@ -661,11 +594,8 @@ impl Sender {
     ///
     /// [`WouldBlock`]: std::io::ErrorKind::WouldBlock
     pub fn try_write(&self, buf: &[u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || (&*self.io).write(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write several buffers to the pipe, returning how many bytes
     /// were written.
     ///
@@ -737,11 +667,8 @@ impl Sender {
     ///
     /// [`WouldBlock`]: std::io::ErrorKind::WouldBlock
     pub fn try_write_vectored(&self, buf: &[io::IoSlice<'_>]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || (&*self.io).write_vectored(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write from the socket using a user-provided IO operation.
     ///
     /// If the socket is ready, the provided closure is called. The closure
@@ -769,79 +696,59 @@ impl Sender {
     /// [`writable()`]: Self::writable()
     /// [`ready()`]: Self::ready()
     pub fn try_io<R>(&self, f: impl FnOnce() -> io::Result<R>) -> io::Result<R> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || self.io.try_io(f))
+        panic!("STUB: not implemented");
     }
-
     /// Converts the pipe into an [`OwnedFd`] in blocking mode.
     ///
     /// This function will deregister this pipe end from the event loop, set
     /// it in blocking mode and perform the conversion.
     pub fn into_blocking_fd(self) -> io::Result<OwnedFd> {
-        let fd = self.into_nonblocking_fd()?;
-        set_blocking(&fd)?;
-        Ok(fd)
+        panic!("STUB: not implemented");
     }
-
     /// Converts the pipe into an [`OwnedFd`] in nonblocking mode.
     ///
     /// This function will deregister this pipe end from the event loop and
     /// perform the conversion. The returned file descriptor will be in nonblocking
     /// mode.
     pub fn into_nonblocking_fd(self) -> io::Result<OwnedFd> {
-        let mio_pipe = self.io.into_inner()?;
-
-        // Safety: the pipe is now deregistered from the event loop
-        // and we are the only owner of this pipe end.
-        let owned_fd = unsafe { OwnedFd::from_raw_fd(mio_pipe.into_raw_fd()) };
-
-        Ok(owned_fd)
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for Sender {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        self.io.poll_write(cx, buf)
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        self.io.poll_write_vectored(cx, bufs)
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        true
+        panic!("STUB: not implemented");
     }
-
     fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Ok(()))
+        panic!("STUB: not implemented");
     }
-
     fn poll_shutdown(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Ok(()))
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRawFd for Sender {
     fn as_raw_fd(&self) -> RawFd {
-        self.io.as_raw_fd()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsFd for Sender {
     fn as_fd(&self) -> BorrowedFd<'_> {
-        unsafe { BorrowedFd::borrow_raw(self.as_raw_fd()) }
+        panic!("STUB: not implemented");
     }
 }
-
 /// Reading end of a Unix pipe.
 ///
 /// It can be constructed from a FIFO file with [`OpenOptions::open_receiver`].
@@ -913,13 +820,10 @@ impl AsFd for Sender {
 pub struct Receiver {
     io: PollEvented<mio_pipe::Receiver>,
 }
-
 impl Receiver {
     fn from_mio(mio_rx: mio_pipe::Receiver) -> io::Result<Receiver> {
-        let io = PollEvented::new_with_interest(mio_rx, Interest::READABLE)?;
-        Ok(Receiver { io })
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `Receiver` from a [`File`].
     ///
     /// This function is intended to construct a pipe from a [`File`] representing
@@ -940,9 +844,8 @@ impl Receiver {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn from_file(file: File) -> io::Result<Receiver> {
-        Receiver::from_owned_fd(file.into())
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `Receiver` from an [`OwnedFd`].
     ///
     /// This function is intended to construct a pipe from an [`OwnedFd`] representing
@@ -965,22 +868,8 @@ impl Receiver {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn from_owned_fd(owned_fd: OwnedFd) -> io::Result<Receiver> {
-        if !is_pipe(owned_fd.as_fd())? {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a pipe"));
-        }
-
-        let flags = get_file_flags(owned_fd.as_fd())?;
-        if has_read_access(flags) {
-            set_nonblocking(owned_fd.as_fd(), flags)?;
-            Receiver::from_owned_fd_unchecked(owned_fd)
-        } else {
-            Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "not in O_RDONLY or O_RDWR access mode",
-            ))
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `Receiver` from a [`File`] without checking pipe properties.
     ///
     /// This function is intended to construct a pipe from a File representing
@@ -1020,9 +909,8 @@ impl Receiver {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn from_file_unchecked(file: File) -> io::Result<Receiver> {
-        Receiver::from_owned_fd_unchecked(file.into())
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `Receiver` from an [`OwnedFd`] without checking pipe properties.
     ///
     /// This function is intended to construct a pipe from an [`OwnedFd`] representing
@@ -1040,11 +928,8 @@ impl Receiver {
     /// from a future driven by a tokio runtime, otherwise runtime can be set
     /// explicitly with [`Runtime::enter`](crate::runtime::Runtime::enter) function.
     pub fn from_owned_fd_unchecked(owned_fd: OwnedFd) -> io::Result<Receiver> {
-        // Safety: OwnedFd represents a valid, open file descriptor.
-        let mio_rx = unsafe { mio_pipe::Receiver::from_raw_fd(owned_fd.into_raw_fd()) };
-        Receiver::from_mio(mio_rx)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states.
     ///
     /// This function can be used instead of [`readable()`] to check the returned
@@ -1065,10 +950,8 @@ impl Receiver {
     /// consumed by an attempt to read that fails with `WouldBlock` or
     /// `Poll::Pending`.
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        let event = self.io.registration().readiness(interest).await?;
-        Ok(event.ready)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the pipe to become readable.
     ///
     /// This function is equivalent to `ready(Interest::READABLE)` and is usually
@@ -1114,10 +997,8 @@ impl Receiver {
     /// }
     /// ```
     pub async fn readable(&self) -> io::Result<()> {
-        self.ready(Interest::READABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for read readiness.
     ///
     /// If the pipe is not currently ready for reading, this method will
@@ -1146,9 +1027,8 @@ impl Receiver {
     ///
     /// This function may encounter any standard I/O error except `WouldBlock`.
     pub fn poll_read_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_read_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read data from the pipe into the provided buffer, returning how
     /// many bytes were read.
     ///
@@ -1220,11 +1100,8 @@ impl Receiver {
     ///
     /// [`WouldBlock`]: std::io::ErrorKind::WouldBlock
     pub fn try_read(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || (&*self.io).read(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read data from the pipe into the provided buffers, returning
     /// how many bytes were read.
     ///
@@ -1303,12 +1180,12 @@ impl Receiver {
     /// ```
     ///
     /// [`WouldBlock`]: std::io::ErrorKind::WouldBlock
-    pub fn try_read_vectored(&self, bufs: &mut [io::IoSliceMut<'_>]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || (&*self.io).read_vectored(bufs))
+    pub fn try_read_vectored(
+        &self,
+        bufs: &mut [io::IoSliceMut<'_>],
+    ) -> io::Result<usize> {
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read to the socket using a user-provided IO operation.
     ///
     /// If the socket is ready, the provided closure is called. The closure
@@ -1336,221 +1213,112 @@ impl Receiver {
     /// [`readable()`]: Self::readable()
     /// [`ready()`]: Self::ready()
     pub fn try_io<R>(&self, f: impl FnOnce() -> io::Result<R>) -> io::Result<R> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || self.io.try_io(f))
+        panic!("STUB: not implemented");
     }
-
     cfg_io_util! {
-        /// Tries to read data from the pipe into the provided buffer, advancing the
-        /// buffer's internal cursor, returning how many bytes were read.
-        ///
-        /// Reads any pending data from the pipe but does not wait for new data
-        /// to arrive. On success, returns the number of bytes read. Because
-        /// `try_read_buf()` is non-blocking, the buffer does not have to be stored by
-        /// the async task and can exist entirely on the stack.
-        ///
-        /// Usually, [`readable()`] or [`ready()`] is used with this function.
-        ///
-        /// [`readable()`]: Self::readable
-        /// [`ready()`]: Self::ready
-        ///
-        /// # Return
-        ///
-        /// If data is successfully read, `Ok(n)` is returned, where `n` is the
-        /// number of bytes read. `Ok(0)` indicates the pipe's writing end is
-        /// closed and will no longer write data. If the pipe is not ready to read
-        /// data `Err(io::ErrorKind::WouldBlock)` is returned.
-        ///
-        /// # Notes
-        ///
-        /// To avoid unnecessary syscalls, this will only attempt the read
-        /// operation if the OS has informed Tokio that this pipe has become
-        /// readable. Because of this, `try_read_buf()` may fail with a
-        /// [`WouldBlock`] error if Tokio has not yet heard from the OS that
-        /// this pipe has become readable.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// use tokio::net::unix::pipe;
-        /// use std::io;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     // Open a reading end of a fifo
-        ///     let rx = pipe::OpenOptions::new().open_receiver("path/to/a/fifo")?;
-        ///
-        ///     loop {
-        ///         // Wait for the pipe to be readable
-        ///         rx.readable().await?;
-        ///
-        ///         let mut buf = Vec::with_capacity(4096);
-        ///
-        ///         // Try to read data, this may still fail with `WouldBlock`
-        ///         // if the readiness event is a false positive.
-        ///         match rx.try_read_buf(&mut buf) {
-        ///             Ok(0) => break,
-        ///             Ok(n) => {
-        ///                 println!("read {} bytes", n);
-        ///             }
-        ///             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-        ///                 continue;
-        ///             }
-        ///             Err(e) => {
-        ///                 return Err(e.into());
-        ///             }
-        ///         }
-        ///     }
-        ///
-        ///     Ok(())
-        /// }
-        /// ```
-        ///
-        /// [`WouldBlock`]: std::io::ErrorKind::WouldBlock
-        pub fn try_read_buf<B: BufMut>(&self, buf: &mut B) -> io::Result<usize> {
-            self.io.registration().try_io(Interest::READABLE, || {
-                use std::io::Read;
-
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                // Safety: `mio_pipe::Receiver` uses a `std::fs::File` underneath,
-                // which correctly handles reads into uninitialized memory.
-                let n = (&*self.io).read(dst)?;
-
-                unsafe {
-                    buf.advance_mut(n);
-                }
-
-                Ok(n)
-            })
-        }
+        #[doc =
+        " Tries to read data from the pipe into the provided buffer, advancing the"]
+        #[doc = " buffer's internal cursor, returning how many bytes were read."] #[doc =
+        ""] #[doc =
+        " Reads any pending data from the pipe but does not wait for new data"] #[doc =
+        " to arrive. On success, returns the number of bytes read. Because"] #[doc =
+        " `try_read_buf()` is non-blocking, the buffer does not have to be stored by"]
+        #[doc = " the async task and can exist entirely on the stack."] #[doc = ""] #[doc
+        = " Usually, [`readable()`] or [`ready()`] is used with this function."] #[doc =
+        ""] #[doc = " [`readable()`]: Self::readable"] #[doc =
+        " [`ready()`]: Self::ready"] #[doc = ""] #[doc = " # Return"] #[doc = ""] #[doc =
+        " If data is successfully read, `Ok(n)` is returned, where `n` is the"] #[doc =
+        " number of bytes read. `Ok(0)` indicates the pipe's writing end is"] #[doc =
+        " closed and will no longer write data. If the pipe is not ready to read"] #[doc
+        = " data `Err(io::ErrorKind::WouldBlock)` is returned."] #[doc = ""] #[doc =
+        " # Notes"] #[doc = ""] #[doc =
+        " To avoid unnecessary syscalls, this will only attempt the read"] #[doc =
+        " operation if the OS has informed Tokio that this pipe has become"] #[doc =
+        " readable. Because of this, `try_read_buf()` may fail with a"] #[doc =
+        " [`WouldBlock`] error if Tokio has not yet heard from the OS that"] #[doc =
+        " this pipe has become readable."] #[doc = ""] #[doc = " # Examples"] #[doc = ""]
+        #[doc = " ```no_run"] #[doc = " use tokio::net::unix::pipe;"] #[doc =
+        " use std::io;"] #[doc = ""] #[doc = " #[tokio::main]"] #[doc =
+        " async fn main() -> io::Result<()> {"] #[doc =
+        "     // Open a reading end of a fifo"] #[doc =
+        "     let rx = pipe::OpenOptions::new().open_receiver(\"path/to/a/fifo\")?;"]
+        #[doc = ""] #[doc = "     loop {"] #[doc =
+        "         // Wait for the pipe to be readable"] #[doc =
+        "         rx.readable().await?;"] #[doc = ""] #[doc =
+        "         let mut buf = Vec::with_capacity(4096);"] #[doc = ""] #[doc =
+        "         // Try to read data, this may still fail with `WouldBlock`"] #[doc =
+        "         // if the readiness event is a false positive."] #[doc =
+        "         match rx.try_read_buf(&mut buf) {"] #[doc =
+        "             Ok(0) => break,"] #[doc = "             Ok(n) => {"] #[doc =
+        "                 println!(\"read {} bytes\", n);"] #[doc = "             }"]
+        #[doc = "             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {"]
+        #[doc = "                 continue;"] #[doc = "             }"] #[doc =
+        "             Err(e) => {"] #[doc = "                 return Err(e.into());"]
+        #[doc = "             }"] #[doc = "         }"] #[doc = "     }"] #[doc = ""]
+        #[doc = "     Ok(())"] #[doc = " }"] #[doc = " ```"] #[doc = ""] #[doc =
+        " [`WouldBlock`]: std::io::ErrorKind::WouldBlock"] pub fn try_read_buf < B :
+        BufMut > (& self, buf : & mut B) -> io::Result < usize > { self.io.registration()
+        .try_io(Interest::READABLE, || { use std::io::Read; let dst = buf.chunk_mut();
+        let dst = unsafe { & mut * (dst as * mut _ as * mut [std::mem::MaybeUninit < u8
+        >] as * mut [u8]) }; let n = (&* self.io).read(dst) ?; unsafe { buf
+        .advance_mut(n); } Ok(n) }) }
     }
-
     /// Converts the pipe into an [`OwnedFd`] in blocking mode.
     ///
     /// This function will deregister this pipe end from the event loop, set
     /// it in blocking mode and perform the conversion.
     pub fn into_blocking_fd(self) -> io::Result<OwnedFd> {
-        let fd = self.into_nonblocking_fd()?;
-        set_blocking(&fd)?;
-        Ok(fd)
+        panic!("STUB: not implemented");
     }
-
     /// Converts the pipe into an [`OwnedFd`] in nonblocking mode.
     ///
     /// This function will deregister this pipe end from the event loop and
     /// perform the conversion. Returned file descriptor will be in nonblocking
     /// mode.
     pub fn into_nonblocking_fd(self) -> io::Result<OwnedFd> {
-        let mio_pipe = self.io.into_inner()?;
-
-        // Safety: the pipe is now deregistered from the event loop
-        // and we are the only owner of this pipe end.
-        let owned_fd = unsafe { OwnedFd::from_raw_fd(mio_pipe.into_raw_fd()) };
-
-        Ok(owned_fd)
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncRead for Receiver {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        // Safety: `mio_pipe::Receiver` uses a `std::fs::File` underneath,
-        // which correctly handles reads into uninitialized memory.
-        unsafe { self.io.poll_read(cx, buf) }
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRawFd for Receiver {
     fn as_raw_fd(&self) -> RawFd {
-        self.io.as_raw_fd()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsFd for Receiver {
     fn as_fd(&self) -> BorrowedFd<'_> {
-        unsafe { BorrowedFd::borrow_raw(self.as_raw_fd()) }
+        panic!("STUB: not implemented");
     }
 }
-
 /// Checks if the file descriptor is a pipe or a FIFO.
 fn is_pipe(fd: BorrowedFd<'_>) -> io::Result<bool> {
-    // Safety: `libc::stat` is C-like struct used for syscalls and all-zero
-    // byte pattern forms a valid value.
-    let mut stat: libc::stat = unsafe { std::mem::zeroed() };
-
-    // Safety: it's safe to call `fstat` with a valid, open file descriptor
-    // and a valid pointer to a `stat` struct.
-    let r = unsafe { libc::fstat(fd.as_raw_fd(), &mut stat) };
-
-    if r == -1 {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok((stat.st_mode as libc::mode_t & libc::S_IFMT) == libc::S_IFIFO)
-    }
+    panic!("STUB: not implemented");
 }
-
 /// Gets file descriptor's flags by fcntl.
 fn get_file_flags(fd: BorrowedFd<'_>) -> io::Result<libc::c_int> {
-    // Safety: it's safe to use `fcntl` to read flags of a valid, open file descriptor.
-    let flags = unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_GETFL) };
-    if flags < 0 {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(flags)
-    }
+    panic!("STUB: not implemented");
 }
-
 /// Checks for `O_RDONLY` or `O_RDWR` access mode.
 fn has_read_access(flags: libc::c_int) -> bool {
-    let mode = flags & libc::O_ACCMODE;
-    mode == libc::O_RDONLY || mode == libc::O_RDWR
+    panic!("STUB: not implemented");
 }
-
 /// Checks for `O_WRONLY` or `O_RDWR` access mode.
 fn has_write_access(flags: libc::c_int) -> bool {
-    let mode = flags & libc::O_ACCMODE;
-    mode == libc::O_WRONLY || mode == libc::O_RDWR
+    panic!("STUB: not implemented");
 }
-
 /// Sets file descriptor's flags with `O_NONBLOCK` by fcntl.
 fn set_nonblocking(fd: BorrowedFd<'_>, current_flags: libc::c_int) -> io::Result<()> {
-    let flags = current_flags | libc::O_NONBLOCK;
-
-    if flags != current_flags {
-        // Safety: it's safe to use `fcntl` to set the `O_NONBLOCK` flag of a valid,
-        // open file descriptor.
-        let ret = unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_SETFL, flags) };
-        if ret < 0 {
-            return Err(io::Error::last_os_error());
-        }
-    }
-
-    Ok(())
+    panic!("STUB: not implemented");
 }
-
 /// Removes `O_NONBLOCK` from fd's flags.
 fn set_blocking<T: AsRawFd>(fd: &T) -> io::Result<()> {
-    // Safety: it's safe to use `fcntl` to read flags of a valid, open file descriptor.
-    let previous = unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_GETFL) };
-    if previous == -1 {
-        return Err(io::Error::last_os_error());
-    }
-
-    let new = previous & !libc::O_NONBLOCK;
-
-    // Safety: it's safe to use `fcntl` to unset the `O_NONBLOCK` flag of a valid,
-    // open file descriptor.
-    let r = unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_SETFL, new) };
-    if r == -1 {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(())
-    }
+    panic!("STUB: not implemented");
 }

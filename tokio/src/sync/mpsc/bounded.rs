@@ -2,15 +2,11 @@ use crate::loom::sync::Arc;
 use crate::sync::batch_semaphore::{self as semaphore, TryAcquireError};
 use crate::sync::mpsc::chan;
 use crate::sync::mpsc::error::{SendError, TryRecvError, TrySendError};
-
 cfg_time! {
-    use crate::sync::mpsc::error::SendTimeoutError;
-    use crate::time::Duration;
+    use crate ::sync::mpsc::error::SendTimeoutError; use crate ::time::Duration;
 }
-
 use std::fmt;
 use std::task::{Context, Poll};
-
 /// Sends values to the associated `Receiver`.
 ///
 /// Instances are created by the [`channel`] function.
@@ -22,7 +18,6 @@ use std::task::{Context, Poll};
 pub struct Sender<T> {
     chan: chan::Tx<T, Semaphore>,
 }
-
 /// A sender that does not prevent the channel from being closed.
 ///
 /// If all [`Sender`] instances of a channel were dropped and only `WeakSender`
@@ -56,7 +51,6 @@ pub struct Sender<T> {
 pub struct WeakSender<T> {
     chan: Arc<chan::Chan<T, Semaphore>>,
 }
-
 /// Permits to send one value into the channel.
 ///
 /// `Permit` values are returned by [`Sender::reserve()`] and [`Sender::try_reserve()`]
@@ -67,7 +61,6 @@ pub struct WeakSender<T> {
 pub struct Permit<'a, T> {
     chan: &'a chan::Tx<T, Semaphore>,
 }
-
 /// An [`Iterator`] of [`Permit`] that can be used to hold `n` slots in the channel.
 ///
 /// `PermitIterator` values are returned by [`Sender::reserve_many()`] and [`Sender::try_reserve_many()`]
@@ -79,7 +72,6 @@ pub struct PermitIterator<'a, T> {
     chan: &'a chan::Tx<T, Semaphore>,
     n: usize,
 }
-
 /// Owned permit to send one value into the channel.
 ///
 /// This is identical to the [`Permit`] type, except that it moves the sender
@@ -95,7 +87,6 @@ pub struct PermitIterator<'a, T> {
 pub struct OwnedPermit<T> {
     chan: Option<chan::Tx<T, Semaphore>>,
 }
-
 /// Receives values from the associated `Sender`.
 ///
 /// Instances are created by the [`channel`] function.
@@ -107,7 +98,6 @@ pub struct Receiver<T> {
     /// The channel receiver.
     chan: chan::Rx<T, Semaphore>,
 }
-
 /// Creates a bounded mpsc channel for communicating between asynchronous tasks
 /// with backpressure.
 ///
@@ -157,19 +147,8 @@ pub struct Receiver<T> {
 /// ```
 #[track_caller]
 pub fn channel<T>(buffer: usize) -> (Sender<T>, Receiver<T>) {
-    assert!(buffer > 0, "mpsc bounded channel requires buffer > 0");
-    let semaphore = Semaphore {
-        semaphore: semaphore::Semaphore::new(buffer),
-        bound: buffer,
-    };
-    let (tx, rx) = chan::channel(semaphore);
-
-    let tx = Sender::new(tx);
-    let rx = Receiver::new(rx);
-
-    (tx, rx)
+    panic!("STUB: not implemented");
 }
-
 /// Channel semaphore is a tuple of the semaphore implementation and a `usize`
 /// representing the channel bound.
 #[derive(Debug)]
@@ -177,12 +156,10 @@ pub(crate) struct Semaphore {
     pub(crate) semaphore: semaphore::Semaphore,
     pub(crate) bound: usize,
 }
-
 impl<T> Receiver<T> {
     pub(crate) fn new(chan: chan::Rx<T, Semaphore>) -> Receiver<T> {
-        Receiver { chan }
+        panic!("STUB: not implemented");
     }
-
     /// Receives the next value for this receiver.
     ///
     /// This method returns `None` if the channel has been closed and there are
@@ -241,10 +218,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub async fn recv(&mut self) -> Option<T> {
-        use std::future::poll_fn;
-        poll_fn(|cx| self.chan.recv(cx)).await
+        panic!("STUB: not implemented");
     }
-
     /// Receives the next values for this receiver and extends `buffer`.
     ///
     /// This method extends `buffer` by no more than a fixed number of values
@@ -317,10 +292,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub async fn recv_many(&mut self, buffer: &mut Vec<T>, limit: usize) -> usize {
-        use std::future::poll_fn;
-        poll_fn(|cx| self.chan.recv_many(cx, buffer, limit)).await
+        panic!("STUB: not implemented");
     }
-
     /// Tries to receive the next value for this receiver.
     ///
     /// This method returns the [`Empty`] error if the channel is currently
@@ -362,9 +335,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
-        self.chan.try_recv()
+        panic!("STUB: not implemented");
     }
-
     /// Blocking receive to call outside of asynchronous contexts.
     ///
     /// This method returns `None` if the channel has been closed and there are
@@ -422,9 +394,8 @@ impl<T> Receiver<T> {
     #[cfg(feature = "sync")]
     #[cfg_attr(docsrs, doc(alias = "recv_blocking"))]
     pub fn blocking_recv(&mut self) -> Option<T> {
-        crate::future::block_on(self.recv())
+        panic!("STUB: not implemented");
     }
-
     /// Variant of [`Self::recv_many`] for blocking contexts.
     ///
     /// The same conditions as in [`Self::blocking_recv`] apply.
@@ -432,9 +403,8 @@ impl<T> Receiver<T> {
     #[cfg(feature = "sync")]
     #[cfg_attr(docsrs, doc(alias = "recv_many_blocking"))]
     pub fn blocking_recv_many(&mut self, buffer: &mut Vec<T>, limit: usize) -> usize {
-        crate::future::block_on(self.recv_many(buffer, limit))
+        panic!("STUB: not implemented");
     }
-
     /// Closes the receiving half of a channel without dropping it.
     ///
     /// This prevents any further messages from being sent on the channel while
@@ -476,9 +446,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn close(&mut self) {
-        self.chan.close();
+        panic!("STUB: not implemented");
     }
-
     /// Checks if a channel is closed.
     ///
     /// This method returns `true` if the channel has been closed. The channel is closed
@@ -502,9 +471,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn is_closed(&self) -> bool {
-        self.chan.is_closed()
+        panic!("STUB: not implemented");
     }
-
     /// Checks if a channel is empty.
     ///
     /// This method returns `true` if the channel has no messages.
@@ -524,9 +492,8 @@ impl<T> Receiver<T> {
     ///
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.chan.is_empty()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of messages in the channel.
     ///
     /// # Examples
@@ -543,9 +510,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn len(&self) -> usize {
-        self.chan.len()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the current capacity of the channel.
     ///
     /// The capacity goes down when the sender sends a value by calling [`Sender::send`] or by reserving
@@ -589,9 +555,8 @@ impl<T> Receiver<T> {
     /// [`capacity`]: Receiver::capacity
     /// [`max_capacity`]: Receiver::max_capacity
     pub fn capacity(&self) -> usize {
-        self.chan.semaphore().semaphore.available_permits()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the maximum buffer capacity of the channel.
     ///
     /// The maximum capacity is the buffer capacity initially specified when calling
@@ -623,9 +588,8 @@ impl<T> Receiver<T> {
     /// [`capacity`]: Receiver::capacity
     /// [`max_capacity`]: Receiver::max_capacity
     pub fn max_capacity(&self) -> usize {
-        self.chan.semaphore().bound
+        panic!("STUB: not implemented");
     }
-
     /// Polls to receive the next message on this channel.
     ///
     /// This method returns:
@@ -648,9 +612,8 @@ impl<T> Receiver<T> {
     /// guarantee that the next call will succeed — it could fail with another
     /// spurious failure.
     pub fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<T>> {
-        self.chan.recv(cx)
+        panic!("STUB: not implemented");
     }
-
     /// Polls to receive multiple messages on this channel, extending the provided buffer.
     ///
     /// This method returns:
@@ -725,35 +688,27 @@ impl<T> Receiver<T> {
         buffer: &mut Vec<T>,
         limit: usize,
     ) -> Poll<usize> {
-        self.chan.recv_many(cx, buffer, limit)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`Sender`] handles.
     pub fn sender_strong_count(&self) -> usize {
-        self.chan.sender_strong_count()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`WeakSender`] handles.
     pub fn sender_weak_count(&self) -> usize {
-        self.chan.sender_weak_count()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for Receiver<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("Receiver")
-            .field("chan", &self.chan)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Unpin for Receiver<T> {}
-
 impl<T> Sender<T> {
     pub(crate) fn new(chan: chan::Tx<T, Semaphore>) -> Sender<T> {
-        Sender { chan }
+        panic!("STUB: not implemented");
     }
-
     /// Sends a value, waiting until there is capacity.
     ///
     /// A successful send occurs when it is determined that the other end of the
@@ -814,15 +769,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub async fn send(&self, value: T) -> Result<(), SendError<T>> {
-        match self.reserve().await {
-            Ok(permit) => {
-                permit.send(value);
-                Ok(())
-            }
-            Err(_) => Err(SendError(value)),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Completes when the receiver has dropped.
     ///
     /// This allows the producers to get notified when interest in the produced
@@ -860,9 +808,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub async fn closed(&self) {
-        self.chan.closed().await;
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to immediately send a message on this `Sender`.
     ///
     /// This method differs from [`send`] by returning immediately if the channel's
@@ -922,17 +869,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn try_send(&self, message: T) -> Result<(), TrySendError<T>> {
-        match self.chan.semaphore().semaphore.try_acquire(1) {
-            Ok(()) => {}
-            Err(TryAcquireError::Closed) => return Err(TrySendError::Closed(message)),
-            Err(TryAcquireError::NoPermits) => return Err(TrySendError::Full(message)),
-        }
-
-        // Send the message
-        self.chan.send(message);
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Sends a value, waiting until there is capacity, but only for a limited time.
     ///
     /// Shares the same success and error conditions as [`send`], adding one more
@@ -990,20 +928,8 @@ impl<T> Sender<T> {
         value: T,
         timeout: Duration,
     ) -> Result<(), SendTimeoutError<T>> {
-        let permit = match crate::time::timeout(timeout, self.reserve()).await {
-            Err(_) => {
-                return Err(SendTimeoutError::Timeout(value));
-            }
-            Ok(Err(_)) => {
-                return Err(SendTimeoutError::Closed(value));
-            }
-            Ok(Ok(permit)) => permit,
-        };
-
-        permit.send(value);
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Blocking send to call outside of asynchronous contexts.
     ///
     /// This method is intended for use cases where you are sending from
@@ -1044,9 +970,8 @@ impl<T> Sender<T> {
     #[cfg(feature = "sync")]
     #[cfg_attr(docsrs, doc(alias = "send_blocking"))]
     pub fn blocking_send(&self, value: T) -> Result<(), SendError<T>> {
-        crate::future::block_on(self.send(value))
+        panic!("STUB: not implemented");
     }
-
     /// Checks if the channel has been closed. This happens when the
     /// [`Receiver`] is dropped, or when the [`Receiver::close`] method is
     /// called.
@@ -1066,9 +991,8 @@ impl<T> Sender<T> {
     /// assert!(tx2.is_closed());
     /// ```
     pub fn is_closed(&self) -> bool {
-        self.chan.is_closed()
+        panic!("STUB: not implemented");
     }
-
     /// Waits for channel capacity. Once capacity to send one message is
     /// available, it is reserved for the caller.
     ///
@@ -1114,10 +1038,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub async fn reserve(&self) -> Result<Permit<'_, T>, SendError<()>> {
-        self.reserve_inner(1).await?;
-        Ok(Permit { chan: &self.chan })
+        panic!("STUB: not implemented");
     }
-
     /// Waits for channel capacity. Once capacity to send `n` messages is
     /// available, it is reserved for the caller.
     ///
@@ -1174,14 +1096,12 @@ impl<T> Sender<T> {
     /// assert_eq!(rx.recv().await.unwrap(), 457);
     /// # }
     /// ```
-    pub async fn reserve_many(&self, n: usize) -> Result<PermitIterator<'_, T>, SendError<()>> {
-        self.reserve_inner(n).await?;
-        Ok(PermitIterator {
-            chan: &self.chan,
-            n,
-        })
+    pub async fn reserve_many(
+        &self,
+        n: usize,
+    ) -> Result<PermitIterator<'_, T>, SendError<()>> {
+        panic!("STUB: not implemented");
     }
-
     /// Waits for channel capacity, moving the `Sender` and returning an owned
     /// permit. Once capacity to send one message is available, it is reserved
     /// for the caller.
@@ -1263,24 +1183,11 @@ impl<T> Sender<T> {
     /// [`send`]: OwnedPermit::send
     /// [`Arc::clone`]: std::sync::Arc::clone
     pub async fn reserve_owned(self) -> Result<OwnedPermit<T>, SendError<()>> {
-        self.reserve_inner(1).await?;
-        Ok(OwnedPermit {
-            chan: Some(self.chan),
-        })
+        panic!("STUB: not implemented");
     }
-
     async fn reserve_inner(&self, n: usize) -> Result<(), SendError<()>> {
-        crate::trace::async_trace_leaf().await;
-
-        if n > self.max_capacity() {
-            return Err(SendError(()));
-        }
-        match self.chan.semaphore().semaphore.acquire(n).await {
-            Ok(()) => Ok(()),
-            Err(_) => Err(SendError(())),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Tries to acquire a slot in the channel without waiting for the slot to become
     /// available.
     ///
@@ -1325,15 +1232,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn try_reserve(&self) -> Result<Permit<'_, T>, TrySendError<()>> {
-        match self.chan.semaphore().semaphore.try_acquire(1) {
-            Ok(()) => {}
-            Err(TryAcquireError::Closed) => return Err(TrySendError::Closed(())),
-            Err(TryAcquireError::NoPermits) => return Err(TrySendError::Full(())),
-        }
-
-        Ok(Permit { chan: &self.chan })
+        panic!("STUB: not implemented");
     }
-
     /// Tries to acquire `n` slots in the channel without waiting for the slot to become
     /// available.
     ///
@@ -1402,23 +1302,12 @@ impl<T> Sender<T> {
     /// assert!(permit.is_err());
     /// # }
     /// ```
-    pub fn try_reserve_many(&self, n: usize) -> Result<PermitIterator<'_, T>, TrySendError<()>> {
-        if n > self.max_capacity() {
-            return Err(TrySendError::Full(()));
-        }
-
-        match self.chan.semaphore().semaphore.try_acquire(n) {
-            Ok(()) => {}
-            Err(TryAcquireError::Closed) => return Err(TrySendError::Closed(())),
-            Err(TryAcquireError::NoPermits) => return Err(TrySendError::Full(())),
-        }
-
-        Ok(PermitIterator {
-            chan: &self.chan,
-            n,
-        })
+    pub fn try_reserve_many(
+        &self,
+        n: usize,
+    ) -> Result<PermitIterator<'_, T>, TrySendError<()>> {
+        panic!("STUB: not implemented");
     }
-
     /// Tries to acquire a slot in the channel without waiting for the slot to become
     /// available, returning an owned permit.
     ///
@@ -1475,17 +1364,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn try_reserve_owned(self) -> Result<OwnedPermit<T>, TrySendError<Self>> {
-        match self.chan.semaphore().semaphore.try_acquire(1) {
-            Ok(()) => {}
-            Err(TryAcquireError::Closed) => return Err(TrySendError::Closed(self)),
-            Err(TryAcquireError::NoPermits) => return Err(TrySendError::Full(self)),
-        }
-
-        Ok(OwnedPermit {
-            chan: Some(self.chan),
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if senders belong to the same channel.
     ///
     /// # Examples
@@ -1499,9 +1379,8 @@ impl<T> Sender<T> {
     /// assert!(!tx3.same_channel(&tx2));
     /// ```
     pub fn same_channel(&self, other: &Self) -> bool {
-        self.chan.same_channel(&other.chan)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the current capacity of the channel.
     ///
     /// The capacity goes down when sending a value by calling [`send`] or by reserving capacity
@@ -1536,20 +1415,16 @@ impl<T> Sender<T> {
     /// [`channel`]: channel
     /// [`max_capacity`]: Sender::max_capacity
     pub fn capacity(&self) -> usize {
-        self.chan.semaphore().semaphore.available_permits()
+        panic!("STUB: not implemented");
     }
-
     /// Converts the `Sender` to a [`WeakSender`] that does not count
     /// towards RAII semantics, i.e. if all `Sender` instances of the
     /// channel were dropped and only `WeakSender` instances remain,
     /// the channel is closed.
     #[must_use = "Downgrade creates a WeakSender without destroying the original non-weak sender."]
     pub fn downgrade(&self) -> WeakSender<T> {
-        WeakSender {
-            chan: self.chan.downgrade(),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns the maximum buffer capacity of the channel.
     ///
     /// The maximum capacity is the buffer capacity initially specified when calling
@@ -1583,79 +1458,58 @@ impl<T> Sender<T> {
     /// [`max_capacity`]: Sender::max_capacity
     /// [`capacity`]: Sender::capacity
     pub fn max_capacity(&self) -> usize {
-        self.chan.semaphore().bound
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`Sender`] handles.
     pub fn strong_count(&self) -> usize {
-        self.chan.strong_count()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`WeakSender`] handles.
     pub fn weak_count(&self) -> usize {
-        self.chan.weak_count()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Clone for Sender<T> {
     fn clone(&self) -> Self {
-        Sender {
-            chan: self.chan.clone(),
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for Sender<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("Sender")
-            .field("chan", &self.chan)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Clone for WeakSender<T> {
     fn clone(&self) -> Self {
-        self.chan.increment_weak_count();
-
-        WeakSender {
-            chan: self.chan.clone(),
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for WeakSender<T> {
     fn drop(&mut self) {
-        self.chan.decrement_weak_count();
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> WeakSender<T> {
     /// Tries to convert a `WeakSender` into a [`Sender`]. This will return `Some`
     /// if there are other `Sender` instances alive and the channel wasn't
     /// previously dropped, otherwise `None` is returned.
     pub fn upgrade(&self) -> Option<Sender<T>> {
-        chan::Tx::upgrade(self.chan.clone()).map(Sender::new)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`Sender`] handles.
     pub fn strong_count(&self) -> usize {
-        self.chan.strong_count()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`WeakSender`] handles.
     pub fn weak_count(&self) -> usize {
-        self.chan.weak_count()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for WeakSender<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("WeakSender").finish()
+        panic!("STUB: not implemented");
     }
 }
-
-// ===== impl Permit =====
-
 impl<T> Permit<'_, T> {
     /// Sends a value using the reserved capacity.
     ///
@@ -1690,94 +1544,40 @@ impl<T> Permit<'_, T> {
     /// # }
     /// ```
     pub fn send(self, value: T) {
-        use std::mem;
-
-        self.chan.send(value);
-
-        // Avoid the drop logic
-        mem::forget(self);
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for Permit<'_, T> {
     fn drop(&mut self) {
-        use chan::Semaphore;
-
-        let semaphore = self.chan.semaphore();
-
-        // Add the permit back to the semaphore
-        semaphore.add_permit();
-
-        // If this is the last sender for this channel, wake the receiver so
-        // that it can be notified that the channel is closed.
-        if semaphore.is_closed() && semaphore.is_idle() {
-            self.chan.wake_rx();
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for Permit<'_, T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("Permit")
-            .field("chan", &self.chan)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
-// ===== impl PermitIterator =====
-
 impl<'a, T> Iterator for PermitIterator<'a, T> {
     type Item = Permit<'a, T>;
-
     fn next(&mut self) -> Option<Self::Item> {
-        if self.n == 0 {
-            return None;
-        }
-
-        self.n -= 1;
-        Some(Permit { chan: self.chan })
+        panic!("STUB: not implemented");
     }
-
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let n = self.n;
-        (n, Some(n))
+        panic!("STUB: not implemented");
     }
 }
 impl<T> ExactSizeIterator for PermitIterator<'_, T> {}
 impl<T> std::iter::FusedIterator for PermitIterator<'_, T> {}
-
 impl<T> Drop for PermitIterator<'_, T> {
     fn drop(&mut self) {
-        use chan::Semaphore;
-
-        if self.n == 0 {
-            return;
-        }
-
-        let semaphore = self.chan.semaphore();
-
-        // Add the remaining permits back to the semaphore
-        semaphore.add_permits(self.n);
-
-        // If this is the last sender for this channel, wake the receiver so
-        // that it can be notified that the channel is closed.
-        if semaphore.is_closed() && semaphore.is_idle() {
-            self.chan.wake_rx();
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for PermitIterator<'_, T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("PermitIterator")
-            .field("chan", &self.chan)
-            .field("capacity", &self.n)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
-// ===== impl Permit =====
-
 impl<T> OwnedPermit<T> {
     /// Sends a value using the reserved capacity.
     ///
@@ -1814,14 +1614,8 @@ impl<T> OwnedPermit<T> {
     /// # }
     /// ```
     pub fn send(mut self, value: T) -> Sender<T> {
-        let chan = self.chan.take().unwrap_or_else(|| {
-            unreachable!("OwnedPermit channel is only taken when the permit is moved")
-        });
-        chan.send(value);
-
-        Sender { chan }
+        panic!("STUB: not implemented");
     }
-
     /// Releases the reserved capacity *without* sending a message, returning the
     /// [`Sender`].
     ///
@@ -1853,15 +1647,8 @@ impl<T> OwnedPermit<T> {
     ///
     /// [`Sender`]: Sender
     pub fn release(mut self) -> Sender<T> {
-        let chan = self.chan.take().unwrap_or_else(|| {
-            unreachable!("OwnedPermit channel is only taken when the permit is moved")
-        });
-
-        // Add the permit back to the semaphore
-        drop(Permit { chan: &chan });
-        Sender { chan }
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if permits belong to the same channel.
     ///
     /// # Examples
@@ -1884,12 +1671,8 @@ impl<T> OwnedPermit<T> {
     /// # }
     /// ```
     pub fn same_channel(&self, other: &Self) -> bool {
-        self.chan
-            .as_ref()
-            .zip(other.chan.as_ref())
-            .is_some_and(|(a, b)| a.same_channel(b))
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if this permit belongs to the same channel as the given [`Sender`].
     ///
     /// # Examples
@@ -1909,28 +1692,16 @@ impl<T> OwnedPermit<T> {
     /// # }
     /// ```
     pub fn same_channel_as_sender(&self, sender: &Sender<T>) -> bool {
-        self.chan
-            .as_ref()
-            .is_some_and(|chan| chan.same_channel(&sender.chan))
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for OwnedPermit<T> {
     fn drop(&mut self) {
-        // Are we still holding onto the sender?
-        if let Some(chan) = self.chan.take() {
-            // Reuse Drop impl of non-owned Permit.
-            drop(Permit { chan: &chan });
-        }
-
-        // Otherwise, do nothing.
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for OwnedPermit<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("OwnedPermit")
-            .field("chan", &self.chan)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }

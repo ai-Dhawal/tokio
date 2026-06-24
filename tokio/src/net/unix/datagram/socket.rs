@@ -1,7 +1,6 @@
 use crate::io::{Interest, PollEvented, ReadBuf, Ready};
 use crate::net::unix::SocketAddr;
 use crate::util::check_socket_for_blocking;
-
 use std::fmt;
 use std::io;
 use std::net::Shutdown;
@@ -9,106 +8,61 @@ use std::os::unix::io::{AsFd, AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, RawFd};
 use std::os::unix::net;
 use std::path::Path;
 use std::task::{ready, Context, Poll};
-
 cfg_io_util! {
     use bytes::BufMut;
 }
-
 cfg_net_unix! {
-    /// An I/O object representing a Unix datagram socket.
-    ///
-    /// A socket can be either named (associated with a filesystem path) or
-    /// unnamed.
-    ///
-    /// This type does not provide a `split` method, because this functionality
-    /// can be achieved by wrapping the socket in an [`Arc`]. Note that you do
-    /// not need a `Mutex` to share the `UnixDatagram` — an `Arc<UnixDatagram>`
-    /// is enough. This is because all of the methods take `&self` instead of
-    /// `&mut self`.
-    ///
-    /// **Note:** named sockets are persisted even after the object is dropped
-    /// and the program has exited, and cannot be reconnected. It is advised
-    /// that you either check for and unlink the existing socket if it exists,
-    /// or use a temporary file that is guaranteed to not already exist.
-    ///
-    /// [`Arc`]: std::sync::Arc
-    ///
-    /// # Examples
-    /// Using named sockets, associated with a filesystem path:
-    /// ```
-    /// # use std::error::Error;
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn Error>> {
-    /// # if cfg!(miri) { return Ok(()); } // No Unix domain sockets in miri.
-    /// use tokio::net::UnixDatagram;
-    /// use tempfile::tempdir;
-    ///
-    /// // We use a temporary directory so that the socket
-    /// // files left by the bound sockets will get cleaned up.
-    /// let tmp = tempdir()?;
-    ///
-    /// // Bind each socket to a filesystem path
-    /// let tx_path = tmp.path().join("tx");
-    /// let tx = UnixDatagram::bind(&tx_path)?;
-    /// let rx_path = tmp.path().join("rx");
-    /// let rx = UnixDatagram::bind(&rx_path)?;
-    ///
-    /// let bytes = b"hello world";
-    /// tx.send_to(bytes, &rx_path).await?;
-    ///
-    /// let mut buf = vec![0u8; 24];
-    /// let (size, addr) = rx.recv_from(&mut buf).await?;
-    ///
-    /// let dgram = &buf[..size];
-    /// assert_eq!(dgram, bytes);
-    /// assert_eq!(addr.as_pathname().unwrap(), &tx_path);
-    ///
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// Using unnamed sockets, created as a pair
-    /// ```
-    /// # use std::error::Error;
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn Error>> {
-    /// # if cfg!(miri) { return Ok(()); } // No SOCK_DGRAM for `socketpair` in miri.
-    /// use tokio::net::UnixDatagram;
-    ///
-    /// // Create the pair of sockets
-    /// let (sock1, sock2) = UnixDatagram::pair()?;
-    ///
-    /// // Since the sockets are paired, the paired send/recv
-    /// // functions can be used
-    /// let bytes = b"hello world";
-    /// sock1.send(bytes).await?;
-    ///
-    /// let mut buff = vec![0u8; 24];
-    /// let size = sock2.recv(&mut buff).await?;
-    ///
-    /// let dgram = &buff[..size];
-    /// assert_eq!(dgram, bytes);
-    ///
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[cfg_attr(docsrs, doc(alias = "uds"))]
-    pub struct UnixDatagram {
-        io: PollEvented<mio::net::UnixDatagram>,
-    }
+    #[doc = " An I/O object representing a Unix datagram socket."] #[doc = ""] #[doc =
+    " A socket can be either named (associated with a filesystem path) or"] #[doc =
+    " unnamed."] #[doc = ""] #[doc =
+    " This type does not provide a `split` method, because this functionality"] #[doc =
+    " can be achieved by wrapping the socket in an [`Arc`]. Note that you do"] #[doc =
+    " not need a `Mutex` to share the `UnixDatagram` — an `Arc<UnixDatagram>`"] #[doc =
+    " is enough. This is because all of the methods take `&self` instead of"] #[doc =
+    " `&mut self`."] #[doc = ""] #[doc =
+    " **Note:** named sockets are persisted even after the object is dropped"] #[doc =
+    " and the program has exited, and cannot be reconnected. It is advised"] #[doc =
+    " that you either check for and unlink the existing socket if it exists,"] #[doc =
+    " or use a temporary file that is guaranteed to not already exist."] #[doc = ""]
+    #[doc = " [`Arc`]: std::sync::Arc"] #[doc = ""] #[doc = " # Examples"] #[doc =
+    " Using named sockets, associated with a filesystem path:"] #[doc = " ```"] #[doc =
+    " # use std::error::Error;"] #[doc = " # #[tokio::main]"] #[doc =
+    " # async fn main() -> Result<(), Box<dyn Error>> {"] #[doc =
+    " # if cfg!(miri) { return Ok(()); } // No Unix domain sockets in miri."] #[doc =
+    " use tokio::net::UnixDatagram;"] #[doc = " use tempfile::tempdir;"] #[doc = ""]
+    #[doc = " // We use a temporary directory so that the socket"] #[doc =
+    " // files left by the bound sockets will get cleaned up."] #[doc =
+    " let tmp = tempdir()?;"] #[doc = ""] #[doc =
+    " // Bind each socket to a filesystem path"] #[doc =
+    " let tx_path = tmp.path().join(\"tx\");"] #[doc =
+    " let tx = UnixDatagram::bind(&tx_path)?;"] #[doc =
+    " let rx_path = tmp.path().join(\"rx\");"] #[doc =
+    " let rx = UnixDatagram::bind(&rx_path)?;"] #[doc = ""] #[doc =
+    " let bytes = b\"hello world\";"] #[doc = " tx.send_to(bytes, &rx_path).await?;"]
+    #[doc = ""] #[doc = " let mut buf = vec![0u8; 24];"] #[doc =
+    " let (size, addr) = rx.recv_from(&mut buf).await?;"] #[doc = ""] #[doc =
+    " let dgram = &buf[..size];"] #[doc = " assert_eq!(dgram, bytes);"] #[doc =
+    " assert_eq!(addr.as_pathname().unwrap(), &tx_path);"] #[doc = ""] #[doc =
+    " # Ok(())"] #[doc = " # }"] #[doc = " ```"] #[doc = ""] #[doc =
+    " Using unnamed sockets, created as a pair"] #[doc = " ```"] #[doc =
+    " # use std::error::Error;"] #[doc = " # #[tokio::main]"] #[doc =
+    " # async fn main() -> Result<(), Box<dyn Error>> {"] #[doc =
+    " # if cfg!(miri) { return Ok(()); } // No SOCK_DGRAM for `socketpair` in miri."]
+    #[doc = " use tokio::net::UnixDatagram;"] #[doc = ""] #[doc =
+    " // Create the pair of sockets"] #[doc =
+    " let (sock1, sock2) = UnixDatagram::pair()?;"] #[doc = ""] #[doc =
+    " // Since the sockets are paired, the paired send/recv"] #[doc =
+    " // functions can be used"] #[doc = " let bytes = b\"hello world\";"] #[doc =
+    " sock1.send(bytes).await?;"] #[doc = ""] #[doc = " let mut buff = vec![0u8; 24];"]
+    #[doc = " let size = sock2.recv(&mut buff).await?;"] #[doc = ""] #[doc =
+    " let dgram = &buff[..size];"] #[doc = " assert_eq!(dgram, bytes);"] #[doc = ""]
+    #[doc = " # Ok(())"] #[doc = " # }"] #[doc = " ```"] #[cfg_attr(docsrs, doc(alias =
+    "uds"))] pub struct UnixDatagram { io : PollEvented < mio::net::UnixDatagram >, }
 }
-
 impl UnixDatagram {
     pub(crate) fn from_mio(sys: mio::net::UnixDatagram) -> io::Result<UnixDatagram> {
-        let datagram = UnixDatagram::new(sys)?;
-
-        if let Some(e) = datagram.io.take_error()? {
-            return Err(e);
-        }
-
-        Ok(datagram)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states.
     ///
     /// This function is usually paired with `try_recv()` or `try_send()`. It
@@ -180,10 +134,8 @@ impl UnixDatagram {
     /// }
     /// ```
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        let event = self.io.registration().readiness(interest).await?;
-        Ok(event.ready)
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the socket to become writable.
     ///
     /// This function is equivalent to `ready(Interest::WRITABLE)` and is
@@ -237,10 +189,8 @@ impl UnixDatagram {
     /// }
     /// ```
     pub async fn writable(&self) -> io::Result<()> {
-        self.ready(Interest::WRITABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for write/send readiness.
     ///
     /// If the socket is not currently ready for sending, this method will
@@ -271,9 +221,8 @@ impl UnixDatagram {
     ///
     /// [`writable`]: method@Self::writable
     pub fn poll_send_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_write_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the socket to become readable.
     ///
     /// This function is equivalent to `ready(Interest::READABLE)` and is usually
@@ -333,10 +282,8 @@ impl UnixDatagram {
     /// }
     /// ```
     pub async fn readable(&self) -> io::Result<()> {
-        self.ready(Interest::READABLE).await?;
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Polls for read/receive readiness.
     ///
     /// If the socket is not currently ready for receiving, this method will
@@ -367,9 +314,8 @@ impl UnixDatagram {
     ///
     /// [`readable`]: method@Self::readable
     pub fn poll_recv_ready(&self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.io.registration().poll_read_ready(cx).map_ok(|_| ())
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `UnixDatagram` bound to the specified path.
     ///
     /// # Examples
@@ -396,10 +342,8 @@ impl UnixDatagram {
     where
         P: AsRef<Path>,
     {
-        let socket = mio::net::UnixDatagram::bind(path)?;
-        UnixDatagram::new(socket)
+        panic!("STUB: not implemented");
     }
-
     /// Creates an unnamed pair of connected sockets.
     ///
     /// This function will create a pair of interconnected Unix sockets for
@@ -431,13 +375,8 @@ impl UnixDatagram {
     /// # }
     /// ```
     pub fn pair() -> io::Result<(UnixDatagram, UnixDatagram)> {
-        let (a, b) = mio::net::UnixDatagram::pair()?;
-        let a = UnixDatagram::new(a)?;
-        let b = UnixDatagram::new(b)?;
-
-        Ok((a, b))
+        panic!("STUB: not implemented");
     }
-
     /// Creates new [`UnixDatagram`] from a [`std::os::unix::net::UnixDatagram`].
     ///
     /// This function is intended to be used to wrap a `UnixDatagram` from the
@@ -489,13 +428,8 @@ impl UnixDatagram {
     /// ```
     #[track_caller]
     pub fn from_std(datagram: net::UnixDatagram) -> io::Result<UnixDatagram> {
-        check_socket_for_blocking(&datagram)?;
-
-        let socket = mio::net::UnixDatagram::from_std(datagram);
-        let io = PollEvented::new(socket)?;
-        Ok(UnixDatagram { io })
+        panic!("STUB: not implemented");
     }
-
     /// Turns a [`tokio::net::UnixDatagram`] into a [`std::os::unix::net::UnixDatagram`].
     ///
     /// The returned [`std::os::unix::net::UnixDatagram`] will have nonblocking
@@ -518,17 +452,11 @@ impl UnixDatagram {
     /// [`std::os::unix::net::UnixDatagram`]: std::os::unix::net::UnixDatagram
     /// [`set_nonblocking`]: fn@std::os::unix::net::UnixDatagram::set_nonblocking
     pub fn into_std(self) -> io::Result<std::os::unix::net::UnixDatagram> {
-        self.io
-            .into_inner()
-            .map(IntoRawFd::into_raw_fd)
-            .map(|raw_fd| unsafe { std::os::unix::net::UnixDatagram::from_raw_fd(raw_fd) })
+        panic!("STUB: not implemented");
     }
-
     fn new(socket: mio::net::UnixDatagram) -> io::Result<UnixDatagram> {
-        let io = PollEvented::new(socket)?;
-        Ok(UnixDatagram { io })
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new `UnixDatagram` which is not bound to any address.
     ///
     /// # Examples
@@ -562,10 +490,8 @@ impl UnixDatagram {
     /// # }
     /// ```
     pub fn unbound() -> io::Result<UnixDatagram> {
-        let socket = mio::net::UnixDatagram::unbound()?;
-        UnixDatagram::new(socket)
+        panic!("STUB: not implemented");
     }
-
     /// Connects the socket to the specified address.
     ///
     /// The `send` method may be used to send data to the specified address.
@@ -605,9 +531,8 @@ impl UnixDatagram {
     /// # }
     /// ```
     pub fn connect<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
-        self.io.connect(path)
+        panic!("STUB: not implemented");
     }
-
     /// Sends data on the socket to the socket's peer.
     ///
     /// # Cancel safety
@@ -642,12 +567,8 @@ impl UnixDatagram {
     /// # }
     /// ```
     pub async fn send(&self, buf: &[u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .async_io(Interest::WRITABLE, || self.io.send(buf))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Tries to send a datagram to the peer without waiting.
     ///
     /// # Examples
@@ -687,11 +608,8 @@ impl UnixDatagram {
     /// }
     /// ```
     pub fn try_send(&self, buf: &[u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || self.io.send(buf))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to send a datagram to the peer without waiting.
     ///
     /// # Examples
@@ -733,11 +651,8 @@ impl UnixDatagram {
     where
         P: AsRef<Path>,
     {
-        self.io
-            .registration()
-            .try_io(Interest::WRITABLE, || self.io.send_to(buf, target))
+        panic!("STUB: not implemented");
     }
-
     /// Receives data from the socket.
     ///
     /// # Cancel safety
@@ -773,12 +688,8 @@ impl UnixDatagram {
     /// # }
     /// ```
     pub async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .async_io(Interest::READABLE, || self.io.recv(buf))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Tries to receive a datagram from the peer without waiting.
     ///
     /// # Examples
@@ -824,240 +735,118 @@ impl UnixDatagram {
     /// }
     /// ```
     pub fn try_recv(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.io
-            .registration()
-            .try_io(Interest::READABLE, || self.io.recv(buf))
+        panic!("STUB: not implemented");
     }
-
     cfg_io_util! {
-        /// Tries to receive data from the socket without waiting.
-        ///
-        /// This method can be used even if `buf` is uninitialized.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// use tokio::net::UnixDatagram;
-        /// use std::io;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     // Connect to a peer
-        ///     let dir = tempfile::tempdir().unwrap();
-        ///     let client_path = dir.path().join("client.sock");
-        ///     let server_path = dir.path().join("server.sock");
-        ///     let socket = UnixDatagram::bind(&client_path)?;
-        ///
-        ///     loop {
-        ///         // Wait for the socket to be readable
-        ///         socket.readable().await?;
-        ///
-        ///         let mut buf = Vec::with_capacity(1024);
-        ///
-        ///         // Try to recv data, this may still fail with `WouldBlock`
-        ///         // if the readiness event is a false positive.
-        ///         match socket.try_recv_buf_from(&mut buf) {
-        ///             Ok((n, _addr)) => {
-        ///                 println!("GOT {:?}", &buf[..n]);
-        ///                 break;
-        ///             }
-        ///             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-        ///                 continue;
-        ///             }
-        ///             Err(e) => {
-        ///                 return Err(e);
-        ///             }
-        ///         }
-        ///     }
-        ///
-        ///     Ok(())
-        /// }
-        /// ```
-        pub fn try_recv_buf_from<B: BufMut>(&self, buf: &mut B) -> io::Result<(usize, SocketAddr)> {
-            let (n, addr) = self.io.registration().try_io(Interest::READABLE, || {
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                // Safety: We trust `UnixDatagram::recv_from` to have filled up `n` bytes in the
-                // buffer.
-                let (n, addr) = (*self.io).recv_from(dst)?;
-
-                unsafe {
-                    buf.advance_mut(n);
-                }
-
-                Ok((n, addr))
-            })?;
-
-            Ok((n, SocketAddr(addr)))
-        }
-
-        /// Receives from the socket, advances the
-        /// buffer's internal cursor and returns how many bytes were read and the origin.
-        ///
-        /// This method can be used even if `buf` is uninitialized.
-        ///
-        /// # Examples
-        /// ```
-        /// # use std::error::Error;
-        /// # #[tokio::main]
-        /// # async fn main() -> Result<(), Box<dyn Error>> {
-        /// # if cfg!(miri) { return Ok(()); } // No Unix domain sockets in miri.
-        /// use tokio::net::UnixDatagram;
-        /// use tempfile::tempdir;
-        ///
-        /// // We use a temporary directory so that the socket
-        /// // files left by the bound sockets will get cleaned up.
-        /// let tmp = tempdir()?;
-        ///
-        /// // Bind each socket to a filesystem path
-        /// let tx_path = tmp.path().join("tx");
-        /// let tx = UnixDatagram::bind(&tx_path)?;
-        /// let rx_path = tmp.path().join("rx");
-        /// let rx = UnixDatagram::bind(&rx_path)?;
-        ///
-        /// let bytes = b"hello world";
-        /// tx.send_to(bytes, &rx_path).await?;
-        ///
-        /// let mut buf = Vec::with_capacity(24);
-        /// let (size, addr) = rx.recv_buf_from(&mut buf).await?;
-        ///
-        /// let dgram = &buf[..size];
-        /// assert_eq!(dgram, bytes);
-        /// assert_eq!(addr.as_pathname().unwrap(), &tx_path);
-        ///
-        /// # Ok(())
-        /// # }
-        /// ```
-        pub async fn recv_buf_from<B: BufMut>(&self, buf: &mut B) -> io::Result<(usize, SocketAddr)> {
-            self.io.registration().async_io(Interest::READABLE, || {
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                // Safety: We trust `UnixDatagram::recv_from` to have filled up `n` bytes in the
-                // buffer.
-                let (n, addr) = (*self.io).recv_from(dst)?;
-
-                unsafe {
-                    buf.advance_mut(n);
-                }
-                Ok((n,SocketAddr(addr)))
-            }).await
-        }
-
-        /// Tries to read data from the stream into the provided buffer, advancing the
-        /// buffer's internal cursor, returning how many bytes were read.
-        ///
-        /// This method can be used even if `buf` is uninitialized.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// use tokio::net::UnixDatagram;
-        /// use std::io;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     // Connect to a peer
-        ///     let dir = tempfile::tempdir().unwrap();
-        ///     let client_path = dir.path().join("client.sock");
-        ///     let server_path = dir.path().join("server.sock");
-        ///     let socket = UnixDatagram::bind(&client_path)?;
-        ///     socket.connect(&server_path)?;
-        ///
-        ///     loop {
-        ///         // Wait for the socket to be readable
-        ///         socket.readable().await?;
-        ///
-        ///         let mut buf = Vec::with_capacity(1024);
-        ///
-        ///         // Try to recv data, this may still fail with `WouldBlock`
-        ///         // if the readiness event is a false positive.
-        ///         match socket.try_recv_buf(&mut buf) {
-        ///             Ok(n) => {
-        ///                 println!("GOT {:?}", &buf[..n]);
-        ///                 break;
-        ///             }
-        ///             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-        ///                 continue;
-        ///             }
-        ///             Err(e) => {
-        ///                 return Err(e);
-        ///             }
-        ///         }
-        ///     }
-        ///
-        ///     Ok(())
-        /// }
-        /// ```
-        pub fn try_recv_buf<B: BufMut>(&self, buf: &mut B) -> io::Result<usize> {
-            self.io.registration().try_io(Interest::READABLE, || {
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                // Safety: We trust `UnixDatagram::recv` to have filled up `n` bytes in the
-                // buffer.
-                let n = (*self.io).recv(dst)?;
-
-                unsafe {
-                    buf.advance_mut(n);
-                }
-
-                Ok(n)
-            })
-        }
-
-        /// Receives data from the socket from the address to which it is connected,
-        /// advancing the buffer's internal cursor, returning how many bytes were read.
-        ///
-        /// This method can be used even if `buf` is uninitialized.
-        ///
-        /// # Examples
-        /// ```
-        /// # use std::error::Error;
-        /// # #[tokio::main]
-        /// # async fn main() -> Result<(), Box<dyn Error>> {
-        /// # if cfg!(miri) { return Ok(()); } // No SOCK_DGRAM for `socketpair` in miri.
-        /// use tokio::net::UnixDatagram;
-        ///
-        /// // Create the pair of sockets
-        /// let (sock1, sock2) = UnixDatagram::pair()?;
-        ///
-        /// // Since the sockets are paired, the paired send/recv
-        /// // functions can be used
-        /// let bytes = b"hello world";
-        /// sock1.send(bytes).await?;
-        ///
-        /// let mut buff = Vec::with_capacity(24);
-        /// let size = sock2.recv_buf(&mut buff).await?;
-        ///
-        /// let dgram = &buff[..size];
-        /// assert_eq!(dgram, bytes);
-        ///
-        /// # Ok(())
-        /// # }
-        /// ```
-        pub async fn recv_buf<B: BufMut>(&self, buf: &mut B) -> io::Result<usize> {
-            self.io.registration().async_io(Interest::READABLE, || {
-                let dst = buf.chunk_mut();
-                let dst =
-                    unsafe { &mut *(dst as *mut _ as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]) };
-
-                // Safety: We trust `UnixDatagram::recv_from` to have filled up `n` bytes in the
-                // buffer.
-                let n = (*self.io).recv(dst)?;
-
-                unsafe {
-                    buf.advance_mut(n);
-                }
-                Ok(n)
-            }).await
-        }
+        #[doc = " Tries to receive data from the socket without waiting."] #[doc = ""]
+        #[doc = " This method can be used even if `buf` is uninitialized."] #[doc = ""]
+        #[doc = " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+        " use tokio::net::UnixDatagram;"] #[doc = " use std::io;"] #[doc = ""] #[doc =
+        " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc =
+        "     // Connect to a peer"] #[doc =
+        "     let dir = tempfile::tempdir().unwrap();"] #[doc =
+        "     let client_path = dir.path().join(\"client.sock\");"] #[doc =
+        "     let server_path = dir.path().join(\"server.sock\");"] #[doc =
+        "     let socket = UnixDatagram::bind(&client_path)?;"] #[doc = ""] #[doc =
+        "     loop {"] #[doc = "         // Wait for the socket to be readable"] #[doc =
+        "         socket.readable().await?;"] #[doc = ""] #[doc =
+        "         let mut buf = Vec::with_capacity(1024);"] #[doc = ""] #[doc =
+        "         // Try to recv data, this may still fail with `WouldBlock`"] #[doc =
+        "         // if the readiness event is a false positive."] #[doc =
+        "         match socket.try_recv_buf_from(&mut buf) {"] #[doc =
+        "             Ok((n, _addr)) => {"] #[doc =
+        "                 println!(\"GOT {:?}\", &buf[..n]);"] #[doc =
+        "                 break;"] #[doc = "             }"] #[doc =
+        "             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {"] #[doc =
+        "                 continue;"] #[doc = "             }"] #[doc =
+        "             Err(e) => {"] #[doc = "                 return Err(e);"] #[doc =
+        "             }"] #[doc = "         }"] #[doc = "     }"] #[doc = ""] #[doc =
+        "     Ok(())"] #[doc = " }"] #[doc = " ```"] pub fn try_recv_buf_from < B :
+        BufMut > (& self, buf : & mut B) -> io::Result < (usize, SocketAddr) > { let (n,
+        addr) = self.io.registration().try_io(Interest::READABLE, || { let dst = buf
+        .chunk_mut(); let dst = unsafe { & mut * (dst as * mut _ as * mut
+        [std::mem::MaybeUninit < u8 >] as * mut [u8]) }; let (n, addr) = (* self.io)
+        .recv_from(dst) ?; unsafe { buf.advance_mut(n); } Ok((n, addr)) }) ?; Ok((n,
+        SocketAddr(addr))) } #[doc = " Receives from the socket, advances the"] #[doc =
+        " buffer's internal cursor and returns how many bytes were read and the origin."]
+        #[doc = ""] #[doc = " This method can be used even if `buf` is uninitialized."]
+        #[doc = ""] #[doc = " # Examples"] #[doc = " ```"] #[doc =
+        " # use std::error::Error;"] #[doc = " # #[tokio::main]"] #[doc =
+        " # async fn main() -> Result<(), Box<dyn Error>> {"] #[doc =
+        " # if cfg!(miri) { return Ok(()); } // No Unix domain sockets in miri."] #[doc =
+        " use tokio::net::UnixDatagram;"] #[doc = " use tempfile::tempdir;"] #[doc = ""]
+        #[doc = " // We use a temporary directory so that the socket"] #[doc =
+        " // files left by the bound sockets will get cleaned up."] #[doc =
+        " let tmp = tempdir()?;"] #[doc = ""] #[doc =
+        " // Bind each socket to a filesystem path"] #[doc =
+        " let tx_path = tmp.path().join(\"tx\");"] #[doc =
+        " let tx = UnixDatagram::bind(&tx_path)?;"] #[doc =
+        " let rx_path = tmp.path().join(\"rx\");"] #[doc =
+        " let rx = UnixDatagram::bind(&rx_path)?;"] #[doc = ""] #[doc =
+        " let bytes = b\"hello world\";"] #[doc = " tx.send_to(bytes, &rx_path).await?;"]
+        #[doc = ""] #[doc = " let mut buf = Vec::with_capacity(24);"] #[doc =
+        " let (size, addr) = rx.recv_buf_from(&mut buf).await?;"] #[doc = ""] #[doc =
+        " let dgram = &buf[..size];"] #[doc = " assert_eq!(dgram, bytes);"] #[doc =
+        " assert_eq!(addr.as_pathname().unwrap(), &tx_path);"] #[doc = ""] #[doc =
+        " # Ok(())"] #[doc = " # }"] #[doc = " ```"] pub async fn recv_buf_from < B :
+        BufMut > (& self, buf : & mut B) -> io::Result < (usize, SocketAddr) > { self.io
+        .registration().async_io(Interest::READABLE, || { let dst = buf.chunk_mut(); let
+        dst = unsafe { & mut * (dst as * mut _ as * mut [std::mem::MaybeUninit < u8 >] as
+        * mut [u8]) }; let (n, addr) = (* self.io).recv_from(dst) ?; unsafe { buf
+        .advance_mut(n); } Ok((n, SocketAddr(addr))) }). await } #[doc =
+        " Tries to read data from the stream into the provided buffer, advancing the"]
+        #[doc = " buffer's internal cursor, returning how many bytes were read."] #[doc =
+        ""] #[doc = " This method can be used even if `buf` is uninitialized."] #[doc =
+        ""] #[doc = " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+        " use tokio::net::UnixDatagram;"] #[doc = " use std::io;"] #[doc = ""] #[doc =
+        " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc =
+        "     // Connect to a peer"] #[doc =
+        "     let dir = tempfile::tempdir().unwrap();"] #[doc =
+        "     let client_path = dir.path().join(\"client.sock\");"] #[doc =
+        "     let server_path = dir.path().join(\"server.sock\");"] #[doc =
+        "     let socket = UnixDatagram::bind(&client_path)?;"] #[doc =
+        "     socket.connect(&server_path)?;"] #[doc = ""] #[doc = "     loop {"] #[doc =
+        "         // Wait for the socket to be readable"] #[doc =
+        "         socket.readable().await?;"] #[doc = ""] #[doc =
+        "         let mut buf = Vec::with_capacity(1024);"] #[doc = ""] #[doc =
+        "         // Try to recv data, this may still fail with `WouldBlock`"] #[doc =
+        "         // if the readiness event is a false positive."] #[doc =
+        "         match socket.try_recv_buf(&mut buf) {"] #[doc =
+        "             Ok(n) => {"] #[doc =
+        "                 println!(\"GOT {:?}\", &buf[..n]);"] #[doc =
+        "                 break;"] #[doc = "             }"] #[doc =
+        "             Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {"] #[doc =
+        "                 continue;"] #[doc = "             }"] #[doc =
+        "             Err(e) => {"] #[doc = "                 return Err(e);"] #[doc =
+        "             }"] #[doc = "         }"] #[doc = "     }"] #[doc = ""] #[doc =
+        "     Ok(())"] #[doc = " }"] #[doc = " ```"] pub fn try_recv_buf < B : BufMut >
+        (& self, buf : & mut B) -> io::Result < usize > { self.io.registration()
+        .try_io(Interest::READABLE, || { let dst = buf.chunk_mut(); let dst = unsafe { &
+        mut * (dst as * mut _ as * mut [std::mem::MaybeUninit < u8 >] as * mut [u8]) };
+        let n = (* self.io).recv(dst) ?; unsafe { buf.advance_mut(n); } Ok(n) }) } #[doc
+        = " Receives data from the socket from the address to which it is connected,"]
+        #[doc =
+        " advancing the buffer's internal cursor, returning how many bytes were read."]
+        #[doc = ""] #[doc = " This method can be used even if `buf` is uninitialized."]
+        #[doc = ""] #[doc = " # Examples"] #[doc = " ```"] #[doc =
+        " # use std::error::Error;"] #[doc = " # #[tokio::main]"] #[doc =
+        " # async fn main() -> Result<(), Box<dyn Error>> {"] #[doc =
+        " # if cfg!(miri) { return Ok(()); } // No SOCK_DGRAM for `socketpair` in miri."]
+        #[doc = " use tokio::net::UnixDatagram;"] #[doc = ""] #[doc =
+        " // Create the pair of sockets"] #[doc =
+        " let (sock1, sock2) = UnixDatagram::pair()?;"] #[doc = ""] #[doc =
+        " // Since the sockets are paired, the paired send/recv"] #[doc =
+        " // functions can be used"] #[doc = " let bytes = b\"hello world\";"] #[doc =
+        " sock1.send(bytes).await?;"] #[doc = ""] #[doc =
+        " let mut buff = Vec::with_capacity(24);"] #[doc =
+        " let size = sock2.recv_buf(&mut buff).await?;"] #[doc = ""] #[doc =
+        " let dgram = &buff[..size];"] #[doc = " assert_eq!(dgram, bytes);"] #[doc = ""]
+        #[doc = " # Ok(())"] #[doc = " # }"] #[doc = " ```"] pub async fn recv_buf < B :
+        BufMut > (& self, buf : & mut B) -> io::Result < usize > { self.io.registration()
+        .async_io(Interest::READABLE, || { let dst = buf.chunk_mut(); let dst = unsafe {
+        & mut * (dst as * mut _ as * mut [std::mem::MaybeUninit < u8 >] as * mut [u8]) };
+        let n = (* self.io).recv(dst) ?; unsafe { buf.advance_mut(n); } Ok(n) }). await }
     }
-
     /// Sends data on the socket to the specified address.
     ///
     /// # Cancel safety
@@ -1102,12 +891,8 @@ impl UnixDatagram {
     where
         P: AsRef<Path>,
     {
-        self.io
-            .registration()
-            .async_io(Interest::WRITABLE, || self.io.send_to(buf, target.as_ref()))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Receives data from the socket.
     ///
     /// # Cancel safety
@@ -1150,15 +935,8 @@ impl UnixDatagram {
     /// # }
     /// ```
     pub async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        let (n, addr) = self
-            .io
-            .registration()
-            .async_io(Interest::READABLE, || self.io.recv_from(buf))
-            .await?;
-
-        Ok((n, SocketAddr(addr)))
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to receive a single datagram on the specified address.
     ///
     /// Note that on multiple calls to a `poll_*` method in the `recv` direction, only the
@@ -1181,24 +959,8 @@ impl UnixDatagram {
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<SocketAddr>> {
-        #[allow(clippy::blocks_in_conditions)]
-        let (n, addr) = ready!(self.io.registration().poll_read_io(cx, || {
-            // Safety: will not read the maybe uninitialized bytes.
-            let b = unsafe {
-                &mut *(buf.unfilled_mut() as *mut [std::mem::MaybeUninit<u8>] as *mut [u8])
-            };
-
-            self.io.recv_from(b)
-        }))?;
-
-        // Safety: We trust `recv` to have filled up `n` bytes in the buffer.
-        unsafe {
-            buf.assume_init(n);
-        }
-        buf.advance(n);
-        Poll::Ready(Ok(SocketAddr(addr)))
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to send data to the specified address.
     ///
     /// Note that on multiple calls to a `poll_*` method in the send direction, only the
@@ -1225,11 +987,8 @@ impl UnixDatagram {
     where
         P: AsRef<Path>,
     {
-        self.io
-            .registration()
-            .poll_write_io(cx, || self.io.send_to(buf, target.as_ref()))
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to send data on the socket to the remote address to which it
     /// was previously `connect`ed.
     ///
@@ -1253,12 +1012,13 @@ impl UnixDatagram {
     /// This function may encounter any standard I/O error except `WouldBlock`.
     ///
     /// [`connect`]: method@Self::connect
-    pub fn poll_send(&self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
-        self.io
-            .registration()
-            .poll_write_io(cx, || self.io.send(buf))
+    pub fn poll_send(
+        &self,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to receive a single datagram message on the socket from the remote
     /// address to which it is `connect`ed.
     ///
@@ -1282,25 +1042,13 @@ impl UnixDatagram {
     /// This function may encounter any standard I/O error except `WouldBlock`.
     ///
     /// [`connect`]: method@Self::connect
-    pub fn poll_recv(&self, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        #[allow(clippy::blocks_in_conditions)]
-        let n = ready!(self.io.registration().poll_read_io(cx, || {
-            // Safety: will not read the maybe uninitialized bytes.
-            let b = unsafe {
-                &mut *(buf.unfilled_mut() as *mut [std::mem::MaybeUninit<u8>] as *mut [u8])
-            };
-
-            self.io.recv(b)
-        }))?;
-
-        // Safety: We trust `recv` to have filled up `n` bytes in the buffer.
-        unsafe {
-            buf.assume_init(n);
-        }
-        buf.advance(n);
-        Poll::Ready(Ok(()))
+    pub fn poll_recv(
+        &self,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
-
     /// Tries to receive data from the socket without waiting.
     ///
     /// # Examples
@@ -1345,14 +1093,8 @@ impl UnixDatagram {
     /// }
     /// ```
     pub fn try_recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        let (n, addr) = self
-            .io
-            .registration()
-            .try_io(Interest::READABLE, || self.io.recv_from(buf))?;
-
-        Ok((n, SocketAddr(addr)))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read or write from the socket using a user-provided IO operation.
     ///
     /// If the socket is ready, the provided closure is called. The closure
@@ -1390,11 +1132,8 @@ impl UnixDatagram {
         interest: Interest,
         f: impl FnOnce() -> io::Result<R>,
     ) -> io::Result<R> {
-        self.io
-            .registration()
-            .try_io(interest, || self.io.try_io(f))
+        panic!("STUB: not implemented");
     }
-
     /// Reads or writes from the socket using a user-provided IO operation.
     ///
     /// The readiness of the socket is awaited and when the socket is ready,
@@ -1425,12 +1164,8 @@ impl UnixDatagram {
         interest: Interest,
         mut f: impl FnMut() -> io::Result<R>,
     ) -> io::Result<R> {
-        self.io
-            .registration()
-            .async_io(interest, || self.io.try_io(&mut f))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Returns the local address that this socket is bound to.
     ///
     /// # Examples
@@ -1474,9 +1209,8 @@ impl UnixDatagram {
     /// # }
     /// ```
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.io.local_addr().map(SocketAddr)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the address of this socket's peer.
     ///
     /// The `connect` method will connect the socket to a peer.
@@ -1525,9 +1259,8 @@ impl UnixDatagram {
     /// # }
     /// ```
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
-        self.io.peer_addr().map(SocketAddr)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the value of the `SO_ERROR` option.
     ///
     /// # Examples
@@ -1549,9 +1282,8 @@ impl UnixDatagram {
     /// # }
     /// ```
     pub fn take_error(&self) -> io::Result<Option<io::Error>> {
-        self.io.take_error()
+        panic!("STUB: not implemented");
     }
-
     /// Shuts down the read, write, or both halves of this connection.
     ///
     /// This function will cause all pending and future I/O calls on the
@@ -1586,36 +1318,31 @@ impl UnixDatagram {
     /// # }
     /// ```
     pub fn shutdown(&self, how: Shutdown) -> io::Result<()> {
-        self.io.shutdown(how)
+        panic!("STUB: not implemented");
     }
 }
-
 impl TryFrom<std::os::unix::net::UnixDatagram> for UnixDatagram {
     type Error = io::Error;
-
     /// Consumes stream, returning the Tokio I/O object.
     ///
     /// This is equivalent to
     /// [`UnixDatagram::from_std(stream)`](UnixDatagram::from_std).
     fn try_from(stream: std::os::unix::net::UnixDatagram) -> Result<Self, Self::Error> {
-        Self::from_std(stream)
+        panic!("STUB: not implemented");
     }
 }
-
 impl fmt::Debug for UnixDatagram {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (*self.io).fmt(f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRawFd for UnixDatagram {
     fn as_raw_fd(&self) -> RawFd {
-        self.io.as_raw_fd()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsFd for UnixDatagram {
     fn as_fd(&self) -> BorrowedFd<'_> {
-        unsafe { BorrowedFd::borrow_raw(self.as_raw_fd()) }
+        panic!("STUB: not implemented");
     }
 }

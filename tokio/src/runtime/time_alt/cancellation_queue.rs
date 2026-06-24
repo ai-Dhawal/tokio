@@ -1,57 +1,36 @@
 use super::{CancellationQueueEntry, EntryHandle};
 use crate::loom::sync::{Arc, Mutex};
 use crate::util::linked_list::LinkedList;
-
 #[derive(Debug, Default)]
 struct Inner {
     list: LinkedList<CancellationQueueEntry>,
 }
-
 impl Drop for Inner {
     fn drop(&mut self) {
-        // consume all entries
-        while let Some(hdl) = self.list.pop_front() {
-            drop(hdl)
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl Inner {
     fn new() -> Self {
-        Self {
-            list: LinkedList::new(),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// # Safety
     ///
     /// Behavior is undefined if any of the following conditions are violated:
     ///
     /// - `hdl` must not in any [`super::cancellation_queue`], and also mus not in any [`super::WakeQueue`].
     unsafe fn push_front(&mut self, hdl: EntryHandle) {
-        self.list.push_front(hdl);
+        panic!("STUB: not implemented");
     }
-
     fn into_iter(self) -> impl Iterator<Item = EntryHandle> {
-        struct Iter(Inner);
-
-        impl Iterator for Iter {
-            type Item = EntryHandle;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                self.0.list.pop_front()
-            }
-        }
-
-        Iter(self)
+        panic!("STUB: not implemented");
+        #[allow(unreachable_code)] std::iter::empty::<EntryHandle>()
     }
 }
-
 #[derive(Debug, Clone)]
 pub(crate) struct Sender {
     inner: Arc<Mutex<Inner>>,
 }
-
 impl Sender {
     /// # Safety
     ///
@@ -59,32 +38,21 @@ impl Sender {
     ///
     /// - `hdl` must not in any cancellation queue.
     pub(crate) unsafe fn send(&self, hdl: EntryHandle) {
-        unsafe {
-            self.inner.lock().push_front(hdl);
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 #[derive(Debug)]
 pub(crate) struct Receiver {
     inner: Arc<Mutex<Inner>>,
 }
-
 impl Receiver {
     pub(crate) fn recv_all(&mut self) -> impl Iterator<Item = EntryHandle> {
-        std::mem::take(&mut *self.inner.lock()).into_iter()
+        panic!("STUB: not implemented");
+        #[allow(unreachable_code)] std::iter::empty::<EntryHandle>()
     }
 }
-
 pub(crate) fn new() -> (Sender, Receiver) {
-    let inner = Arc::new(Mutex::new(Inner::new()));
-    (
-        Sender {
-            inner: inner.clone(),
-        },
-        Receiver { inner },
-    )
+    panic!("STUB: not implemented");
 }
-
 #[cfg(test)]
 mod tests;

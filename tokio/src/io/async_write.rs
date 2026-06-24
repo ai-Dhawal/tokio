@@ -2,7 +2,6 @@ use std::io::{self, IoSlice};
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-
 /// Writes bytes asynchronously.
 ///
 /// This trait is analogous to the [`std::io::Write`] trait, but integrates with
@@ -54,7 +53,6 @@ pub trait AsyncWrite {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>>;
-
     /// Attempts to flush the object, ensuring that any buffered data reach
     /// their destination.
     ///
@@ -65,7 +63,6 @@ pub trait AsyncWrite {
     /// `cx.waker()`) to receive a notification when the object can make
     /// progress towards flushing.
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>>;
-
     /// Initiates or attempts to shut down this writer, returning success when
     /// the I/O connection has completely shut down.
     ///
@@ -125,7 +122,6 @@ pub trait AsyncWrite {
     /// This function will panic if not called within the context of a future's
     /// task.
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>>;
-
     /// Like [`poll_write`], except that it writes from a slice of buffers.
     ///
     /// Data is copied from each buffer in order, with the final buffer
@@ -154,13 +150,9 @@ pub trait AsyncWrite {
         cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        let buf = bufs
-            .iter()
-            .find(|b| !b.is_empty())
-            .map_or(&[][..], |b| &**b);
+        let buf = bufs.iter().find(|b| !b.is_empty()).map_or(&[][..], |b| &**b);
         self.poll_write(cx, buf)
     }
-
     /// Determines if this writer has an efficient [`poll_write_vectored`]
     /// implementation.
     ///
@@ -175,47 +167,26 @@ pub trait AsyncWrite {
         false
     }
 }
-
 macro_rules! deref_async_write {
     () => {
-        fn poll_write(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            buf: &[u8],
-        ) -> Poll<io::Result<usize>> {
-            Pin::new(&mut **self).poll_write(cx, buf)
-        }
-
-        fn poll_write_vectored(
-            mut self: Pin<&mut Self>,
-            cx: &mut Context<'_>,
-            bufs: &[IoSlice<'_>],
-        ) -> Poll<io::Result<usize>> {
-            Pin::new(&mut **self).poll_write_vectored(cx, bufs)
-        }
-
-        fn is_write_vectored(&self) -> bool {
-            (**self).is_write_vectored()
-        }
-
-        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-            Pin::new(&mut **self).poll_flush(cx)
-        }
-
-        fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-            Pin::new(&mut **self).poll_shutdown(cx)
-        }
+        fn poll_write(mut self : Pin <& mut Self >, cx : & mut Context <'_ >, buf : &
+        [u8],) -> Poll < io::Result < usize >> { Pin::new(& mut ** self).poll_write(cx,
+        buf) } fn poll_write_vectored(mut self : Pin <& mut Self >, cx : & mut Context
+        <'_ >, bufs : & [IoSlice <'_ >],) -> Poll < io::Result < usize >> { Pin::new(&
+        mut ** self).poll_write_vectored(cx, bufs) } fn is_write_vectored(& self) -> bool
+        { (** self).is_write_vectored() } fn poll_flush(mut self : Pin <& mut Self >, cx
+        : & mut Context <'_ >) -> Poll < io::Result < () >> { Pin::new(& mut ** self)
+        .poll_flush(cx) } fn poll_shutdown(mut self : Pin <& mut Self >, cx : & mut
+        Context <'_ >) -> Poll < io::Result < () >> { Pin::new(& mut ** self)
+        .poll_shutdown(cx) }
     };
 }
-
 impl<T: ?Sized + AsyncWrite + Unpin> AsyncWrite for Box<T> {
     deref_async_write!();
 }
-
 impl<T: ?Sized + AsyncWrite + Unpin> AsyncWrite for &mut T {
     deref_async_write!();
 }
-
 impl<P> AsyncWrite for Pin<P>
 where
     P: DerefMut,
@@ -226,177 +197,177 @@ where
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        crate::util::pin_as_deref_mut(self).poll_write(cx, buf)
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        crate::util::pin_as_deref_mut(self).poll_write_vectored(cx, bufs)
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        (**self).is_write_vectored()
+        panic!("STUB: not implemented");
     }
-
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        crate::util::pin_as_deref_mut(self).poll_flush(cx)
+        panic!("STUB: not implemented");
     }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        crate::util::pin_as_deref_mut(self).poll_shutdown(cx)
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for Vec<u8> {
     fn poll_write(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        self.get_mut().extend_from_slice(buf);
-        Poll::Ready(Ok(buf.len()))
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(io::Write::write_vectored(&mut *self, bufs))
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        true
+        panic!("STUB: not implemented");
     }
-
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Ok(()))
+        panic!("STUB: not implemented");
     }
-
-    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Ok(()))
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for io::Cursor<&mut [u8]> {
     fn poll_write(
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(io::Write::write(&mut *self, buf))
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(io::Write::write_vectored(&mut *self, bufs))
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        true
+        panic!("STUB: not implemented");
     }
-
-    fn poll_flush(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(io::Write::flush(&mut *self))
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.poll_flush(cx)
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for io::Cursor<&mut Vec<u8>> {
     fn poll_write(
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(io::Write::write(&mut *self, buf))
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(io::Write::write_vectored(&mut *self, bufs))
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        true
+        panic!("STUB: not implemented");
     }
-
-    fn poll_flush(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(io::Write::flush(&mut *self))
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.poll_flush(cx)
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for io::Cursor<Vec<u8>> {
     fn poll_write(
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(io::Write::write(&mut *self, buf))
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(io::Write::write_vectored(&mut *self, bufs))
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        true
+        panic!("STUB: not implemented");
     }
-
-    fn poll_flush(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(io::Write::flush(&mut *self))
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.poll_flush(cx)
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for io::Cursor<Box<[u8]>> {
     fn poll_write(
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(io::Write::write(&mut *self, buf))
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         mut self: Pin<&mut Self>,
         _: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(io::Write::write_vectored(&mut *self, bufs))
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        true
+        panic!("STUB: not implemented");
     }
-
-    fn poll_flush(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(io::Write::flush(&mut *self))
+    fn poll_flush(
+        mut self: Pin<&mut Self>,
+        _: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
-
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.poll_flush(cx)
+    fn poll_shutdown(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<()>> {
+        panic!("STUB: not implemented");
     }
 }

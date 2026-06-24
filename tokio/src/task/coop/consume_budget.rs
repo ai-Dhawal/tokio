@@ -23,17 +23,5 @@
 /// ```
 #[cfg_attr(docsrs, doc(cfg(feature = "rt")))]
 pub async fn consume_budget() {
-    let mut status = std::task::Poll::Pending;
-
-    std::future::poll_fn(move |cx| {
-        std::task::ready!(crate::trace::trace_leaf());
-        if status.is_ready() {
-            return status;
-        }
-        status = crate::task::coop::poll_proceed(cx).map(|restore| {
-            restore.made_progress();
-        });
-        status
-    })
-    .await
+    panic!("STUB: not implemented");
 }

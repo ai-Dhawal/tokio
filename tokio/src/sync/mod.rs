@@ -1,5 +1,4 @@
 #![cfg_attr(loom, allow(dead_code, unreachable_pub, unused_imports))]
-
 //! Synchronization primitives for use in asynchronous contexts.
 //!
 //! Tokio programs tend to be organized as a set of [tasks] where each task
@@ -448,77 +447,30 @@
 //! As an exception, methods ending in `_timeout` are not runtime agnostic
 //! because they require access to the Tokio timer. See the documentation of
 //! each `*_timeout` method for more information on its use.
-
 cfg_sync! {
-    /// Named future types.
-    pub mod futures {
-        pub use super::notify::{Notified, OwnedNotified};
-    }
-
-    mod barrier;
-    pub use barrier::{Barrier, BarrierWaitResult};
-
-    pub mod broadcast;
-
-    pub mod mpsc;
-
-    mod mutex;
-    pub use mutex::{Mutex, MutexGuard, TryLockError, OwnedMutexGuard, MappedMutexGuard, OwnedMappedMutexGuard};
-
-    pub(crate) mod notify;
-    pub use notify::Notify;
-
-    pub mod oneshot;
-
-    pub(crate) mod batch_semaphore;
-    pub use batch_semaphore::{AcquireError, TryAcquireError};
-
-    mod semaphore;
-    pub use semaphore::{Semaphore, SemaphorePermit, OwnedSemaphorePermit};
-
-    mod rwlock;
-    pub use rwlock::RwLock;
-    pub use rwlock::owned_read_guard::OwnedRwLockReadGuard;
-    pub use rwlock::owned_write_guard::OwnedRwLockWriteGuard;
-    pub use rwlock::owned_write_guard_mapped::OwnedRwLockMappedWriteGuard;
-    pub use rwlock::read_guard::RwLockReadGuard;
-    pub use rwlock::write_guard::RwLockWriteGuard;
-    pub use rwlock::write_guard_mapped::RwLockMappedWriteGuard;
-
-    mod task;
-    pub(crate) use task::AtomicWaker;
-
-    mod once_cell;
-    pub use self::once_cell::{OnceCell, SetError};
-
-    mod set_once;
-    pub use self::set_once::{SetOnce, SetOnceError};
-
-    pub mod watch;
+    #[doc = " Named future types."] pub mod futures { pub use super::notify:: { Notified,
+    OwnedNotified }; } mod barrier; pub use barrier:: { Barrier, BarrierWaitResult }; pub
+    mod broadcast; pub mod mpsc; mod mutex; pub use mutex:: { Mutex, MutexGuard,
+    TryLockError, OwnedMutexGuard, MappedMutexGuard, OwnedMappedMutexGuard }; pub (crate)
+    mod notify; pub use notify::Notify; pub mod oneshot; pub (crate) mod batch_semaphore;
+    pub use batch_semaphore:: { AcquireError, TryAcquireError }; mod semaphore; pub use
+    semaphore:: { Semaphore, SemaphorePermit, OwnedSemaphorePermit }; mod rwlock; pub use
+    rwlock::RwLock; pub use rwlock::owned_read_guard::OwnedRwLockReadGuard; pub use
+    rwlock::owned_write_guard::OwnedRwLockWriteGuard; pub use
+    rwlock::owned_write_guard_mapped::OwnedRwLockMappedWriteGuard; pub use
+    rwlock::read_guard::RwLockReadGuard; pub use rwlock::write_guard::RwLockWriteGuard;
+    pub use rwlock::write_guard_mapped::RwLockMappedWriteGuard; mod task; pub (crate) use
+    task::AtomicWaker; mod once_cell; pub use self::once_cell:: { OnceCell, SetError };
+    mod set_once; pub use self::set_once:: { SetOnce, SetOnceError }; pub mod watch;
 }
-
 cfg_not_sync! {
-    cfg_fs! {
-        pub(crate) mod batch_semaphore;
-        mod mutex;
-        pub(crate) use mutex::Mutex;
-    }
-
-    #[cfg(any(feature = "rt", feature = "signal", all(unix, feature = "process")))]
-    pub(crate) mod notify;
-
-    #[cfg(any(feature = "rt", all(windows, feature = "process")))]
-    pub(crate) mod oneshot;
-
-    cfg_atomic_waker_impl! {
-        mod task;
-        pub(crate) use task::AtomicWaker;
-    }
-
-    #[cfg(any(feature = "signal", all(unix, feature = "process")))]
-    pub(crate) mod watch;
+    cfg_fs! { pub (crate) mod batch_semaphore; mod mutex; pub (crate) use mutex::Mutex; }
+    #[cfg(any(feature = "rt", feature = "signal", all(unix, feature = "process")))] pub
+    (crate) mod notify; #[cfg(any(feature = "rt", all(windows, feature = "process")))]
+    pub (crate) mod oneshot; cfg_atomic_waker_impl! { mod task; pub (crate) use
+    task::AtomicWaker; } #[cfg(any(feature = "signal", all(unix, feature = "process")))]
+    pub (crate) mod watch;
 }
-
 /// Unit tests
 #[cfg(test)]
 mod tests;

@@ -83,28 +83,20 @@
 //!
 //! [`interval`]: crate::time::interval()
 //! [`sleep`]: sleep()
-
 mod clock;
 pub(crate) use self::clock::Clock;
 cfg_test_util! {
-    pub use clock::{advance, pause, resume};
+    pub use clock:: { advance, pause, resume };
 }
-
 pub mod error;
-
 mod instant;
 pub use self::instant::Instant;
-
 mod interval;
 pub use interval::{interval, interval_at, Interval, MissedTickBehavior};
-
 mod sleep;
 pub use sleep::{sleep, sleep_until, Sleep};
-
 mod timeout;
 #[doc(inline)]
 pub use timeout::{timeout, timeout_at, Timeout};
-
-// Re-export for convenience
 #[doc(no_inline)]
 pub use std::time::Duration;

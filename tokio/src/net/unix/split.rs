@@ -7,20 +7,16 @@
 //! Compared to the generic split of `AsyncRead + AsyncWrite`, this specialized
 //! split has no associated overhead and enforces all invariants at the type
 //! level.
-
 use crate::io::{AsyncRead, AsyncWrite, Interest, ReadBuf, Ready};
 use crate::net::UnixStream;
-
 use crate::net::unix::SocketAddr;
 use std::io;
 use std::net::Shutdown;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-
 cfg_io_util! {
     use bytes::BufMut;
 }
-
 /// Borrowed read half of a [`UnixStream`], created by [`split`].
 ///
 /// Reading from a `ReadHalf` is usually done using the convenience methods found on the
@@ -31,7 +27,6 @@ cfg_io_util! {
 /// [`AsyncReadExt`]: trait@crate::io::AsyncReadExt
 #[derive(Debug)]
 pub struct ReadHalf<'a>(&'a UnixStream);
-
 /// Borrowed write half of a [`UnixStream`], created by [`split`].
 ///
 /// Note that in the [`AsyncWrite`] implementation of this type, [`poll_shutdown`] will
@@ -47,11 +42,9 @@ pub struct ReadHalf<'a>(&'a UnixStream);
 /// [`AsyncWriteExt`]: trait@crate::io::AsyncWriteExt
 #[derive(Debug)]
 pub struct WriteHalf<'a>(&'a UnixStream);
-
 pub(crate) fn split(stream: &mut UnixStream) -> (ReadHalf<'_>, WriteHalf<'_>) {
-    (ReadHalf(stream), WriteHalf(stream))
+    panic!("STUB: not implemented");
 }
-
 impl ReadHalf<'_> {
     /// Wait for any of the requested ready states.
     ///
@@ -77,9 +70,8 @@ impl ReadHalf<'_> {
     /// consumed by an attempt to read or write that fails with `WouldBlock` or
     /// `Poll::Pending`.
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        self.0.ready(interest).await
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the socket to become readable.
     ///
     /// This function is equivalent to `ready(Interest::READABLE)` and is usually
@@ -92,9 +84,8 @@ impl ReadHalf<'_> {
     /// consumed by an attempt to read that fails with `WouldBlock` or
     /// `Poll::Pending`.
     pub async fn readable(&self) -> io::Result<()> {
-        self.0.readable().await
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read data from the stream into the provided buffer, returning how
     /// many bytes were read.
     ///
@@ -119,33 +110,28 @@ impl ReadHalf<'_> {
     /// If the stream is not ready to read data,
     /// `Err(io::ErrorKind::WouldBlock)` is returned.
     pub fn try_read(&self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.try_read(buf)
+        panic!("STUB: not implemented");
     }
-
     cfg_io_util! {
-        /// Tries to read data from the stream into the provided buffer, advancing the
-        /// buffer's internal cursor, returning how many bytes were read.
-        ///
-        /// Receives any pending data from the socket but does not wait for new data
-        /// to arrive. On success, returns the number of bytes read. Because
-        /// `try_read_buf()` is non-blocking, the buffer does not have to be stored by
-        /// the async task and can exist entirely on the stack.
-        ///
-        /// Usually, [`readable()`] or [`ready()`] is used with this function.
-        ///
-        /// [`readable()`]: Self::readable()
-        /// [`ready()`]: Self::ready()
-        ///
-        /// # Return
-        ///
-        /// If data is successfully read, `Ok(n)` is returned, where `n` is the
-        /// number of bytes read. `Ok(0)` indicates the stream's read half is closed
-        /// and will no longer yield data. If the stream is not ready to read data
-        pub fn try_read_buf<B: BufMut>(&self, buf: &mut B) -> io::Result<usize> {
-            self.0.try_read_buf(buf)
-        }
+        #[doc =
+        " Tries to read data from the stream into the provided buffer, advancing the"]
+        #[doc = " buffer's internal cursor, returning how many bytes were read."] #[doc =
+        ""] #[doc =
+        " Receives any pending data from the socket but does not wait for new data"]
+        #[doc = " to arrive. On success, returns the number of bytes read. Because"]
+        #[doc =
+        " `try_read_buf()` is non-blocking, the buffer does not have to be stored by"]
+        #[doc = " the async task and can exist entirely on the stack."] #[doc = ""] #[doc
+        = " Usually, [`readable()`] or [`ready()`] is used with this function."] #[doc =
+        ""] #[doc = " [`readable()`]: Self::readable()"] #[doc =
+        " [`ready()`]: Self::ready()"] #[doc = ""] #[doc = " # Return"] #[doc = ""] #[doc
+        = " If data is successfully read, `Ok(n)` is returned, where `n` is the"] #[doc =
+        " number of bytes read. `Ok(0)` indicates the stream's read half is closed"]
+        #[doc =
+        " and will no longer yield data. If the stream is not ready to read data"] pub fn
+        try_read_buf < B : BufMut > (& self, buf : & mut B) -> io::Result < usize > {
+        self.0.try_read_buf(buf) }
     }
-
     /// Tries to read data from the stream into the provided buffers, returning
     /// how many bytes were read.
     ///
@@ -171,21 +157,21 @@ impl ReadHalf<'_> {
     /// number of bytes read. `Ok(0)` indicates the stream's read half is closed
     /// and will no longer yield data. If the stream is not ready to read data
     /// `Err(io::ErrorKind::WouldBlock)` is returned.
-    pub fn try_read_vectored(&self, bufs: &mut [io::IoSliceMut<'_>]) -> io::Result<usize> {
-        self.0.try_read_vectored(bufs)
+    pub fn try_read_vectored(
+        &self,
+        bufs: &mut [io::IoSliceMut<'_>],
+    ) -> io::Result<usize> {
+        panic!("STUB: not implemented");
     }
-
     /// Returns the socket address of the remote half of this connection.
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
-        self.0.peer_addr()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the socket address of the local half of this connection.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.0.local_addr()
+        panic!("STUB: not implemented");
     }
 }
-
 impl WriteHalf<'_> {
     /// Waits for any of the requested ready states.
     ///
@@ -211,9 +197,8 @@ impl WriteHalf<'_> {
     /// consumed by an attempt to read or write that fails with `WouldBlock` or
     /// `Poll::Pending`.
     pub async fn ready(&self, interest: Interest) -> io::Result<Ready> {
-        self.0.ready(interest).await
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the socket to become writable.
     ///
     /// This function is equivalent to `ready(Interest::WRITABLE)` and is usually
@@ -226,9 +211,8 @@ impl WriteHalf<'_> {
     /// consumed by an attempt to write that fails with `WouldBlock` or
     /// `Poll::Pending`.
     pub async fn writable(&self) -> io::Result<()> {
-        self.0.writable().await
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write a buffer to the stream, returning how many bytes were
     /// written.
     ///
@@ -243,9 +227,8 @@ impl WriteHalf<'_> {
     /// number of bytes written. If the stream is not ready to write data,
     /// `Err(io::ErrorKind::WouldBlock)` is returned.
     pub fn try_write(&self, buf: &[u8]) -> io::Result<usize> {
-        self.0.try_write(buf)
+        panic!("STUB: not implemented");
     }
-
     /// Tries to write several buffers to the stream, returning how many bytes
     /// were written.
     ///
@@ -264,68 +247,58 @@ impl WriteHalf<'_> {
     /// number of bytes written. If the stream is not ready to write data,
     /// `Err(io::ErrorKind::WouldBlock)` is returned.
     pub fn try_write_vectored(&self, buf: &[io::IoSlice<'_>]) -> io::Result<usize> {
-        self.0.try_write_vectored(buf)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the socket address of the remote half of this connection.
     pub fn peer_addr(&self) -> io::Result<SocketAddr> {
-        self.0.peer_addr()
+        panic!("STUB: not implemented");
     }
-
     /// Returns the socket address of the local half of this connection.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.0.local_addr()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncRead for ReadHalf<'_> {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        self.0.poll_read_priv(cx, buf)
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for WriteHalf<'_> {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        self.0.poll_write_priv(cx, buf)
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        self.0.poll_write_vectored_priv(cx, bufs)
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        self.0.is_write_vectored()
+        panic!("STUB: not implemented");
     }
-
     fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Ok(()))
+        panic!("STUB: not implemented");
     }
-
     fn poll_shutdown(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.0.shutdown_std(Shutdown::Write).into()
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRef<UnixStream> for ReadHalf<'_> {
     fn as_ref(&self) -> &UnixStream {
-        self.0
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsRef<UnixStream> for WriteHalf<'_> {
     fn as_ref(&self) -> &UnixStream {
-        self.0
+        panic!("STUB: not implemented");
     }
 }

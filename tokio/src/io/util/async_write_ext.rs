@@ -6,1327 +6,612 @@ use crate::io::util::write_all_buf::{write_all_buf, WriteAllBuf};
 use crate::io::util::write_buf::{write_buf, WriteBuf};
 use crate::io::util::write_int::{WriteF32, WriteF32Le, WriteF64, WriteF64Le};
 use crate::io::util::write_int::{
-    WriteI128, WriteI128Le, WriteI16, WriteI16Le, WriteI32, WriteI32Le, WriteI64, WriteI64Le,
-    WriteI8,
+    WriteI128, WriteI128Le, WriteI16, WriteI16Le, WriteI32, WriteI32Le, WriteI64,
+    WriteI64Le, WriteI8,
 };
 use crate::io::util::write_int::{
-    WriteU128, WriteU128Le, WriteU16, WriteU16Le, WriteU32, WriteU32Le, WriteU64, WriteU64Le,
-    WriteU8,
+    WriteU128, WriteU128Le, WriteU16, WriteU16Le, WriteU32, WriteU32Le, WriteU64,
+    WriteU64Le, WriteU8,
 };
 use crate::io::util::write_vectored::{write_vectored, WriteVectored};
 use crate::io::AsyncWrite;
 use std::io::IoSlice;
-
 use bytes::Buf;
-
 cfg_io_util! {
-    /// Defines numeric writer.
-    macro_rules! write_impl {
-        (
-            $(
-                $(#[$outer:meta])*
-                fn $name:ident(&mut self, n: $ty:ty) -> $($fut:ident)*;
-            )*
-        ) => {
-            $(
-                $(#[$outer])*
-                fn $name(&mut self, n: $ty) -> $($fut)*<&mut Self> where Self: Unpin {
-                    $($fut)*::new(self, n)
-                }
-            )*
-        }
-    }
-
-    /// Writes bytes to a sink.
-    ///
-    /// Implemented as an extension trait, adding utility methods to all
-    /// [`AsyncWrite`] types. Callers will tend to import this trait instead of
-    /// [`AsyncWrite`].
-    ///
-    /// ```no_run
-    /// # #[cfg(not(target_family = "wasm"))]
-    /// # {
-    /// use tokio::io::{self, AsyncWriteExt};
-    /// use tokio::fs::File;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> io::Result<()> {
-    ///     let data = b"some bytes";
-    ///
-    ///     let mut pos = 0;
-    ///     let mut buffer = File::create("foo.txt").await?;
-    ///
-    ///     while pos < data.len() {
-    ///         let bytes_written = buffer.write(&data[pos..]).await?;
-    ///         pos += bytes_written;
-    ///     }
-    ///
-    ///     Ok(())
-    /// }
-    /// # }
-    /// ```
-    ///
-    /// See [module][crate::io] documentation for more details.
-    ///
-    /// [`AsyncWrite`]: AsyncWrite
-    pub trait AsyncWriteExt: AsyncWrite {
-        /// Writes a buffer into this writer, returning how many bytes were
-        /// written.
-        ///
-        /// Equivalent to:
-        ///
-        /// ```ignore
-        /// async fn write(&mut self, buf: &[u8]) -> io::Result<usize>;
-        /// ```
-        ///
-        /// This function will attempt to write the entire contents of `buf`, but
-        /// the entire write may not succeed, or the write may also generate an
-        /// error. A call to `write` represents *at most one* attempt to write to
-        /// any wrapped object.
-        ///
-        /// # Return
-        ///
-        /// If the return value is `Ok(n)` then it must be guaranteed that `n <=
-        /// buf.len()`. A return value of `0` typically means that the
-        /// underlying object is no longer able to accept bytes and will likely
-        /// not be able to in the future as well, or that the buffer provided is
-        /// empty.
-        ///
-        /// # Errors
-        ///
-        /// Each call to `write` may generate an I/O error indicating that the
-        /// operation could not be completed. If an error is returned then no bytes
-        /// in the buffer were written to this writer.
-        ///
-        /// It is **not** considered an error if the entire buffer could not be
-        /// written to this writer.
-        ///
-        /// # Cancel safety
-        ///
-        /// This method is cancel safe. If it is used as a branch in
-        /// [`tokio::select!`](crate::select) and another branch completes
-        /// first, then it is guaranteed that no data was
-        /// written to this `AsyncWrite`.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::io::{self, AsyncWriteExt};
-        /// use tokio::fs::File;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     let mut file = File::create("foo.txt").await?;
-        ///
-        ///     // Writes some prefix of the byte string, not necessarily all of it.
-        ///     file.write(b"some bytes").await?;
-        ///     file.flush().await?;
-        ///     Ok(())
-        /// }
-        /// # }
-        /// ```
-        fn write<'a>(&'a mut self, src: &'a [u8]) -> Write<'a, Self>
-        where
-            Self: Unpin,
-        {
-            write(self, src)
-        }
-
-        /// Like [`write`], except that it writes from a slice of buffers.
-        ///
-        /// Equivalent to:
-        ///
-        /// ```ignore
-        /// async fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> io::Result<usize>;
-        /// ```
-        ///
-        /// See [`AsyncWrite::poll_write_vectored`] for more details.
-        ///
-        /// # Cancel safety
-        ///
-        /// This method is cancel safe. If it is used as a branch in
-        /// [`tokio::select!`](crate::select) and another branch completes
-        /// first, then it is guaranteed that no data was
-        /// written to this `AsyncWrite`.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::io::{self, AsyncWriteExt};
-        /// use tokio::fs::File;
-        /// use std::io::IoSlice;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     let mut file = File::create("foo.txt").await?;
-        ///
-        ///     let bufs: &[_] = &[
-        ///         IoSlice::new(b"hello"),
-        ///         IoSlice::new(b" "),
-        ///         IoSlice::new(b"world"),
-        ///     ];
-        ///
-        ///     file.write_vectored(&bufs).await?;
-        ///     file.flush().await?;
-        ///
-        ///     Ok(())
-        /// }
-        /// # }
-        /// ```
-        ///
-        /// [`write`]: AsyncWriteExt::write
-        fn write_vectored<'a, 'b>(&'a mut self, bufs: &'a [IoSlice<'b>]) -> WriteVectored<'a, 'b, Self>
-        where
-            Self: Unpin,
-        {
-            write_vectored(self, bufs)
-        }
-
-        /// Writes a buffer into this writer, advancing the buffer's internal
-        /// cursor.
-        ///
-        /// Equivalent to:
-        ///
-        /// ```ignore
-        /// async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> io::Result<usize>;
-        /// ```
-        ///
-        /// This function will attempt to write the entire contents of `buf`, but
-        /// the entire write may not succeed, or the write may also generate an
-        /// error. After the operation completes, the buffer's
-        /// internal cursor is advanced by the number of bytes written. A
-        /// subsequent call to `write_buf` using the **same** `buf` value will
-        /// resume from the point that the first call to `write_buf` completed.
-        /// A call to `write_buf` represents *at most one* attempt to write to any
-        /// wrapped object.
-        ///
-        /// # Return
-        ///
-        /// If the return value is `Ok(n)` then it must be guaranteed that `n <=
-        /// buf.len()`. A return value of `0` typically means that the
-        /// underlying object is no longer able to accept bytes and will likely
-        /// not be able to in the future as well, or that the buffer provided is
-        /// empty.
-        ///
-        /// # Errors
-        ///
-        /// Each call to `write` may generate an I/O error indicating that the
-        /// operation could not be completed. If an error is returned then no bytes
-        /// in the buffer were written to this writer.
-        ///
-        /// It is **not** considered an error if the entire buffer could not be
-        /// written to this writer.
-        ///
-        /// # Cancel safety
-        ///
-        /// This method is cancel safe. If it is used as a branch in
-        /// [`tokio::select!`](crate::select) and another branch completes
-        /// first, then it is guaranteed that no data was
-        /// written to this `AsyncWrite`.
-        ///
-        /// # Examples
-        ///
-        /// [`File`] implements [`AsyncWrite`] and [`Cursor`]`<&[u8]>` implements [`Buf`]:
-        ///
-        /// [`File`]: crate::fs::File
-        /// [`Buf`]: bytes::Buf
-        /// [`Cursor`]: std::io::Cursor
-        ///
-        /// ```no_run
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::io::{self, AsyncWriteExt};
-        /// use tokio::fs::File;
-        ///
-        /// use bytes::Buf;
-        /// use std::io::Cursor;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     let mut file = File::create("foo.txt").await?;
-        ///     let mut buffer = Cursor::new(b"data to write");
-        ///
-        ///     // Loop until the entire contents of the buffer are written to
-        ///     // the file.
-        ///     while buffer.has_remaining() {
-        ///         // Writes some prefix of the byte string, not necessarily
-        ///         // all of it.
-        ///         file.write_buf(&mut buffer).await?;
-        ///     }
-        ///     file.flush().await?;
-        ///
-        ///     Ok(())
-        /// }
-        /// # }
-        /// ```
-        fn write_buf<'a, B>(&'a mut self, src: &'a mut B) -> WriteBuf<'a, Self, B>
-        where
-            Self: Sized + Unpin,
-            B: Buf,
-        {
-            write_buf(self, src)
-        }
-
-        /// Attempts to write an entire buffer into this writer.
-        ///
-        /// Equivalent to:
-        ///
-        /// ```ignore
-        /// async fn write_all_buf(&mut self, buf: impl Buf) -> Result<(), io::Error> {
-        ///     while buf.has_remaining() {
-        ///         self.write_buf(&mut buf).await?;
-        ///     }
-        ///     Ok(())
-        /// }
-        /// ```
-        ///
-        /// This method will continuously call [`write`] until
-        /// [`buf.has_remaining()`](bytes::Buf::has_remaining) returns false. This method will not
-        /// return until the entire buffer has been successfully written or an error occurs. The
-        /// first error generated will be returned.
-        ///
-        /// The buffer is advanced after each chunk is successfully written. After failure,
-        /// `src.chunk()` will return the chunk that failed to write.
-        ///
-        /// # Cancel safety
-        ///
-        /// If `write_all_buf` is used as a branch in
-        /// [`tokio::select!`](crate::select) and another branch
-        /// completes first, then the data in the provided buffer may have been
-        /// partially written. However, it is guaranteed that the provided
-        /// buffer has been [advanced] by the amount of bytes that have been
-        /// partially written.
-        ///
-        /// # Examples
-        ///
-        /// [`File`] implements [`AsyncWrite`] and [`Cursor`]`<&[u8]>` implements [`Buf`]:
-        ///
-        /// [`File`]: crate::fs::File
-        /// [`Buf`]: bytes::Buf
-        /// [`Cursor`]: std::io::Cursor
-        /// [advanced]: bytes::Buf::advance
-        ///
-        /// ```no_run
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::io::{self, AsyncWriteExt};
-        /// use tokio::fs::File;
-        ///
-        /// use std::io::Cursor;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     let mut file = File::create("foo.txt").await?;
-        ///     let mut buffer = Cursor::new(b"data to write");
-        ///
-        ///     file.write_all_buf(&mut buffer).await?;
-        ///     file.flush().await?;
-        ///     Ok(())
-        /// }
-        /// # }
-        /// ```
-        ///
-        /// [`write`]: AsyncWriteExt::write
-        fn write_all_buf<'a, B>(&'a mut self, src: &'a mut B) -> WriteAllBuf<'a, Self, B>
-        where
-            Self: Sized + Unpin,
-            B: Buf,
-        {
-            write_all_buf(self, src)
-        }
-
-        /// Attempts to write an entire buffer into this writer.
-        ///
-        /// Equivalent to:
-        ///
-        /// ```ignore
-        /// async fn write_all(&mut self, buf: &[u8]) -> io::Result<()>;
-        /// ```
-        ///
-        /// This method will continuously call [`write`] until there is no more data
-        /// to be written. This method will not return until the entire buffer
-        /// has been successfully written or such an error occurs. The first
-        /// error generated from this method will be returned.
-        ///
-        /// # Cancel safety
-        ///
-        /// This method is not cancel safe. If it is used as a branch in
-        /// [`tokio::select!`](crate::select) and another branch completes
-        /// first, then the provided buffer may have been
-        /// partially written, but future calls to `write_all` will start over
-        /// from the beginning of the buffer.
-        ///
-        /// # Errors
-        ///
-        /// This function will return the first error that [`write`] returns.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::io::{self, AsyncWriteExt};
-        /// use tokio::fs::File;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     let mut file = File::create("foo.txt").await?;
-        ///
-        ///     file.write_all(b"some bytes").await?;
-        ///     file.flush().await?;
-        ///     Ok(())
-        /// }
-        /// # }
-        /// ```
-        ///
-        /// [`write`]: AsyncWriteExt::write
-        fn write_all<'a>(&'a mut self, src: &'a [u8]) -> WriteAll<'a, Self>
-        where
-            Self: Unpin,
-        {
-            write_all(self, src)
-        }
-
-        write_impl! {
-            /// Writes an unsigned 8-bit integer to the underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_u8(&mut self, n: u8) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write unsigned 8 bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_u8(2).await?;
-            /// writer.write_u8(5).await?;
-            ///
-            /// assert_eq!(writer, b"\x02\x05");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_u8(&mut self, n: u8) -> WriteU8;
-
-            /// Writes a signed 8-bit integer to the underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_i8(&mut self, n: i8) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write signed 8 bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_i8(-2).await?;
-            /// writer.write_i8(126).await?;
-            ///
-            /// assert_eq!(writer, b"\xFE\x7E");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_i8(&mut self, n: i8) -> WriteI8;
-
-            /// Writes an unsigned 16-bit integer in big-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_u16(&mut self, n: u16) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write unsigned 16-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_u16(517).await?;
-            /// writer.write_u16(768).await?;
-            ///
-            /// assert_eq!(writer, b"\x02\x05\x03\x00");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_u16(&mut self, n: u16) -> WriteU16;
-
-            /// Writes a signed 16-bit integer in big-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_i16(&mut self, n: i16) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write signed 16-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_i16(193).await?;
-            /// writer.write_i16(-132).await?;
-            ///
-            /// assert_eq!(writer, b"\x00\xc1\xff\x7c");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_i16(&mut self, n: i16) -> WriteI16;
-
-            /// Writes an unsigned 32-bit integer in big-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_u32(&mut self, n: u32) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write unsigned 32-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_u32(267).await?;
-            /// writer.write_u32(1205419366).await?;
-            ///
-            /// assert_eq!(writer, b"\x00\x00\x01\x0b\x47\xd9\x3d\x66");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_u32(&mut self, n: u32) -> WriteU32;
-
-            /// Writes a signed 32-bit integer in big-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_i32(&mut self, n: i32) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write signed 32-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_i32(267).await?;
-            /// writer.write_i32(1205419366).await?;
-            ///
-            /// assert_eq!(writer, b"\x00\x00\x01\x0b\x47\xd9\x3d\x66");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_i32(&mut self, n: i32) -> WriteI32;
-
-            /// Writes an unsigned 64-bit integer in big-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_u64(&mut self, n: u64) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write unsigned 64-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_u64(918733457491587).await?;
-            /// writer.write_u64(143).await?;
-            ///
-            /// assert_eq!(writer, b"\x00\x03\x43\x95\x4d\x60\x86\x83\x00\x00\x00\x00\x00\x00\x00\x8f");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_u64(&mut self, n: u64) -> WriteU64;
-
-            /// Writes an signed 64-bit integer in big-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_i64(&mut self, n: i64) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write signed 64-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_i64(i64::MIN).await?;
-            /// writer.write_i64(i64::MAX).await?;
-            ///
-            /// assert_eq!(writer, b"\x80\x00\x00\x00\x00\x00\x00\x00\x7f\xff\xff\xff\xff\xff\xff\xff");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_i64(&mut self, n: i64) -> WriteI64;
-
-            /// Writes an unsigned 128-bit integer in big-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_u128(&mut self, n: u128) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write unsigned 128-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_u128(16947640962301618749969007319746179).await?;
-            ///
-            /// assert_eq!(writer, vec![
-            ///     0x00, 0x03, 0x43, 0x95, 0x4d, 0x60, 0x86, 0x83,
-            ///     0x00, 0x03, 0x43, 0x95, 0x4d, 0x60, 0x86, 0x83
-            /// ]);
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_u128(&mut self, n: u128) -> WriteU128;
-
-            /// Writes an signed 128-bit integer in big-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_i128(&mut self, n: i128) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write signed 128-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_i128(i128::MIN).await?;
-            ///
-            /// assert_eq!(writer, vec![
-            ///     0x80, 0, 0, 0, 0, 0, 0, 0,
-            ///     0, 0, 0, 0, 0, 0, 0, 0
-            /// ]);
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_i128(&mut self, n: i128) -> WriteI128;
-
-            /// Writes an 32-bit floating point type in big-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_f32(&mut self, n: f32) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write 32-bit floating point type to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_f32(f32::MIN).await?;
-            ///
-            /// assert_eq!(writer, vec![0xff, 0x7f, 0xff, 0xff]);
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_f32(&mut self, n: f32) -> WriteF32;
-
-            /// Writes an 64-bit floating point type in big-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_f64(&mut self, n: f64) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write 64-bit floating point type to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_f64(f64::MIN).await?;
-            ///
-            /// assert_eq!(writer, vec![
-            ///     0xff, 0xef, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
-            /// ]);
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_f64(&mut self, n: f64) -> WriteF64;
-
-            /// Writes an unsigned 16-bit integer in little-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_u16_le(&mut self, n: u16) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write unsigned 16-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_u16_le(517).await?;
-            /// writer.write_u16_le(768).await?;
-            ///
-            /// assert_eq!(writer, b"\x05\x02\x00\x03");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_u16_le(&mut self, n: u16) -> WriteU16Le;
-
-            /// Writes a signed 16-bit integer in little-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_i16_le(&mut self, n: i16) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write signed 16-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_i16_le(193).await?;
-            /// writer.write_i16_le(-132).await?;
-            ///
-            /// assert_eq!(writer, b"\xc1\x00\x7c\xff");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_i16_le(&mut self, n: i16) -> WriteI16Le;
-
-            /// Writes an unsigned 32-bit integer in little-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_u32_le(&mut self, n: u32) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write unsigned 32-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_u32_le(267).await?;
-            /// writer.write_u32_le(1205419366).await?;
-            ///
-            /// assert_eq!(writer, b"\x0b\x01\x00\x00\x66\x3d\xd9\x47");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_u32_le(&mut self, n: u32) -> WriteU32Le;
-
-            /// Writes a signed 32-bit integer in little-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_i32_le(&mut self, n: i32) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write signed 32-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_i32_le(267).await?;
-            /// writer.write_i32_le(1205419366).await?;
-            ///
-            /// assert_eq!(writer, b"\x0b\x01\x00\x00\x66\x3d\xd9\x47");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_i32_le(&mut self, n: i32) -> WriteI32Le;
-
-            /// Writes an unsigned 64-bit integer in little-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_u64_le(&mut self, n: u64) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write unsigned 64-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_u64_le(918733457491587).await?;
-            /// writer.write_u64_le(143).await?;
-            ///
-            /// assert_eq!(writer, b"\x83\x86\x60\x4d\x95\x43\x03\x00\x8f\x00\x00\x00\x00\x00\x00\x00");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_u64_le(&mut self, n: u64) -> WriteU64Le;
-
-            /// Writes an signed 64-bit integer in little-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_i64_le(&mut self, n: i64) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write signed 64-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_i64_le(i64::MIN).await?;
-            /// writer.write_i64_le(i64::MAX).await?;
-            ///
-            /// assert_eq!(writer, b"\x00\x00\x00\x00\x00\x00\x00\x80\xff\xff\xff\xff\xff\xff\xff\x7f");
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_i64_le(&mut self, n: i64) -> WriteI64Le;
-
-            /// Writes an unsigned 128-bit integer in little-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_u128_le(&mut self, n: u128) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write unsigned 128-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_u128_le(16947640962301618749969007319746179).await?;
-            ///
-            /// assert_eq!(writer, vec![
-            ///     0x83, 0x86, 0x60, 0x4d, 0x95, 0x43, 0x03, 0x00,
-            ///     0x83, 0x86, 0x60, 0x4d, 0x95, 0x43, 0x03, 0x00,
-            /// ]);
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_u128_le(&mut self, n: u128) -> WriteU128Le;
-
-            /// Writes an signed 128-bit integer in little-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_i128_le(&mut self, n: i128) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write signed 128-bit integers to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_i128_le(i128::MIN).await?;
-            ///
-            /// assert_eq!(writer, vec![
-            ///     0, 0, 0, 0, 0, 0, 0,
-            ///     0, 0, 0, 0, 0, 0, 0, 0, 0x80
-            /// ]);
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_i128_le(&mut self, n: i128) -> WriteI128Le;
-
-            /// Writes an 32-bit floating point type in little-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_f32_le(&mut self, n: f32) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write 32-bit floating point type to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_f32_le(f32::MIN).await?;
-            ///
-            /// assert_eq!(writer, vec![0xff, 0xff, 0x7f, 0xff]);
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_f32_le(&mut self, n: f32) -> WriteF32Le;
-
-            /// Writes an 64-bit floating point type in little-endian order to the
-            /// underlying writer.
-            ///
-            /// Equivalent to:
-            ///
-            /// ```ignore
-            /// async fn write_f64_le(&mut self, n: f64) -> io::Result<()>;
-            /// ```
-            ///
-            /// It is recommended to use a buffered writer to avoid excessive
-            /// syscalls.
-            ///
-            /// # Errors
-            ///
-            /// This method returns the same errors as [`AsyncWriteExt::write_all`].
-            ///
-            /// [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all
-            ///
-            /// # Examples
-            ///
-            /// Write 64-bit floating point type to a `AsyncWrite`:
-            ///
-            /// ```rust
-            /// use tokio::io::{self, AsyncWriteExt};
-            ///
-            /// # #[tokio::main(flavor = "current_thread")]
-            /// # async fn main() -> io::Result<()> {
-            /// let mut writer = Vec::new();
-            ///
-            /// writer.write_f64_le(f64::MIN).await?;
-            ///
-            /// assert_eq!(writer, vec![
-            ///     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xef, 0xff
-            /// ]);
-            /// Ok(())
-            /// # }
-            /// ```
-            fn write_f64_le(&mut self, n: f64) -> WriteF64Le;
-        }
-
-        /// Flushes this output stream, ensuring that all intermediately buffered
-        /// contents reach their destination.
-        ///
-        /// Equivalent to:
-        ///
-        /// ```ignore
-        /// async fn flush(&mut self) -> io::Result<()>;
-        /// ```
-        ///
-        /// # Errors
-        ///
-        /// It is considered an error if not all bytes could be written due to
-        /// I/O errors or EOF being reached.
-        ///
-        /// # Cancel safety
-        ///
-        /// This method is cancel safe.
-        ///
-        /// If `flush` is used as a branch in [`tokio::select!`](crate::select)
-        /// and another branch completes first, then the buffered data in this
-        /// `AsyncWrite` may have been partially flushed.
-        /// However, it is guaranteed that the buffer is advanced by the amount of
-        /// bytes that have been partially flushed.
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::io::{self, BufWriter, AsyncWriteExt};
-        /// use tokio::fs::File;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     let f = File::create("foo.txt").await?;
-        ///     let mut buffer = BufWriter::new(f);
-        ///
-        ///     buffer.write_all(b"some bytes").await?;
-        ///     buffer.flush().await?;
-        ///     Ok(())
-        /// }
-        /// # }
-        /// ```
-        fn flush(&mut self) -> Flush<'_, Self>
-        where
-            Self: Unpin,
-        {
-            flush(self)
-        }
-
-        /// Shuts down the output stream, ensuring that the value can be dropped
-        /// cleanly.
-        ///
-        /// Equivalent to:
-        ///
-        /// ```ignore
-        /// async fn shutdown(&mut self) -> io::Result<()>;
-        /// ```
-        ///
-        /// Similar to [`flush`], all intermediately buffered content is written to
-        /// the underlying stream. Once the operation completes, the caller should
-        /// no longer attempt to write to the stream. For example, the
-        /// `TcpStream` implementation will issue a `shutdown(Write)` sys call.
-        ///
-        /// [`flush`]: fn@crate::io::AsyncWriteExt::flush
-        ///
-        /// # Examples
-        ///
-        /// ```no_run
-        /// # #[cfg(not(target_family = "wasm"))]
-        /// # {
-        /// use tokio::io::{self, BufWriter, AsyncWriteExt};
-        /// use tokio::fs::File;
-        ///
-        /// #[tokio::main]
-        /// async fn main() -> io::Result<()> {
-        ///     let f = File::create("foo.txt").await?;
-        ///     let mut buffer = BufWriter::new(f);
-        ///
-        ///     buffer.write_all(b"some bytes").await?;
-        ///     buffer.shutdown().await?;
-        ///     Ok(())
-        /// }
-        /// # }
-        /// ```
-        fn shutdown(&mut self) -> Shutdown<'_, Self>
-        where
-            Self: Unpin,
-        {
-            shutdown(self)
-        }
-    }
+    #[doc = " Defines numeric writer."] macro_rules! write_impl { ($($(#[$outer : meta])*
+    fn $name : ident(& mut self, n : $ty : ty) -> $($fut : ident)*;)*) => {
+    $($(#[$outer])* fn $name (& mut self, n : $ty) -> $($fut)*<& mut Self > where Self :
+    Unpin { $($fut)*:: new(self, n) })* } } #[doc = " Writes bytes to a sink."] #[doc =
+    ""] #[doc = " Implemented as an extension trait, adding utility methods to all"]
+    #[doc = " [`AsyncWrite`] types. Callers will tend to import this trait instead of"]
+    #[doc = " [`AsyncWrite`]."] #[doc = ""] #[doc = " ```no_run"] #[doc =
+    " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+    " use tokio::io::{self, AsyncWriteExt};"] #[doc = " use tokio::fs::File;"] #[doc =
+    ""] #[doc = " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc
+    = "     let data = b\"some bytes\";"] #[doc = ""] #[doc = "     let mut pos = 0;"]
+    #[doc = "     let mut buffer = File::create(\"foo.txt\").await?;"] #[doc = ""] #[doc
+    = "     while pos < data.len() {"] #[doc =
+    "         let bytes_written = buffer.write(&data[pos..]).await?;"] #[doc =
+    "         pos += bytes_written;"] #[doc = "     }"] #[doc = ""] #[doc =
+    "     Ok(())"] #[doc = " }"] #[doc = " # }"] #[doc = " ```"] #[doc = ""] #[doc =
+    " See [module][crate::io] documentation for more details."] #[doc = ""] #[doc =
+    " [`AsyncWrite`]: AsyncWrite"] pub trait AsyncWriteExt : AsyncWrite { #[doc =
+    " Writes a buffer into this writer, returning how many bytes were"] #[doc =
+    " written."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc = " ```ignore"]
+    #[doc = " async fn write(&mut self, buf: &[u8]) -> io::Result<usize>;"] #[doc =
+    " ```"] #[doc = ""] #[doc =
+    " This function will attempt to write the entire contents of `buf`, but"] #[doc =
+    " the entire write may not succeed, or the write may also generate an"] #[doc =
+    " error. A call to `write` represents *at most one* attempt to write to"] #[doc =
+    " any wrapped object."] #[doc = ""] #[doc = " # Return"] #[doc = ""] #[doc =
+    " If the return value is `Ok(n)` then it must be guaranteed that `n <="] #[doc =
+    " buf.len()`. A return value of `0` typically means that the"] #[doc =
+    " underlying object is no longer able to accept bytes and will likely"] #[doc =
+    " not be able to in the future as well, or that the buffer provided is"] #[doc =
+    " empty."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " Each call to `write` may generate an I/O error indicating that the"] #[doc =
+    " operation could not be completed. If an error is returned then no bytes"] #[doc =
+    " in the buffer were written to this writer."] #[doc = ""] #[doc =
+    " It is **not** considered an error if the entire buffer could not be"] #[doc =
+    " written to this writer."] #[doc = ""] #[doc = " # Cancel safety"] #[doc = ""] #[doc
+    = " This method is cancel safe. If it is used as a branch in"] #[doc =
+    " [`tokio::select!`](crate::select) and another branch completes"] #[doc =
+    " first, then it is guaranteed that no data was"] #[doc =
+    " written to this `AsyncWrite`."] #[doc = ""] #[doc = " # Examples"] #[doc = ""]
+    #[doc = " ```no_run"] #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc =
+    " # {"] #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc =
+    " use tokio::fs::File;"] #[doc = ""] #[doc = " #[tokio::main]"] #[doc =
+    " async fn main() -> io::Result<()> {"] #[doc =
+    "     let mut file = File::create(\"foo.txt\").await?;"] #[doc = ""] #[doc =
+    "     // Writes some prefix of the byte string, not necessarily all of it."] #[doc =
+    "     file.write(b\"some bytes\").await?;"] #[doc = "     file.flush().await?;"]
+    #[doc = "     Ok(())"] #[doc = " }"] #[doc = " # }"] #[doc = " ```"] fn write <'a >
+    (&'a mut self, src : &'a[u8]) -> Write <'a, Self > where Self : Unpin, { write(self,
+    src) } #[doc = " Like [`write`], except that it writes from a slice of buffers."]
+    #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc = " ```ignore"] #[doc =
+    " async fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> io::Result<usize>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " See [`AsyncWrite::poll_write_vectored`] for more details."] #[doc = ""] #[doc =
+    " # Cancel safety"] #[doc = ""] #[doc =
+    " This method is cancel safe. If it is used as a branch in"] #[doc =
+    " [`tokio::select!`](crate::select) and another branch completes"] #[doc =
+    " first, then it is guaranteed that no data was"] #[doc =
+    " written to this `AsyncWrite`."] #[doc = ""] #[doc = " # Examples"] #[doc = ""]
+    #[doc = " ```no_run"] #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc =
+    " # {"] #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc =
+    " use tokio::fs::File;"] #[doc = " use std::io::IoSlice;"] #[doc = ""] #[doc =
+    " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc =
+    "     let mut file = File::create(\"foo.txt\").await?;"] #[doc = ""] #[doc =
+    "     let bufs: &[_] = &["] #[doc = "         IoSlice::new(b\"hello\"),"] #[doc =
+    "         IoSlice::new(b\" \"),"] #[doc = "         IoSlice::new(b\"world\"),"] #[doc
+    = "     ];"] #[doc = ""] #[doc = "     file.write_vectored(&bufs).await?;"] #[doc =
+    "     file.flush().await?;"] #[doc = ""] #[doc = "     Ok(())"] #[doc = " }"] #[doc =
+    " # }"] #[doc = " ```"] #[doc = ""] #[doc = " [`write`]: AsyncWriteExt::write"] fn
+    write_vectored <'a, 'b > (&'a mut self, bufs : &'a[IoSlice <'b >]) -> WriteVectored
+    <'a, 'b, Self > where Self : Unpin, { write_vectored(self, bufs) } #[doc =
+    " Writes a buffer into this writer, advancing the buffer's internal"] #[doc =
+    " cursor."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc = " ```ignore"]
+    #[doc = " async fn write_buf<B: Buf>(&mut self, buf: &mut B) -> io::Result<usize>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " This function will attempt to write the entire contents of `buf`, but"] #[doc =
+    " the entire write may not succeed, or the write may also generate an"] #[doc =
+    " error. After the operation completes, the buffer's"] #[doc =
+    " internal cursor is advanced by the number of bytes written. A"] #[doc =
+    " subsequent call to `write_buf` using the **same** `buf` value will"] #[doc =
+    " resume from the point that the first call to `write_buf` completed."] #[doc =
+    " A call to `write_buf` represents *at most one* attempt to write to any"] #[doc =
+    " wrapped object."] #[doc = ""] #[doc = " # Return"] #[doc = ""] #[doc =
+    " If the return value is `Ok(n)` then it must be guaranteed that `n <="] #[doc =
+    " buf.len()`. A return value of `0` typically means that the"] #[doc =
+    " underlying object is no longer able to accept bytes and will likely"] #[doc =
+    " not be able to in the future as well, or that the buffer provided is"] #[doc =
+    " empty."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " Each call to `write` may generate an I/O error indicating that the"] #[doc =
+    " operation could not be completed. If an error is returned then no bytes"] #[doc =
+    " in the buffer were written to this writer."] #[doc = ""] #[doc =
+    " It is **not** considered an error if the entire buffer could not be"] #[doc =
+    " written to this writer."] #[doc = ""] #[doc = " # Cancel safety"] #[doc = ""] #[doc
+    = " This method is cancel safe. If it is used as a branch in"] #[doc =
+    " [`tokio::select!`](crate::select) and another branch completes"] #[doc =
+    " first, then it is guaranteed that no data was"] #[doc =
+    " written to this `AsyncWrite`."] #[doc = ""] #[doc = " # Examples"] #[doc = ""]
+    #[doc =
+    " [`File`] implements [`AsyncWrite`] and [`Cursor`]`<&[u8]>` implements [`Buf`]:"]
+    #[doc = ""] #[doc = " [`File`]: crate::fs::File"] #[doc = " [`Buf`]: bytes::Buf"]
+    #[doc = " [`Cursor`]: std::io::Cursor"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+    " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+    " use tokio::io::{self, AsyncWriteExt};"] #[doc = " use tokio::fs::File;"] #[doc =
+    ""] #[doc = " use bytes::Buf;"] #[doc = " use std::io::Cursor;"] #[doc = ""] #[doc =
+    " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc =
+    "     let mut file = File::create(\"foo.txt\").await?;"] #[doc =
+    "     let mut buffer = Cursor::new(b\"data to write\");"] #[doc = ""] #[doc =
+    "     // Loop until the entire contents of the buffer are written to"] #[doc =
+    "     // the file."] #[doc = "     while buffer.has_remaining() {"] #[doc =
+    "         // Writes some prefix of the byte string, not necessarily"] #[doc =
+    "         // all of it."] #[doc = "         file.write_buf(&mut buffer).await?;"]
+    #[doc = "     }"] #[doc = "     file.flush().await?;"] #[doc = ""] #[doc =
+    "     Ok(())"] #[doc = " }"] #[doc = " # }"] #[doc = " ```"] fn write_buf <'a, B >
+    (&'a mut self, src : &'a mut B) -> WriteBuf <'a, Self, B > where Self : Sized +
+    Unpin, B : Buf, { write_buf(self, src) } #[doc =
+    " Attempts to write an entire buffer into this writer."] #[doc = ""] #[doc =
+    " Equivalent to:"] #[doc = ""] #[doc = " ```ignore"] #[doc =
+    " async fn write_all_buf(&mut self, buf: impl Buf) -> Result<(), io::Error> {"] #[doc
+    = "     while buf.has_remaining() {"] #[doc =
+    "         self.write_buf(&mut buf).await?;"] #[doc = "     }"] #[doc = "     Ok(())"]
+    #[doc = " }"] #[doc = " ```"] #[doc = ""] #[doc =
+    " This method will continuously call [`write`] until"] #[doc =
+    " [`buf.has_remaining()`](bytes::Buf::has_remaining) returns false. This method will not"]
+    #[doc =
+    " return until the entire buffer has been successfully written or an error occurs. The"]
+    #[doc = " first error generated will be returned."] #[doc = ""] #[doc =
+    " The buffer is advanced after each chunk is successfully written. After failure,"]
+    #[doc = " `src.chunk()` will return the chunk that failed to write."] #[doc = ""]
+    #[doc = " # Cancel safety"] #[doc = ""] #[doc =
+    " If `write_all_buf` is used as a branch in"] #[doc =
+    " [`tokio::select!`](crate::select) and another branch"] #[doc =
+    " completes first, then the data in the provided buffer may have been"] #[doc =
+    " partially written. However, it is guaranteed that the provided"] #[doc =
+    " buffer has been [advanced] by the amount of bytes that have been"] #[doc =
+    " partially written."] #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc =
+    " [`File`] implements [`AsyncWrite`] and [`Cursor`]`<&[u8]>` implements [`Buf`]:"]
+    #[doc = ""] #[doc = " [`File`]: crate::fs::File"] #[doc = " [`Buf`]: bytes::Buf"]
+    #[doc = " [`Cursor`]: std::io::Cursor"] #[doc = " [advanced]: bytes::Buf::advance"]
+    #[doc = ""] #[doc = " ```no_run"] #[doc = " # #[cfg(not(target_family = \"wasm\"))]"]
+    #[doc = " # {"] #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc =
+    " use tokio::fs::File;"] #[doc = ""] #[doc = " use std::io::Cursor;"] #[doc = ""]
+    #[doc = " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc =
+    "     let mut file = File::create(\"foo.txt\").await?;"] #[doc =
+    "     let mut buffer = Cursor::new(b\"data to write\");"] #[doc = ""] #[doc =
+    "     file.write_all_buf(&mut buffer).await?;"] #[doc = "     file.flush().await?;"]
+    #[doc = "     Ok(())"] #[doc = " }"] #[doc = " # }"] #[doc = " ```"] #[doc = ""]
+    #[doc = " [`write`]: AsyncWriteExt::write"] fn write_all_buf <'a, B > (&'a mut self,
+    src : &'a mut B) -> WriteAllBuf <'a, Self, B > where Self : Sized + Unpin, B : Buf, {
+    write_all_buf(self, src) } #[doc =
+    " Attempts to write an entire buffer into this writer."] #[doc = ""] #[doc =
+    " Equivalent to:"] #[doc = ""] #[doc = " ```ignore"] #[doc =
+    " async fn write_all(&mut self, buf: &[u8]) -> io::Result<()>;"] #[doc = " ```"]
+    #[doc = ""] #[doc =
+    " This method will continuously call [`write`] until there is no more data"] #[doc =
+    " to be written. This method will not return until the entire buffer"] #[doc =
+    " has been successfully written or such an error occurs. The first"] #[doc =
+    " error generated from this method will be returned."] #[doc = ""] #[doc =
+    " # Cancel safety"] #[doc = ""] #[doc =
+    " This method is not cancel safe. If it is used as a branch in"] #[doc =
+    " [`tokio::select!`](crate::select) and another branch completes"] #[doc =
+    " first, then the provided buffer may have been"] #[doc =
+    " partially written, but future calls to `write_all` will start over"] #[doc =
+    " from the beginning of the buffer."] #[doc = ""] #[doc = " # Errors"] #[doc = ""]
+    #[doc = " This function will return the first error that [`write`] returns."] #[doc =
+    ""] #[doc = " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+    " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+    " use tokio::io::{self, AsyncWriteExt};"] #[doc = " use tokio::fs::File;"] #[doc =
+    ""] #[doc = " #[tokio::main]"] #[doc = " async fn main() -> io::Result<()> {"] #[doc
+    = "     let mut file = File::create(\"foo.txt\").await?;"] #[doc = ""] #[doc =
+    "     file.write_all(b\"some bytes\").await?;"] #[doc = "     file.flush().await?;"]
+    #[doc = "     Ok(())"] #[doc = " }"] #[doc = " # }"] #[doc = " ```"] #[doc = ""]
+    #[doc = " [`write`]: AsyncWriteExt::write"] fn write_all <'a > (&'a mut self, src :
+    &'a[u8]) -> WriteAll <'a, Self > where Self : Unpin, { write_all(self, src) }
+    write_impl! { #[doc = " Writes an unsigned 8-bit integer to the underlying writer."]
+    #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc = " ```ignore"] #[doc =
+    " async fn write_u8(&mut self, n: u8) -> io::Result<()>;"] #[doc = " ```"] #[doc =
+    ""] #[doc = " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write unsigned 8 bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_u8(2).await?;"] #[doc =
+    " writer.write_u8(5).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x02\\x05\");"] #[doc = " Ok(())"] #[doc = " # }"] #[doc =
+    " ```"] fn write_u8(& mut self, n : u8) -> WriteU8; #[doc =
+    " Writes a signed 8-bit integer to the underlying writer."] #[doc = ""] #[doc =
+    " Equivalent to:"] #[doc = ""] #[doc = " ```ignore"] #[doc =
+    " async fn write_i8(&mut self, n: i8) -> io::Result<()>;"] #[doc = " ```"] #[doc =
+    ""] #[doc = " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write signed 8 bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_i8(-2).await?;"] #[doc =
+    " writer.write_i8(126).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\xFE\\x7E\");"] #[doc = " Ok(())"] #[doc = " # }"] #[doc =
+    " ```"] fn write_i8(& mut self, n : i8) -> WriteI8; #[doc =
+    " Writes an unsigned 16-bit integer in big-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_u16(&mut self, n: u16) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write unsigned 16-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_u16(517).await?;"] #[doc =
+    " writer.write_u16(768).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x02\\x05\\x03\\x00\");"] #[doc = " Ok(())"] #[doc = " # }"]
+    #[doc = " ```"] fn write_u16(& mut self, n : u16) -> WriteU16; #[doc =
+    " Writes a signed 16-bit integer in big-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_i16(&mut self, n: i16) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write signed 16-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_i16(193).await?;"] #[doc =
+    " writer.write_i16(-132).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x00\\xc1\\xff\\x7c\");"] #[doc = " Ok(())"] #[doc = " # }"]
+    #[doc = " ```"] fn write_i16(& mut self, n : i16) -> WriteI16; #[doc =
+    " Writes an unsigned 32-bit integer in big-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_u32(&mut self, n: u32) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write unsigned 32-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_u32(267).await?;"] #[doc =
+    " writer.write_u32(1205419366).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x00\\x00\\x01\\x0b\\x47\\xd9\\x3d\\x66\");"] #[doc =
+    " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_u32(& mut self, n : u32) ->
+    WriteU32; #[doc = " Writes a signed 32-bit integer in big-endian order to the"] #[doc
+    = " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_i32(&mut self, n: i32) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write signed 32-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_i32(267).await?;"] #[doc =
+    " writer.write_i32(1205419366).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x00\\x00\\x01\\x0b\\x47\\xd9\\x3d\\x66\");"] #[doc =
+    " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_i32(& mut self, n : i32) ->
+    WriteI32; #[doc = " Writes an unsigned 64-bit integer in big-endian order to the"]
+    #[doc = " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""]
+    #[doc = " ```ignore"] #[doc =
+    " async fn write_u64(&mut self, n: u64) -> io::Result<()>;"] #[doc = " ```"] #[doc =
+    ""] #[doc = " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write unsigned 64-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_u64(918733457491587).await?;"] #[doc =
+    " writer.write_u64(143).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x00\\x03\\x43\\x95\\x4d\\x60\\x86\\x83\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x8f\");"]
+    #[doc = " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_u64(& mut self, n : u64)
+    -> WriteU64; #[doc = " Writes an signed 64-bit integer in big-endian order to the"]
+    #[doc = " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""]
+    #[doc = " ```ignore"] #[doc =
+    " async fn write_i64(&mut self, n: i64) -> io::Result<()>;"] #[doc = " ```"] #[doc =
+    ""] #[doc = " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write signed 64-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_i64(i64::MIN).await?;"] #[doc =
+    " writer.write_i64(i64::MAX).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x80\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x7f\\xff\\xff\\xff\\xff\\xff\\xff\\xff\");"]
+    #[doc = " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_i64(& mut self, n : i64)
+    -> WriteI64; #[doc =
+    " Writes an unsigned 128-bit integer in big-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_u128(&mut self, n: u128) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write unsigned 128-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc =
+    " ```rust"] #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc =
+    " writer.write_u128(16947640962301618749969007319746179).await?;"] #[doc = ""] #[doc
+    = " assert_eq!(writer, vec!["] #[doc =
+    "     0x00, 0x03, 0x43, 0x95, 0x4d, 0x60, 0x86, 0x83,"] #[doc =
+    "     0x00, 0x03, 0x43, 0x95, 0x4d, 0x60, 0x86, 0x83"] #[doc = " ]);"] #[doc =
+    " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_u128(& mut self, n : u128) ->
+    WriteU128; #[doc = " Writes an signed 128-bit integer in big-endian order to the"]
+    #[doc = " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""]
+    #[doc = " ```ignore"] #[doc =
+    " async fn write_i128(&mut self, n: i128) -> io::Result<()>;"] #[doc = " ```"] #[doc
+    = ""] #[doc = " It is recommended to use a buffered writer to avoid excessive"] #[doc
+    = " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write signed 128-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_i128(i128::MIN).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, vec!["] #[doc = "     0x80, 0, 0, 0, 0, 0, 0, 0,"] #[doc =
+    "     0, 0, 0, 0, 0, 0, 0, 0"] #[doc = " ]);"] #[doc = " Ok(())"] #[doc = " # }"]
+    #[doc = " ```"] fn write_i128(& mut self, n : i128) -> WriteI128; #[doc =
+    " Writes an 32-bit floating point type in big-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_f32(&mut self, n: f32) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write 32-bit floating point type to a `AsyncWrite`:"] #[doc = ""] #[doc =
+    " ```rust"] #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_f32(f32::MIN).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, vec![0xff, 0x7f, 0xff, 0xff]);"] #[doc = " Ok(())"] #[doc =
+    " # }"] #[doc = " ```"] fn write_f32(& mut self, n : f32) -> WriteF32; #[doc =
+    " Writes an 64-bit floating point type in big-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_f64(&mut self, n: f64) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write 64-bit floating point type to a `AsyncWrite`:"] #[doc = ""] #[doc =
+    " ```rust"] #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_f64(f64::MIN).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, vec!["] #[doc =
+    "     0xff, 0xef, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff"] #[doc = " ]);"] #[doc =
+    " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_f64(& mut self, n : f64) ->
+    WriteF64; #[doc = " Writes an unsigned 16-bit integer in little-endian order to the"]
+    #[doc = " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""]
+    #[doc = " ```ignore"] #[doc =
+    " async fn write_u16_le(&mut self, n: u16) -> io::Result<()>;"] #[doc = " ```"] #[doc
+    = ""] #[doc = " It is recommended to use a buffered writer to avoid excessive"] #[doc
+    = " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write unsigned 16-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_u16_le(517).await?;"] #[doc =
+    " writer.write_u16_le(768).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x05\\x02\\x00\\x03\");"] #[doc = " Ok(())"] #[doc = " # }"]
+    #[doc = " ```"] fn write_u16_le(& mut self, n : u16) -> WriteU16Le; #[doc =
+    " Writes a signed 16-bit integer in little-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_i16_le(&mut self, n: i16) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write signed 16-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_i16_le(193).await?;"] #[doc =
+    " writer.write_i16_le(-132).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\xc1\\x00\\x7c\\xff\");"] #[doc = " Ok(())"] #[doc = " # }"]
+    #[doc = " ```"] fn write_i16_le(& mut self, n : i16) -> WriteI16Le; #[doc =
+    " Writes an unsigned 32-bit integer in little-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_u32_le(&mut self, n: u32) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write unsigned 32-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_u32_le(267).await?;"] #[doc =
+    " writer.write_u32_le(1205419366).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x0b\\x01\\x00\\x00\\x66\\x3d\\xd9\\x47\");"] #[doc =
+    " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_u32_le(& mut self, n : u32) ->
+    WriteU32Le; #[doc = " Writes a signed 32-bit integer in little-endian order to the"]
+    #[doc = " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""]
+    #[doc = " ```ignore"] #[doc =
+    " async fn write_i32_le(&mut self, n: i32) -> io::Result<()>;"] #[doc = " ```"] #[doc
+    = ""] #[doc = " It is recommended to use a buffered writer to avoid excessive"] #[doc
+    = " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write signed 32-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_i32_le(267).await?;"] #[doc =
+    " writer.write_i32_le(1205419366).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x0b\\x01\\x00\\x00\\x66\\x3d\\xd9\\x47\");"] #[doc =
+    " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_i32_le(& mut self, n : i32) ->
+    WriteI32Le; #[doc =
+    " Writes an unsigned 64-bit integer in little-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_u64_le(&mut self, n: u64) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write unsigned 64-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_u64_le(918733457491587).await?;"] #[doc =
+    " writer.write_u64_le(143).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x83\\x86\\x60\\x4d\\x95\\x43\\x03\\x00\\x8f\\x00\\x00\\x00\\x00\\x00\\x00\\x00\");"]
+    #[doc = " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_u64_le(& mut self, n :
+    u64) -> WriteU64Le; #[doc =
+    " Writes an signed 64-bit integer in little-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_i64_le(&mut self, n: i64) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write signed 64-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_i64_le(i64::MIN).await?;"] #[doc =
+    " writer.write_i64_le(i64::MAX).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, b\"\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x80\\xff\\xff\\xff\\xff\\xff\\xff\\xff\\x7f\");"]
+    #[doc = " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_i64_le(& mut self, n :
+    i64) -> WriteI64Le; #[doc =
+    " Writes an unsigned 128-bit integer in little-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc =
+    " async fn write_u128_le(&mut self, n: u128) -> io::Result<()>;"] #[doc = " ```"]
+    #[doc = ""] #[doc = " It is recommended to use a buffered writer to avoid excessive"]
+    #[doc = " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write unsigned 128-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc =
+    " ```rust"] #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc =
+    " writer.write_u128_le(16947640962301618749969007319746179).await?;"] #[doc = ""]
+    #[doc = " assert_eq!(writer, vec!["] #[doc =
+    "     0x83, 0x86, 0x60, 0x4d, 0x95, 0x43, 0x03, 0x00,"] #[doc =
+    "     0x83, 0x86, 0x60, 0x4d, 0x95, 0x43, 0x03, 0x00,"] #[doc = " ]);"] #[doc =
+    " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_u128_le(& mut self, n : u128) ->
+    WriteU128Le; #[doc =
+    " Writes an signed 128-bit integer in little-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc =
+    " async fn write_i128_le(&mut self, n: i128) -> io::Result<()>;"] #[doc = " ```"]
+    #[doc = ""] #[doc = " It is recommended to use a buffered writer to avoid excessive"]
+    #[doc = " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write signed 128-bit integers to a `AsyncWrite`:"] #[doc = ""] #[doc = " ```rust"]
+    #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_i128_le(i128::MIN).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, vec!["] #[doc = "     0, 0, 0, 0, 0, 0, 0,"] #[doc =
+    "     0, 0, 0, 0, 0, 0, 0, 0, 0x80"] #[doc = " ]);"] #[doc = " Ok(())"] #[doc =
+    " # }"] #[doc = " ```"] fn write_i128_le(& mut self, n : i128) -> WriteI128Le; #[doc
+    = " Writes an 32-bit floating point type in little-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_f32_le(&mut self, n: f32) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write 32-bit floating point type to a `AsyncWrite`:"] #[doc = ""] #[doc =
+    " ```rust"] #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_f32_le(f32::MIN).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, vec![0xff, 0xff, 0x7f, 0xff]);"] #[doc = " Ok(())"] #[doc =
+    " # }"] #[doc = " ```"] fn write_f32_le(& mut self, n : f32) -> WriteF32Le; #[doc =
+    " Writes an 64-bit floating point type in little-endian order to the"] #[doc =
+    " underlying writer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc =
+    " ```ignore"] #[doc = " async fn write_f64_le(&mut self, n: f64) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " It is recommended to use a buffered writer to avoid excessive"] #[doc =
+    " syscalls."] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This method returns the same errors as [`AsyncWriteExt::write_all`]."] #[doc = ""]
+    #[doc = " [`AsyncWriteExt::write_all`]: AsyncWriteExt::write_all"] #[doc = ""] #[doc
+    = " # Examples"] #[doc = ""] #[doc =
+    " Write 64-bit floating point type to a `AsyncWrite`:"] #[doc = ""] #[doc =
+    " ```rust"] #[doc = " use tokio::io::{self, AsyncWriteExt};"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc =
+    " # async fn main() -> io::Result<()> {"] #[doc = " let mut writer = Vec::new();"]
+    #[doc = ""] #[doc = " writer.write_f64_le(f64::MIN).await?;"] #[doc = ""] #[doc =
+    " assert_eq!(writer, vec!["] #[doc =
+    "     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xef, 0xff"] #[doc = " ]);"] #[doc =
+    " Ok(())"] #[doc = " # }"] #[doc = " ```"] fn write_f64_le(& mut self, n : f64) ->
+    WriteF64Le; } #[doc =
+    " Flushes this output stream, ensuring that all intermediately buffered"] #[doc =
+    " contents reach their destination."] #[doc = ""] #[doc = " Equivalent to:"] #[doc =
+    ""] #[doc = " ```ignore"] #[doc = " async fn flush(&mut self) -> io::Result<()>;"]
+    #[doc = " ```"] #[doc = ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " It is considered an error if not all bytes could be written due to"] #[doc =
+    " I/O errors or EOF being reached."] #[doc = ""] #[doc = " # Cancel safety"] #[doc =
+    ""] #[doc = " This method is cancel safe."] #[doc = ""] #[doc =
+    " If `flush` is used as a branch in [`tokio::select!`](crate::select)"] #[doc =
+    " and another branch completes first, then the buffered data in this"] #[doc =
+    " `AsyncWrite` may have been partially flushed."] #[doc =
+    " However, it is guaranteed that the buffer is advanced by the amount of"] #[doc =
+    " bytes that have been partially flushed."] #[doc = ""] #[doc = " # Examples"] #[doc
+    = ""] #[doc = " ```no_run"] #[doc = " # #[cfg(not(target_family = \"wasm\"))]"] #[doc
+    = " # {"] #[doc = " use tokio::io::{self, BufWriter, AsyncWriteExt};"] #[doc =
+    " use tokio::fs::File;"] #[doc = ""] #[doc = " #[tokio::main]"] #[doc =
+    " async fn main() -> io::Result<()> {"] #[doc =
+    "     let f = File::create(\"foo.txt\").await?;"] #[doc =
+    "     let mut buffer = BufWriter::new(f);"] #[doc = ""] #[doc =
+    "     buffer.write_all(b\"some bytes\").await?;"] #[doc =
+    "     buffer.flush().await?;"] #[doc = "     Ok(())"] #[doc = " }"] #[doc = " # }"]
+    #[doc = " ```"] fn flush(& mut self) -> Flush <'_, Self > where Self : Unpin, {
+    flush(self) } #[doc =
+    " Shuts down the output stream, ensuring that the value can be dropped"] #[doc =
+    " cleanly."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc = " ```ignore"]
+    #[doc = " async fn shutdown(&mut self) -> io::Result<()>;"] #[doc = " ```"] #[doc =
+    ""] #[doc =
+    " Similar to [`flush`], all intermediately buffered content is written to"] #[doc =
+    " the underlying stream. Once the operation completes, the caller should"] #[doc =
+    " no longer attempt to write to the stream. For example, the"] #[doc =
+    " `TcpStream` implementation will issue a `shutdown(Write)` sys call."] #[doc = ""]
+    #[doc = " [`flush`]: fn@crate::io::AsyncWriteExt::flush"] #[doc = ""] #[doc =
+    " # Examples"] #[doc = ""] #[doc = " ```no_run"] #[doc =
+    " # #[cfg(not(target_family = \"wasm\"))]"] #[doc = " # {"] #[doc =
+    " use tokio::io::{self, BufWriter, AsyncWriteExt};"] #[doc = " use tokio::fs::File;"]
+    #[doc = ""] #[doc = " #[tokio::main]"] #[doc =
+    " async fn main() -> io::Result<()> {"] #[doc =
+    "     let f = File::create(\"foo.txt\").await?;"] #[doc =
+    "     let mut buffer = BufWriter::new(f);"] #[doc = ""] #[doc =
+    "     buffer.write_all(b\"some bytes\").await?;"] #[doc =
+    "     buffer.shutdown().await?;"] #[doc = "     Ok(())"] #[doc = " }"] #[doc =
+    " # }"] #[doc = " ```"] fn shutdown(& mut self) -> Shutdown <'_, Self > where Self :
+    Unpin, { shutdown(self) } }
 }
-
 impl<W: AsyncWrite + ?Sized> AsyncWriteExt for W {}

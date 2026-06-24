@@ -4,354 +4,188 @@ use crate::io::util::read_line::{read_line, ReadLine};
 use crate::io::util::read_until::{read_until, ReadUntil};
 use crate::io::util::split::{split, Split};
 use crate::io::AsyncBufRead;
-
 cfg_io_util! {
-    /// An extension trait which adds utility methods to [`AsyncBufRead`] types.
-    ///
-    /// [`AsyncBufRead`]: crate::io::AsyncBufRead
-    pub trait AsyncBufReadExt: AsyncBufRead {
-        /// Reads all bytes into `buf` until the delimiter `byte` or EOF is reached.
-        ///
-        /// Equivalent to:
-        ///
-        /// ```ignore
-        /// async fn read_until(&mut self, byte: u8, buf: &mut Vec<u8>) -> io::Result<usize>;
-        /// ```
-        ///
-        /// This function will read bytes from the underlying stream until the
-        /// delimiter or EOF is found. Once found, all bytes up to, and including,
-        /// the delimiter (if found) will be appended to `buf`.
-        ///
-        /// If successful, this function will return the total number of bytes read.
-        ///
-        /// If this function returns `Ok(0)`, the stream has reached EOF.
-        ///
-        /// # Errors
-        ///
-        /// This function will ignore all instances of [`ErrorKind::Interrupted`] and
-        /// will otherwise return any errors returned by [`fill_buf`].
-        ///
-        /// If an I/O error is encountered then all bytes read so far will be
-        /// present in `buf` and its length will have been adjusted appropriately.
-        ///
-        /// [`fill_buf`]: AsyncBufRead::poll_fill_buf
-        /// [`ErrorKind::Interrupted`]: std::io::ErrorKind::Interrupted
-        ///
-        /// # Cancel safety
-        ///
-        /// If used as a branch in
-        /// [`tokio::select!`](crate::select) and another branch
-        /// completes first, then some data may have been partially read. Any
-        /// partially read bytes are appended to `buf`, and the method can be
-        /// called again to continue reading until `byte`.
-        ///
-        /// This method returns the total number of bytes read. If you cancel
-        /// the call to `read_until` and then call it again to continue reading,
-        /// the counter is reset.
-        ///
-        /// # Examples
-        ///
-        /// [`std::io::Cursor`][`Cursor`] is a type that implements `BufRead`. In
-        /// this example, we use [`Cursor`] to read all the bytes in a byte slice
-        /// in hyphen delimited segments:
-        ///
-        /// [`Cursor`]: std::io::Cursor
-        ///
-        /// ```
-        /// use tokio::io::AsyncBufReadExt;
-        ///
-        /// use std::io::Cursor;
-        ///
-        /// # #[tokio::main(flavor = "current_thread")]
-        /// # async fn main() {
-        /// let mut cursor = Cursor::new(b"lorem-ipsum");
-        /// let mut buf = vec![];
-        ///
-        /// // cursor is at 'l'
-        /// let num_bytes = cursor.read_until(b'-', &mut buf)
-        ///     .await
-        ///     .expect("reading from cursor won't fail");
-        ///
-        /// assert_eq!(num_bytes, 6);
-        /// assert_eq!(buf, b"lorem-");
-        /// buf.clear();
-        ///
-        /// // cursor is at 'i'
-        /// let num_bytes = cursor.read_until(b'-', &mut buf)
-        ///     .await
-        ///     .expect("reading from cursor won't fail");
-        ///
-        /// assert_eq!(num_bytes, 5);
-        /// assert_eq!(buf, b"ipsum");
-        /// buf.clear();
-        ///
-        /// // cursor is at EOF
-        /// let num_bytes = cursor.read_until(b'-', &mut buf)
-        ///     .await
-        ///     .expect("reading from cursor won't fail");
-        /// assert_eq!(num_bytes, 0);
-        /// assert_eq!(buf, b"");
-        /// # }
-        /// ```
-        fn read_until<'a>(&'a mut self, byte: u8, buf: &'a mut Vec<u8>) -> ReadUntil<'a, Self>
-        where
-            Self: Unpin,
-        {
-            read_until(self, byte, buf)
-        }
-
-        /// Reads all bytes until a newline (the 0xA byte) is reached, and append
-        /// them to the provided buffer.
-        ///
-        /// Equivalent to:
-        ///
-        /// ```ignore
-        /// async fn read_line(&mut self, buf: &mut String) -> io::Result<usize>;
-        /// ```
-        ///
-        /// This function will read bytes from the underlying stream until the
-        /// newline delimiter (the 0xA byte) or EOF is found. Once found, all bytes
-        /// up to, and including, the delimiter (if found) will be appended to
-        /// `buf`.
-        ///
-        /// If successful, this function will return the total number of bytes read.
-        ///
-        /// If this function returns `Ok(0)`, the stream has reached EOF.
-        ///
-        /// # Errors
-        ///
-        /// This function has the same error semantics as [`read_until`] and will
-        /// also return an error if the read bytes are not valid UTF-8. If an I/O
-        /// error is encountered then `buf` may contain some bytes already read in
-        /// the event that all data read so far was valid UTF-8.
-        ///
-        /// [`read_until`]: AsyncBufReadExt::read_until
-        ///
-        /// # Cancel safety
-        ///
-        /// This method is not cancel safe. If the method is used as a
-        /// branch in [`tokio::select!`](crate::select) and another
-        /// branch completes first, then some data may have been partially
-        /// read, and this data is lost. There are no guarantees regarding the
-        /// contents of `buf` when the call is cancelled. The current
-        /// implementation replaces `buf` with the empty string, but this may
-        /// change in the future.
-        ///
-        /// This function does not behave like [`read_until`] because of the
-        /// requirement that a string contains only valid utf-8. If you need a
-        /// cancellation safe `read_line`, there are three options:
-        ///
-        ///  * Call [`read_until`] with a newline character and manually perform the utf-8 check.
-        ///  * The stream returned by [`lines`] has a cancellation safe
-        ///    [`next_line`] method.
-        ///  * Use [`tokio_util::codec::LinesCodec`][LinesCodec].
-        ///
-        /// [LinesCodec]: https://docs.rs/tokio-util/latest/tokio_util/codec/struct.LinesCodec.html
-        /// [`read_until`]: Self::read_until
-        /// [`lines`]: Self::lines
-        /// [`next_line`]: crate::io::Lines::next_line
-        ///
-        /// # Examples
-        ///
-        /// [`std::io::Cursor`][`Cursor`] is a type that implements
-        /// `AsyncBufRead`. In this example, we use [`Cursor`] to read all the
-        /// lines in a byte slice:
-        ///
-        /// [`Cursor`]: std::io::Cursor
-        ///
-        /// ```
-        /// use tokio::io::AsyncBufReadExt;
-        ///
-        /// use std::io::Cursor;
-        ///
-        /// # #[tokio::main(flavor = "current_thread")]
-        /// # async fn main() {
-        /// let mut cursor = Cursor::new(b"foo\nbar");
-        /// let mut buf = String::new();
-        ///
-        /// // cursor is at 'f'
-        /// let num_bytes = cursor.read_line(&mut buf)
-        ///     .await
-        ///     .expect("reading from cursor won't fail");
-        ///
-        /// assert_eq!(num_bytes, 4);
-        /// assert_eq!(buf, "foo\n");
-        /// buf.clear();
-        ///
-        /// // cursor is at 'b'
-        /// let num_bytes = cursor.read_line(&mut buf)
-        ///     .await
-        ///     .expect("reading from cursor won't fail");
-        ///
-        /// assert_eq!(num_bytes, 3);
-        /// assert_eq!(buf, "bar");
-        /// buf.clear();
-        ///
-        /// // cursor is at EOF
-        /// let num_bytes = cursor.read_line(&mut buf)
-        ///     .await
-        ///     .expect("reading from cursor won't fail");
-        ///
-        /// assert_eq!(num_bytes, 0);
-        /// assert_eq!(buf, "");
-        /// # }
-        /// ```
-        fn read_line<'a>(&'a mut self, buf: &'a mut String) -> ReadLine<'a, Self>
-        where
-            Self: Unpin,
-        {
-            read_line(self, buf)
-        }
-
-        /// Returns a stream of the contents of this reader split on the byte
-        /// `byte`.
-        ///
-        /// This method is the asynchronous equivalent to
-        /// [`BufRead::split`](std::io::BufRead::split).
-        ///
-        /// The stream returned from this function will yield instances of
-        /// [`io::Result`]`<`[`Option`]`<`[`Vec<u8>`]`>>`. Each vector returned will *not* have
-        /// the delimiter byte at the end.
-        ///
-        /// [`io::Result`]: std::io::Result
-        /// [`Option`]: core::option::Option
-        /// [`Vec<u8>`]: std::vec::Vec
-        ///
-        /// # Errors
-        ///
-        /// Each item of the stream has the same error semantics as
-        /// [`AsyncBufReadExt::read_until`](AsyncBufReadExt::read_until).
-        ///
-        /// # Examples
-        ///
-        /// ```
-        /// # use tokio::io::AsyncBufRead;
-        /// use tokio::io::AsyncBufReadExt;
-        ///
-        /// # async fn dox(my_buf_read: impl AsyncBufRead + Unpin) -> std::io::Result<()> {
-        /// let mut segments = my_buf_read.split(b'f');
-        ///
-        /// while let Some(segment) = segments.next_segment().await? {
-        ///     println!("length = {}", segment.len())
-        /// }
-        /// # Ok(())
-        /// # }
-        /// ```
-        fn split(self, byte: u8) -> Split<Self>
-        where
-            Self: Sized + Unpin,
-        {
-            split(self, byte)
-        }
-
-        /// Returns the contents of the internal buffer, filling it with more
-        /// data from the inner reader if it is empty.
-        ///
-        /// This function is a lower-level call. It needs to be paired with the
-        /// [`consume`] method to function properly. When calling this method,
-        /// none of the contents will be "read" in the sense that later calling
-        /// `read` may return the same contents. As such, [`consume`] must be
-        /// called with the number of bytes that are consumed from this buffer
-        /// to ensure that the bytes are never returned twice.
-        ///
-        /// An empty buffer returned indicates that the stream has reached EOF.
-        ///
-        /// Equivalent to:
-        ///
-        /// ```ignore
-        /// async fn fill_buf(&mut self) -> io::Result<&[u8]>;
-        /// ```
-        ///
-        /// # Errors
-        ///
-        /// This function will return an I/O error if the underlying reader was
-        /// read, but returned an error.
-        ///
-        /// # Cancel safety
-        ///
-        /// This method is cancel safe. If used as a branch in
-        /// [`tokio::select!`](crate::select) and another branch
-        /// completes first, then it is guaranteed that no data was read.
-        ///
-        /// [`consume`]: crate::io::AsyncBufReadExt::consume
-        fn fill_buf(&mut self) -> FillBuf<'_, Self>
-        where
-            Self: Unpin,
-        {
-            fill_buf(self)
-        }
-
-        /// Tells this buffer that `amt` bytes have been consumed from the
-        /// buffer, so they should no longer be returned in calls to [`read`].
-        ///
-        /// This function is a lower-level call. It needs to be paired with the
-        /// [`fill_buf`] method to function properly. This function does not
-        /// perform any I/O, it simply informs this object that some amount of
-        /// its buffer, returned from [`fill_buf`], has been consumed and should
-        /// no longer be returned. As such, this function may do odd things if
-        /// [`fill_buf`] isn't called before calling it.
-        ///
-        /// The `amt` must be less than the number of bytes in the buffer
-        /// returned by [`fill_buf`].
-        ///
-        /// [`read`]: crate::io::AsyncReadExt::read
-        /// [`fill_buf`]: crate::io::AsyncBufReadExt::fill_buf
-        fn consume(&mut self, amt: usize)
-        where
-            Self: Unpin,
-        {
-            std::pin::Pin::new(self).consume(amt);
-        }
-
-        /// Returns a stream over the lines of this reader.
-        /// This method is the async equivalent to [`BufRead::lines`](std::io::BufRead::lines).
-        ///
-        /// The stream returned from this function will yield instances of
-        /// [`io::Result`]`<`[`Option`]`<`[`String`]`>>`. Each string returned will *not* have a newline
-        /// byte (the 0xA byte) or `CRLF` (0xD, 0xA bytes) at the end.
-        ///
-        /// [`io::Result`]: std::io::Result
-        /// [`Option`]: core::option::Option
-        /// [`String`]: String
-        ///
-        /// # Errors
-        ///
-        /// Each line of the stream has the same error semantics as [`AsyncBufReadExt::read_line`].
-        ///
-        /// # Examples
-        ///
-        /// [`std::io::Cursor`][`Cursor`] is a type that implements `BufRead`. In
-        /// this example, we use [`Cursor`] to iterate over all the lines in a byte
-        /// slice.
-        ///
-        /// [`Cursor`]: std::io::Cursor
-        ///
-        /// ```
-        /// use tokio::io::AsyncBufReadExt;
-        ///
-        /// use std::io::Cursor;
-        ///
-        /// # #[tokio::main(flavor = "current_thread")]
-        /// # async fn main() {
-        /// let cursor = Cursor::new(b"lorem\nipsum\r\ndolor");
-        ///
-        /// let mut lines = cursor.lines();
-        ///
-        /// assert_eq!(lines.next_line().await.unwrap(), Some(String::from("lorem")));
-        /// assert_eq!(lines.next_line().await.unwrap(), Some(String::from("ipsum")));
-        /// assert_eq!(lines.next_line().await.unwrap(), Some(String::from("dolor")));
-        /// assert_eq!(lines.next_line().await.unwrap(), None);
-        /// # }
-        /// ```
-        ///
-        /// [`AsyncBufReadExt::read_line`]: AsyncBufReadExt::read_line
-        fn lines(self) -> Lines<Self>
-        where
-            Self: Sized,
-        {
-            lines(self)
-        }
-    }
+    #[doc = " An extension trait which adds utility methods to [`AsyncBufRead`] types."]
+    #[doc = ""] #[doc = " [`AsyncBufRead`]: crate::io::AsyncBufRead"] pub trait
+    AsyncBufReadExt : AsyncBufRead { #[doc =
+    " Reads all bytes into `buf` until the delimiter `byte` or EOF is reached."] #[doc =
+    ""] #[doc = " Equivalent to:"] #[doc = ""] #[doc = " ```ignore"] #[doc =
+    " async fn read_until(&mut self, byte: u8, buf: &mut Vec<u8>) -> io::Result<usize>;"]
+    #[doc = " ```"] #[doc = ""] #[doc =
+    " This function will read bytes from the underlying stream until the"] #[doc =
+    " delimiter or EOF is found. Once found, all bytes up to, and including,"] #[doc =
+    " the delimiter (if found) will be appended to `buf`."] #[doc = ""] #[doc =
+    " If successful, this function will return the total number of bytes read."] #[doc =
+    ""] #[doc = " If this function returns `Ok(0)`, the stream has reached EOF."] #[doc =
+    ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This function will ignore all instances of [`ErrorKind::Interrupted`] and"] #[doc =
+    " will otherwise return any errors returned by [`fill_buf`]."] #[doc = ""] #[doc =
+    " If an I/O error is encountered then all bytes read so far will be"] #[doc =
+    " present in `buf` and its length will have been adjusted appropriately."] #[doc =
+    ""] #[doc = " [`fill_buf`]: AsyncBufRead::poll_fill_buf"] #[doc =
+    " [`ErrorKind::Interrupted`]: std::io::ErrorKind::Interrupted"] #[doc = ""] #[doc =
+    " # Cancel safety"] #[doc = ""] #[doc = " If used as a branch in"] #[doc =
+    " [`tokio::select!`](crate::select) and another branch"] #[doc =
+    " completes first, then some data may have been partially read. Any"] #[doc =
+    " partially read bytes are appended to `buf`, and the method can be"] #[doc =
+    " called again to continue reading until `byte`."] #[doc = ""] #[doc =
+    " This method returns the total number of bytes read. If you cancel"] #[doc =
+    " the call to `read_until` and then call it again to continue reading,"] #[doc =
+    " the counter is reset."] #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc =
+    " [`std::io::Cursor`][`Cursor`] is a type that implements `BufRead`. In"] #[doc =
+    " this example, we use [`Cursor`] to read all the bytes in a byte slice"] #[doc =
+    " in hyphen delimited segments:"] #[doc = ""] #[doc = " [`Cursor`]: std::io::Cursor"]
+    #[doc = ""] #[doc = " ```"] #[doc = " use tokio::io::AsyncBufReadExt;"] #[doc = ""]
+    #[doc = " use std::io::Cursor;"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc = " # async fn main() {"]
+    #[doc = " let mut cursor = Cursor::new(b\"lorem-ipsum\");"] #[doc =
+    " let mut buf = vec![];"] #[doc = ""] #[doc = " // cursor is at 'l'"] #[doc =
+    " let num_bytes = cursor.read_until(b'-', &mut buf)"] #[doc = "     .await"] #[doc =
+    "     .expect(\"reading from cursor won't fail\");"] #[doc = ""] #[doc =
+    " assert_eq!(num_bytes, 6);"] #[doc = " assert_eq!(buf, b\"lorem-\");"] #[doc =
+    " buf.clear();"] #[doc = ""] #[doc = " // cursor is at 'i'"] #[doc =
+    " let num_bytes = cursor.read_until(b'-', &mut buf)"] #[doc = "     .await"] #[doc =
+    "     .expect(\"reading from cursor won't fail\");"] #[doc = ""] #[doc =
+    " assert_eq!(num_bytes, 5);"] #[doc = " assert_eq!(buf, b\"ipsum\");"] #[doc =
+    " buf.clear();"] #[doc = ""] #[doc = " // cursor is at EOF"] #[doc =
+    " let num_bytes = cursor.read_until(b'-', &mut buf)"] #[doc = "     .await"] #[doc =
+    "     .expect(\"reading from cursor won't fail\");"] #[doc =
+    " assert_eq!(num_bytes, 0);"] #[doc = " assert_eq!(buf, b\"\");"] #[doc = " # }"]
+    #[doc = " ```"] fn read_until <'a > (&'a mut self, byte : u8, buf : &'a mut Vec < u8
+    >) -> ReadUntil <'a, Self > where Self : Unpin, { read_until(self, byte, buf) } #[doc
+    = " Reads all bytes until a newline (the 0xA byte) is reached, and append"] #[doc =
+    " them to the provided buffer."] #[doc = ""] #[doc = " Equivalent to:"] #[doc = ""]
+    #[doc = " ```ignore"] #[doc =
+    " async fn read_line(&mut self, buf: &mut String) -> io::Result<usize>;"] #[doc =
+    " ```"] #[doc = ""] #[doc =
+    " This function will read bytes from the underlying stream until the"] #[doc =
+    " newline delimiter (the 0xA byte) or EOF is found. Once found, all bytes"] #[doc =
+    " up to, and including, the delimiter (if found) will be appended to"] #[doc =
+    " `buf`."] #[doc = ""] #[doc =
+    " If successful, this function will return the total number of bytes read."] #[doc =
+    ""] #[doc = " If this function returns `Ok(0)`, the stream has reached EOF."] #[doc =
+    ""] #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This function has the same error semantics as [`read_until`] and will"] #[doc =
+    " also return an error if the read bytes are not valid UTF-8. If an I/O"] #[doc =
+    " error is encountered then `buf` may contain some bytes already read in"] #[doc =
+    " the event that all data read so far was valid UTF-8."] #[doc = ""] #[doc =
+    " [`read_until`]: AsyncBufReadExt::read_until"] #[doc = ""] #[doc =
+    " # Cancel safety"] #[doc = ""] #[doc =
+    " This method is not cancel safe. If the method is used as a"] #[doc =
+    " branch in [`tokio::select!`](crate::select) and another"] #[doc =
+    " branch completes first, then some data may have been partially"] #[doc =
+    " read, and this data is lost. There are no guarantees regarding the"] #[doc =
+    " contents of `buf` when the call is cancelled. The current"] #[doc =
+    " implementation replaces `buf` with the empty string, but this may"] #[doc =
+    " change in the future."] #[doc = ""] #[doc =
+    " This function does not behave like [`read_until`] because of the"] #[doc =
+    " requirement that a string contains only valid utf-8. If you need a"] #[doc =
+    " cancellation safe `read_line`, there are three options:"] #[doc = ""] #[doc =
+    "  * Call [`read_until`] with a newline character and manually perform the utf-8 check."]
+    #[doc = "  * The stream returned by [`lines`] has a cancellation safe"] #[doc =
+    "    [`next_line`] method."] #[doc =
+    "  * Use [`tokio_util::codec::LinesCodec`][LinesCodec]."] #[doc = ""] #[doc =
+    " [LinesCodec]: https://docs.rs/tokio-util/latest/tokio_util/codec/struct.LinesCodec.html"]
+    #[doc = " [`read_until`]: Self::read_until"] #[doc = " [`lines`]: Self::lines"] #[doc
+    = " [`next_line`]: crate::io::Lines::next_line"] #[doc = ""] #[doc = " # Examples"]
+    #[doc = ""] #[doc = " [`std::io::Cursor`][`Cursor`] is a type that implements"] #[doc
+    = " `AsyncBufRead`. In this example, we use [`Cursor`] to read all the"] #[doc =
+    " lines in a byte slice:"] #[doc = ""] #[doc = " [`Cursor`]: std::io::Cursor"] #[doc
+    = ""] #[doc = " ```"] #[doc = " use tokio::io::AsyncBufReadExt;"] #[doc = ""] #[doc =
+    " use std::io::Cursor;"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc = " # async fn main() {"]
+    #[doc = " let mut cursor = Cursor::new(b\"foo\\nbar\");"] #[doc =
+    " let mut buf = String::new();"] #[doc = ""] #[doc = " // cursor is at 'f'"] #[doc =
+    " let num_bytes = cursor.read_line(&mut buf)"] #[doc = "     .await"] #[doc =
+    "     .expect(\"reading from cursor won't fail\");"] #[doc = ""] #[doc =
+    " assert_eq!(num_bytes, 4);"] #[doc = " assert_eq!(buf, \"foo\\n\");"] #[doc =
+    " buf.clear();"] #[doc = ""] #[doc = " // cursor is at 'b'"] #[doc =
+    " let num_bytes = cursor.read_line(&mut buf)"] #[doc = "     .await"] #[doc =
+    "     .expect(\"reading from cursor won't fail\");"] #[doc = ""] #[doc =
+    " assert_eq!(num_bytes, 3);"] #[doc = " assert_eq!(buf, \"bar\");"] #[doc =
+    " buf.clear();"] #[doc = ""] #[doc = " // cursor is at EOF"] #[doc =
+    " let num_bytes = cursor.read_line(&mut buf)"] #[doc = "     .await"] #[doc =
+    "     .expect(\"reading from cursor won't fail\");"] #[doc = ""] #[doc =
+    " assert_eq!(num_bytes, 0);"] #[doc = " assert_eq!(buf, \"\");"] #[doc = " # }"]
+    #[doc = " ```"] fn read_line <'a > (&'a mut self, buf : &'a mut String) -> ReadLine
+    <'a, Self > where Self : Unpin, { read_line(self, buf) } #[doc =
+    " Returns a stream of the contents of this reader split on the byte"] #[doc =
+    " `byte`."] #[doc = ""] #[doc = " This method is the asynchronous equivalent to"]
+    #[doc = " [`BufRead::split`](std::io::BufRead::split)."] #[doc = ""] #[doc =
+    " The stream returned from this function will yield instances of"] #[doc =
+    " [`io::Result`]`<`[`Option`]`<`[`Vec<u8>`]`>>`. Each vector returned will *not* have"]
+    #[doc = " the delimiter byte at the end."] #[doc = ""] #[doc =
+    " [`io::Result`]: std::io::Result"] #[doc = " [`Option`]: core::option::Option"]
+    #[doc = " [`Vec<u8>`]: std::vec::Vec"] #[doc = ""] #[doc = " # Errors"] #[doc = ""]
+    #[doc = " Each item of the stream has the same error semantics as"] #[doc =
+    " [`AsyncBufReadExt::read_until`](AsyncBufReadExt::read_until)."] #[doc = ""] #[doc =
+    " # Examples"] #[doc = ""] #[doc = " ```"] #[doc = " # use tokio::io::AsyncBufRead;"]
+    #[doc = " use tokio::io::AsyncBufReadExt;"] #[doc = ""] #[doc =
+    " # async fn dox(my_buf_read: impl AsyncBufRead + Unpin) -> std::io::Result<()> {"]
+    #[doc = " let mut segments = my_buf_read.split(b'f');"] #[doc = ""] #[doc =
+    " while let Some(segment) = segments.next_segment().await? {"] #[doc =
+    "     println!(\"length = {}\", segment.len())"] #[doc = " }"] #[doc = " # Ok(())"]
+    #[doc = " # }"] #[doc = " ```"] fn split(self, byte : u8) -> Split < Self > where
+    Self : Sized + Unpin, { split(self, byte) } #[doc =
+    " Returns the contents of the internal buffer, filling it with more"] #[doc =
+    " data from the inner reader if it is empty."] #[doc = ""] #[doc =
+    " This function is a lower-level call. It needs to be paired with the"] #[doc =
+    " [`consume`] method to function properly. When calling this method,"] #[doc =
+    " none of the contents will be \"read\" in the sense that later calling"] #[doc =
+    " `read` may return the same contents. As such, [`consume`] must be"] #[doc =
+    " called with the number of bytes that are consumed from this buffer"] #[doc =
+    " to ensure that the bytes are never returned twice."] #[doc = ""] #[doc =
+    " An empty buffer returned indicates that the stream has reached EOF."] #[doc = ""]
+    #[doc = " Equivalent to:"] #[doc = ""] #[doc = " ```ignore"] #[doc =
+    " async fn fill_buf(&mut self) -> io::Result<&[u8]>;"] #[doc = " ```"] #[doc = ""]
+    #[doc = " # Errors"] #[doc = ""] #[doc =
+    " This function will return an I/O error if the underlying reader was"] #[doc =
+    " read, but returned an error."] #[doc = ""] #[doc = " # Cancel safety"] #[doc = ""]
+    #[doc = " This method is cancel safe. If used as a branch in"] #[doc =
+    " [`tokio::select!`](crate::select) and another branch"] #[doc =
+    " completes first, then it is guaranteed that no data was read."] #[doc = ""] #[doc =
+    " [`consume`]: crate::io::AsyncBufReadExt::consume"] fn fill_buf(& mut self) ->
+    FillBuf <'_, Self > where Self : Unpin, { fill_buf(self) } #[doc =
+    " Tells this buffer that `amt` bytes have been consumed from the"] #[doc =
+    " buffer, so they should no longer be returned in calls to [`read`]."] #[doc = ""]
+    #[doc = " This function is a lower-level call. It needs to be paired with the"] #[doc
+    = " [`fill_buf`] method to function properly. This function does not"] #[doc =
+    " perform any I/O, it simply informs this object that some amount of"] #[doc =
+    " its buffer, returned from [`fill_buf`], has been consumed and should"] #[doc =
+    " no longer be returned. As such, this function may do odd things if"] #[doc =
+    " [`fill_buf`] isn't called before calling it."] #[doc = ""] #[doc =
+    " The `amt` must be less than the number of bytes in the buffer"] #[doc =
+    " returned by [`fill_buf`]."] #[doc = ""] #[doc =
+    " [`read`]: crate::io::AsyncReadExt::read"] #[doc =
+    " [`fill_buf`]: crate::io::AsyncBufReadExt::fill_buf"] fn consume(& mut self, amt :
+    usize) where Self : Unpin, { std::pin::Pin::new(self).consume(amt); } #[doc =
+    " Returns a stream over the lines of this reader."] #[doc =
+    " This method is the async equivalent to [`BufRead::lines`](std::io::BufRead::lines)."]
+    #[doc = ""] #[doc =
+    " The stream returned from this function will yield instances of"] #[doc =
+    " [`io::Result`]`<`[`Option`]`<`[`String`]`>>`. Each string returned will *not* have a newline"]
+    #[doc = " byte (the 0xA byte) or `CRLF` (0xD, 0xA bytes) at the end."] #[doc = ""]
+    #[doc = " [`io::Result`]: std::io::Result"] #[doc =
+    " [`Option`]: core::option::Option"] #[doc = " [`String`]: String"] #[doc = ""] #[doc
+    = " # Errors"] #[doc = ""] #[doc =
+    " Each line of the stream has the same error semantics as [`AsyncBufReadExt::read_line`]."]
+    #[doc = ""] #[doc = " # Examples"] #[doc = ""] #[doc =
+    " [`std::io::Cursor`][`Cursor`] is a type that implements `BufRead`. In"] #[doc =
+    " this example, we use [`Cursor`] to iterate over all the lines in a byte"] #[doc =
+    " slice."] #[doc = ""] #[doc = " [`Cursor`]: std::io::Cursor"] #[doc = ""] #[doc =
+    " ```"] #[doc = " use tokio::io::AsyncBufReadExt;"] #[doc = ""] #[doc =
+    " use std::io::Cursor;"] #[doc = ""] #[doc =
+    " # #[tokio::main(flavor = \"current_thread\")]"] #[doc = " # async fn main() {"]
+    #[doc = " let cursor = Cursor::new(b\"lorem\\nipsum\\r\\ndolor\");"] #[doc = ""]
+    #[doc = " let mut lines = cursor.lines();"] #[doc = ""] #[doc =
+    " assert_eq!(lines.next_line().await.unwrap(), Some(String::from(\"lorem\")));"]
+    #[doc =
+    " assert_eq!(lines.next_line().await.unwrap(), Some(String::from(\"ipsum\")));"]
+    #[doc =
+    " assert_eq!(lines.next_line().await.unwrap(), Some(String::from(\"dolor\")));"]
+    #[doc = " assert_eq!(lines.next_line().await.unwrap(), None);"] #[doc = " # }"] #[doc
+    = " ```"] #[doc = ""] #[doc =
+    " [`AsyncBufReadExt::read_line`]: AsyncBufReadExt::read_line"] fn lines(self) ->
+    Lines < Self > where Self : Sized, { lines(self) } }
 }
-
 impl<R: AsyncBufRead + ?Sized> AsyncBufReadExt for R {}

@@ -1,15 +1,8 @@
 //! In-process memory IO types.
-
 use crate::io::{split, AsyncRead, AsyncWrite, ReadBuf, ReadHalf, WriteHalf};
 use crate::loom::sync::Mutex;
-
 use bytes::{Buf, BytesMut};
-use std::{
-    pin::Pin,
-    sync::Arc,
-    task::{self, ready, Poll, Waker},
-};
-
+use std::{pin::Pin, sync::Arc, task::{self, ready, Poll, Waker}};
 /// A bidirectional pipe to read and write bytes in memory.
 ///
 /// A pair of `DuplexStream`s are created together, and they act as a "channel"
@@ -50,7 +43,6 @@ pub struct DuplexStream {
     read: Arc<Mutex<SimplexStream>>,
     write: Arc<Mutex<SimplexStream>>,
 }
-
 /// A unidirectional pipe to read and write bytes in memory.
 ///
 /// It can be constructed by [`simplex`] function which will create a pair of
@@ -93,46 +85,24 @@ pub struct SimplexStream {
     /// `Poll::Pending`, this is the waker for that parked task.
     write_waker: Option<Waker>,
 }
-
-// ===== impl DuplexStream =====
-
 /// Create a new pair of `DuplexStream`s that act like a pair of connected sockets.
 ///
 /// The `max_buf_size` argument is the maximum amount of bytes that can be
 /// written to a side before the write returns `Poll::Pending`.
 #[cfg_attr(docsrs, doc(cfg(feature = "io-util")))]
 pub fn duplex(max_buf_size: usize) -> (DuplexStream, DuplexStream) {
-    let one = Arc::new(Mutex::new(SimplexStream::new_unsplit(max_buf_size)));
-    let two = Arc::new(Mutex::new(SimplexStream::new_unsplit(max_buf_size)));
-
-    (
-        DuplexStream {
-            read: one.clone(),
-            write: two.clone(),
-        },
-        DuplexStream {
-            read: two,
-            write: one,
-        },
-    )
+    panic!("STUB: not implemented");
 }
-
 impl AsyncRead for DuplexStream {
-    // Previous rustc required this `self` to be `mut`, even though newer
-    // versions recognize it isn't needed to call `lock()`. So for
-    // compatibility, we include the `mut` and `allow` the lint.
-    //
-    // See https://github.com/rust-lang/rust/issues/73592
     #[allow(unused_mut)]
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut *self.read.lock()).poll_read(cx, buf)
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncWrite for DuplexStream {
     #[allow(unused_mut)]
     fn poll_write(
@@ -140,48 +110,38 @@ impl AsyncWrite for DuplexStream {
         cx: &mut task::Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
-        Pin::new(&mut *self.write.lock()).poll_write(cx, buf)
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored(
         self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
         bufs: &[std::io::IoSlice<'_>],
     ) -> Poll<Result<usize, std::io::Error>> {
-        Pin::new(&mut *self.write.lock()).poll_write_vectored(cx, bufs)
+        panic!("STUB: not implemented");
     }
-
     fn is_write_vectored(&self) -> bool {
-        true
+        panic!("STUB: not implemented");
     }
-
     #[allow(unused_mut)]
     fn poll_flush(
         mut self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
     ) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut *self.write.lock()).poll_flush(cx)
+        panic!("STUB: not implemented");
     }
-
     #[allow(unused_mut)]
     fn poll_shutdown(
         mut self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
     ) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut *self.write.lock()).poll_shutdown(cx)
+        panic!("STUB: not implemented");
     }
 }
-
 impl Drop for DuplexStream {
     fn drop(&mut self) {
-        // notify the other side of the closure
-        self.write.lock().close_write();
-        self.read.lock().close_read();
+        panic!("STUB: not implemented");
     }
 }
-
-// ===== impl SimplexStream =====
-
 /// Creates unidirectional buffer that acts like in memory pipe.
 ///
 /// The `max_buf_size` argument is the maximum amount of bytes that can be
@@ -208,10 +168,11 @@ impl Drop for DuplexStream {
 /// # }
 /// ```
 #[cfg_attr(docsrs, doc(cfg(feature = "io-util")))]
-pub fn simplex(max_buf_size: usize) -> (ReadHalf<SimplexStream>, WriteHalf<SimplexStream>) {
-    split(SimplexStream::new_unsplit(max_buf_size))
+pub fn simplex(
+    max_buf_size: usize,
+) -> (ReadHalf<SimplexStream>, WriteHalf<SimplexStream>) {
+    panic!("STUB: not implemented");
 }
-
 impl SimplexStream {
     /// Creates unidirectional buffer that acts like in memory pipe. To create split
     /// version with separate reader and writer you can use [`simplex`] function.
@@ -220,210 +181,89 @@ impl SimplexStream {
     /// written to a buffer before the it returns `Poll::Pending`.
     #[cfg_attr(docsrs, doc(cfg(feature = "io-util")))]
     pub fn new_unsplit(max_buf_size: usize) -> SimplexStream {
-        SimplexStream {
-            buffer: BytesMut::new(),
-            is_closed: false,
-            max_buf_size,
-            read_waker: None,
-            write_waker: None,
-        }
+        panic!("STUB: not implemented");
     }
-
     fn close_write(&mut self) {
-        self.is_closed = true;
-        // needs to notify any readers that no more data will come
-        if let Some(waker) = self.read_waker.take() {
-            waker.wake();
-        }
+        panic!("STUB: not implemented");
     }
-
     fn close_read(&mut self) {
-        self.is_closed = true;
-        // needs to notify any writers that they have to abort
-        if let Some(waker) = self.write_waker.take() {
-            waker.wake();
-        }
+        panic!("STUB: not implemented");
     }
-
     fn poll_read_internal(
         mut self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
-        if self.buffer.has_remaining() {
-            let max = self.buffer.remaining().min(buf.remaining());
-            buf.put_slice(&self.buffer[..max]);
-            self.buffer.advance(max);
-            if max > 0 {
-                // The passed `buf` might have been empty, don't wake up if
-                // no bytes have been moved.
-                if let Some(waker) = self.write_waker.take() {
-                    waker.wake();
-                }
-            }
-            Poll::Ready(Ok(()))
-        } else if self.is_closed {
-            Poll::Ready(Ok(()))
-        } else {
-            self.read_waker = Some(cx.waker().clone());
-            Poll::Pending
-        }
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_internal(
         mut self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
         buf: &[u8],
     ) -> Poll<std::io::Result<usize>> {
-        if self.is_closed {
-            return Poll::Ready(Err(std::io::ErrorKind::BrokenPipe.into()));
-        }
-        let avail = self.max_buf_size - self.buffer.len();
-        if avail == 0 {
-            self.write_waker = Some(cx.waker().clone());
-            return Poll::Pending;
-        }
-
-        let len = buf.len().min(avail);
-        self.buffer.extend_from_slice(&buf[..len]);
-        if let Some(waker) = self.read_waker.take() {
-            waker.wake();
-        }
-        Poll::Ready(Ok(len))
+        panic!("STUB: not implemented");
     }
-
     fn poll_write_vectored_internal(
         mut self: Pin<&mut Self>,
         cx: &mut task::Context<'_>,
         bufs: &[std::io::IoSlice<'_>],
     ) -> Poll<Result<usize, std::io::Error>> {
-        if self.is_closed {
-            return Poll::Ready(Err(std::io::ErrorKind::BrokenPipe.into()));
-        }
-        let avail = self.max_buf_size - self.buffer.len();
-        if avail == 0 {
-            self.write_waker = Some(cx.waker().clone());
-            return Poll::Pending;
-        }
-
-        let mut rem = avail;
-        for buf in bufs {
-            if rem == 0 {
-                break;
-            }
-
-            let len = buf.len().min(rem);
-            self.buffer.extend_from_slice(&buf[..len]);
-            rem -= len;
-        }
-
-        if let Some(waker) = self.read_waker.take() {
-            waker.wake();
-        }
-        Poll::Ready(Ok(avail - rem))
+        panic!("STUB: not implemented");
     }
 }
-
 impl AsyncRead for SimplexStream {
     cfg_coop! {
-        fn poll_read(
-            self: Pin<&mut Self>,
-            cx: &mut task::Context<'_>,
-            buf: &mut ReadBuf<'_>,
-        ) -> Poll<std::io::Result<()>> {
-            ready!(crate::trace::trace_leaf());
-            let coop = ready!(crate::task::coop::poll_proceed(cx));
-
-            let ret = self.poll_read_internal(cx, buf);
-            if ret.is_ready() {
-                coop.made_progress();
-            }
-            ret
-        }
+        fn poll_read(self : Pin <& mut Self >, cx : & mut task::Context <'_ >, buf : &
+        mut ReadBuf <'_ >,) -> Poll < std::io::Result < () >> { ready!(crate
+        ::trace::trace_leaf()); let coop = ready!(crate ::task::coop::poll_proceed(cx));
+        let ret = self.poll_read_internal(cx, buf); if ret.is_ready() { coop
+        .made_progress(); } ret }
     }
-
     cfg_not_coop! {
-        fn poll_read(
-            self: Pin<&mut Self>,
-            cx: &mut task::Context<'_>,
-            buf: &mut ReadBuf<'_>,
-        ) -> Poll<std::io::Result<()>> {
-            ready!(crate::trace::trace_leaf());
-            self.poll_read_internal(cx, buf)
-        }
+        fn poll_read(self : Pin <& mut Self >, cx : & mut task::Context <'_ >, buf : &
+        mut ReadBuf <'_ >,) -> Poll < std::io::Result < () >> { ready!(crate
+        ::trace::trace_leaf()); self.poll_read_internal(cx, buf) }
     }
 }
-
 impl AsyncWrite for SimplexStream {
     cfg_coop! {
-        fn poll_write(
-            self: Pin<&mut Self>,
-            cx: &mut task::Context<'_>,
-            buf: &[u8],
-        ) -> Poll<std::io::Result<usize>> {
-            ready!(crate::trace::trace_leaf());
-            let coop = ready!(crate::task::coop::poll_proceed(cx));
-
-            let ret = self.poll_write_internal(cx, buf);
-            if ret.is_ready() {
-                coop.made_progress();
-            }
-            ret
-        }
+        fn poll_write(self : Pin <& mut Self >, cx : & mut task::Context <'_ >, buf : &
+        [u8],) -> Poll < std::io::Result < usize >> { ready!(crate
+        ::trace::trace_leaf()); let coop = ready!(crate ::task::coop::poll_proceed(cx));
+        let ret = self.poll_write_internal(cx, buf); if ret.is_ready() { coop
+        .made_progress(); } ret }
     }
-
     cfg_not_coop! {
-        fn poll_write(
-            self: Pin<&mut Self>,
-            cx: &mut task::Context<'_>,
-            buf: &[u8],
-        ) -> Poll<std::io::Result<usize>> {
-            ready!(crate::trace::trace_leaf());
-            self.poll_write_internal(cx, buf)
-        }
+        fn poll_write(self : Pin <& mut Self >, cx : & mut task::Context <'_ >, buf : &
+        [u8],) -> Poll < std::io::Result < usize >> { ready!(crate
+        ::trace::trace_leaf()); self.poll_write_internal(cx, buf) }
     }
-
     cfg_coop! {
-        fn poll_write_vectored(
-            self: Pin<&mut Self>,
-            cx: &mut task::Context<'_>,
-            bufs: &[std::io::IoSlice<'_>],
-        ) -> Poll<Result<usize, std::io::Error>> {
-            ready!(crate::trace::trace_leaf());
-            let coop = ready!(crate::task::coop::poll_proceed(cx));
-
-            let ret = self.poll_write_vectored_internal(cx, bufs);
-            if ret.is_ready() {
-                coop.made_progress();
-            }
-            ret
-        }
+        fn poll_write_vectored(self : Pin <& mut Self >, cx : & mut task::Context <'_ >,
+        bufs : & [std::io::IoSlice <'_ >],) -> Poll < Result < usize, std::io::Error >> {
+        ready!(crate ::trace::trace_leaf()); let coop = ready!(crate
+        ::task::coop::poll_proceed(cx)); let ret = self.poll_write_vectored_internal(cx,
+        bufs); if ret.is_ready() { coop.made_progress(); } ret }
     }
-
     cfg_not_coop! {
-        fn poll_write_vectored(
-            self: Pin<&mut Self>,
-            cx: &mut task::Context<'_>,
-            bufs: &[std::io::IoSlice<'_>],
-        ) -> Poll<Result<usize, std::io::Error>> {
-            ready!(crate::trace::trace_leaf());
-            self.poll_write_vectored_internal(cx, bufs)
+        fn poll_write_vectored(self : Pin <& mut Self >, cx : & mut task::Context <'_ >,
+        bufs : & [std::io::IoSlice <'_ >],) -> Poll < Result < usize, std::io::Error >> {
+        ready!(crate ::trace::trace_leaf()); self.poll_write_vectored_internal(cx, bufs)
         }
     }
-
     fn is_write_vectored(&self) -> bool {
-        true
+        panic!("STUB: not implemented");
     }
-
-    fn poll_flush(self: Pin<&mut Self>, _: &mut task::Context<'_>) -> Poll<std::io::Result<()>> {
-        Poll::Ready(Ok(()))
+    fn poll_flush(
+        self: Pin<&mut Self>,
+        _: &mut task::Context<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        panic!("STUB: not implemented");
     }
-
     fn poll_shutdown(
         mut self: Pin<&mut Self>,
         _: &mut task::Context<'_>,
     ) -> Poll<std::io::Result<()>> {
-        self.close_write();
-        Poll::Ready(Ok(()))
+        panic!("STUB: not implemented");
     }
 }

@@ -1,8 +1,6 @@
 use crate::fs::asyncify;
-
 use std::io;
 use std::path::Path;
-
 /// Recursively creates a directory and all of its parent components if they
 /// are missing.
 ///
@@ -49,6 +47,5 @@ use std::path::Path;
 /// }
 /// ```
 pub async fn create_dir_all(path: impl AsRef<Path>) -> io::Result<()> {
-    let path = path.as_ref().to_owned();
-    asyncify(move || std::fs::create_dir_all(path)).await
+    panic!("STUB: not implemented");
 }

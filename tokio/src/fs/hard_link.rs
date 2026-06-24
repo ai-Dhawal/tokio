@@ -1,8 +1,6 @@
 use crate::fs::asyncify;
-
 use std::io;
 use std::path::Path;
-
 /// Creates a new hard link on the filesystem.
 ///
 /// This is an async version of [`std::fs::hard_link`].
@@ -36,9 +34,9 @@ use std::path::Path;
 ///     Ok(())
 /// }
 /// ```
-pub async fn hard_link(original: impl AsRef<Path>, link: impl AsRef<Path>) -> io::Result<()> {
-    let original = original.as_ref().to_owned();
-    let link = link.as_ref().to_owned();
-
-    asyncify(move || std::fs::hard_link(original, link)).await
+pub async fn hard_link(
+    original: impl AsRef<Path>,
+    link: impl AsRef<Path>,
+) -> io::Result<()> {
+    panic!("STUB: not implemented");
 }

@@ -1,46 +1,27 @@
 use crate::io::util::read_line::read_line_internal;
 use crate::io::AsyncBufRead;
-
 use pin_project_lite::pin_project;
 use std::io;
 use std::mem;
 use std::pin::Pin;
 use std::task::{ready, Context, Poll};
-
 pin_project! {
-    /// Reads lines from an [`AsyncBufRead`].
-    ///
-    /// A `Lines` can be turned into a `Stream` with [`LinesStream`].
-    ///
-    /// This type is usually created using the [`lines`] method.
-    ///
-    /// [`AsyncBufRead`]: crate::io::AsyncBufRead
-    /// [`LinesStream`]: https://docs.rs/tokio-stream/0.1/tokio_stream/wrappers/struct.LinesStream.html
-    /// [`lines`]: crate::io::AsyncBufReadExt::lines
-    #[derive(Debug)]
-    #[must_use = "streams do nothing unless polled"]
-    #[cfg_attr(docsrs, doc(cfg(feature = "io-util")))]
-    pub struct Lines<R> {
-        #[pin]
-        reader: R,
-        buf: String,
-        bytes: Vec<u8>,
-        read: usize,
-    }
+    #[doc = " Reads lines from an [`AsyncBufRead`]."] #[doc = ""] #[doc =
+    " A `Lines` can be turned into a `Stream` with [`LinesStream`]."] #[doc = ""] #[doc =
+    " This type is usually created using the [`lines`] method."] #[doc = ""] #[doc =
+    " [`AsyncBufRead`]: crate::io::AsyncBufRead"] #[doc =
+    " [`LinesStream`]: https://docs.rs/tokio-stream/0.1/tokio_stream/wrappers/struct.LinesStream.html"]
+    #[doc = " [`lines`]: crate::io::AsyncBufReadExt::lines"] #[derive(Debug)] #[must_use
+    = "streams do nothing unless polled"] #[cfg_attr(docsrs, doc(cfg(feature =
+    "io-util")))] pub struct Lines < R > { #[pin] reader : R, buf : String, bytes : Vec <
+    u8 >, read : usize, }
 }
-
 pub(crate) fn lines<R>(reader: R) -> Lines<R>
 where
     R: AsyncBufRead,
 {
-    Lines {
-        reader,
-        buf: String::new(),
-        bytes: Vec::new(),
-        read: 0,
-    }
+    panic!("STUB: not implemented");
 }
-
 impl<R> Lines<R>
 where
     R: AsyncBufRead + Unpin,
@@ -67,30 +48,24 @@ where
     /// # }
     /// ```
     pub async fn next_line(&mut self) -> io::Result<Option<String>> {
-        use std::future::poll_fn;
-
-        poll_fn(|cx| Pin::new(&mut *self).poll_next_line(cx)).await
+        panic!("STUB: not implemented");
     }
-
     /// Obtains a mutable reference to the underlying reader.
     pub fn get_mut(&mut self) -> &mut R {
-        &mut self.reader
+        panic!("STUB: not implemented");
     }
-
     /// Obtains a reference to the underlying reader.
     pub fn get_ref(&mut self) -> &R {
-        &self.reader
+        panic!("STUB: not implemented");
     }
-
     /// Unwraps this `Lines<R>`, returning the underlying reader.
     ///
     /// Note that any leftover data in the internal buffer is lost.
     /// Therefore, a following read from the underlying reader may lead to data loss.
     pub fn into_inner(self) -> R {
-        self.reader
+        panic!("STUB: not implemented");
     }
 }
-
 impl<R> Lines<R>
 where
     R: AsyncBufRead,
@@ -113,31 +88,12 @@ where
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<io::Result<Option<String>>> {
-        let me = self.project();
-
-        let n = ready!(read_line_internal(me.reader, cx, me.buf, me.bytes, me.read))?;
-        debug_assert_eq!(*me.read, 0);
-
-        if n == 0 && me.buf.is_empty() {
-            return Poll::Ready(Ok(None));
-        }
-
-        if me.buf.ends_with('\n') {
-            me.buf.pop();
-
-            if me.buf.ends_with('\r') {
-                me.buf.pop();
-            }
-        }
-
-        Poll::Ready(Ok(Some(mem::take(me.buf))))
+        panic!("STUB: not implemented");
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn assert_unpin() {
         crate::is_unpin::<Lines<()>>();

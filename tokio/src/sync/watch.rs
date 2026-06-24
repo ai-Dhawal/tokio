@@ -1,5 +1,4 @@
 #![cfg_attr(not(feature = "sync"), allow(dead_code, unreachable_pub))]
-
 //! A multi-producer, multi-consumer channel that only retains the *last* sent
 //! value.
 //!
@@ -161,10 +160,8 @@
 //! [`Sender::is_closed`]: crate::sync::watch::Sender::is_closed
 //! [`Sender::closed`]: crate::sync::watch::Sender::closed
 //! [`Sender::subscribe()`]: crate::sync::watch::Sender::subscribe
-
 use crate::sync::notify::Notify;
 use crate::task::coop::cooperative;
-
 use crate::loom::sync::atomic::AtomicUsize;
 use crate::loom::sync::atomic::Ordering::{AcqRel, Relaxed};
 use crate::loom::sync::{Arc, RwLock, RwLockReadGuard};
@@ -172,7 +169,6 @@ use std::fmt;
 use std::mem;
 use std::ops;
 use std::panic;
-
 /// Receives values from the associated [`Sender`](struct@Sender).
 ///
 /// Instances are created by the [`channel`](fn@channel) function.
@@ -185,11 +181,9 @@ use std::panic;
 pub struct Receiver<T> {
     /// Pointer to the shared state
     shared: Arc<Shared<T>>,
-
     /// Last observed version
     version: Version,
 }
-
 /// Sends values to the associated [`Receiver`](struct@Receiver).
 ///
 /// Instances are created by the [`channel`](fn@channel) function.
@@ -197,23 +191,16 @@ pub struct Receiver<T> {
 pub struct Sender<T> {
     shared: Arc<Shared<T>>,
 }
-
 impl<T> Clone for Sender<T> {
     fn clone(&self) -> Self {
-        self.shared.ref_count_tx.fetch_add(1, Relaxed);
-
-        Self {
-            shared: self.shared.clone(),
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: Default> Default for Sender<T> {
     fn default() -> Self {
-        Self::new(T::default())
+        panic!("STUB: not implemented");
     }
 }
-
 /// Returns a reference to the inner value.
 ///
 /// Outstanding borrows hold a read lock on the inner value. This means that
@@ -244,7 +231,6 @@ pub struct Ref<'a, T> {
     inner: RwLockReadGuard<'a, T>,
     has_changed: bool,
 }
-
 impl<'a, T> Ref<'a, T> {
     /// Indicates if the borrowed value is considered as _changed_ since the last
     /// time it has been marked as seen.
@@ -289,156 +275,103 @@ impl<'a, T> Ref<'a, T> {
     /// # }
     /// ```
     pub fn has_changed(&self) -> bool {
-        self.has_changed
+        panic!("STUB: not implemented");
     }
 }
-
 struct Shared<T> {
     /// The most recent value.
     value: RwLock<T>,
-
     /// The current version.
     ///
     /// The lowest bit represents a "closed" state. The rest of the bits
     /// represent the current version.
     state: AtomicState,
-
     /// Tracks the number of `Receiver` instances.
     ref_count_rx: AtomicUsize,
-
     /// Tracks the number of `Sender` instances.
     ref_count_tx: AtomicUsize,
-
     /// Notifies waiting receivers that the value changed.
     notify_rx: big_notify::BigNotify,
-
     /// Notifies any task listening for `Receiver` dropped events.
     notify_tx: Notify,
 }
-
 impl<T: fmt::Debug> fmt::Debug for Shared<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let state = self.state.load();
-        f.debug_struct("Shared")
-            .field("value", &self.value)
-            .field("version", &state.version())
-            .field("is_closed", &state.is_closed())
-            .field("ref_count_rx", &self.ref_count_rx)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 pub mod error {
     //! Watch error types.
-
     use std::error::Error;
     use std::fmt;
-
     /// Error produced when sending a value fails.
     #[derive(PartialEq, Eq, Clone, Copy)]
     pub struct SendError<T>(pub T);
-
-    // ===== impl SendError =====
-
     impl<T> fmt::Debug for SendError<T> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.debug_struct("SendError").finish_non_exhaustive()
+            panic!("STUB: not implemented");
         }
     }
-
     impl<T> fmt::Display for SendError<T> {
         fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(fmt, "channel closed")
+            panic!("STUB: not implemented");
         }
     }
-
     impl<T> Error for SendError<T> {}
-
     /// Error produced when receiving a change notification.
     #[derive(Debug, Clone)]
     pub struct RecvError(pub(super) ());
-
-    // ===== impl RecvError =====
-
     impl fmt::Display for RecvError {
         fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(fmt, "channel closed")
+            panic!("STUB: not implemented");
         }
     }
-
     impl Error for RecvError {}
 }
-
 mod big_notify {
     use super::Notify;
     use crate::sync::notify::Notified;
-
-    // To avoid contention on the lock inside the `Notify`, we store multiple
-    // copies of it. Then, we use either circular access or randomness to spread
-    // out threads over different `Notify` objects.
-    //
-    // Some simple benchmarks show that randomness performs slightly better than
-    // circular access (probably due to contention on `next`), so we prefer to
-    // use randomness when Tokio is compiled with a random number generator.
-    //
-    // When the random number generator is not available, we fall back to
-    // circular access.
-
     pub(super) struct BigNotify {
-        #[cfg(not(all(not(loom), feature = "sync", any(feature = "rt", feature = "macros"))))]
+        #[cfg(
+            not(
+                all(not(loom), feature = "sync", any(feature = "rt", feature = "macros"))
+            )
+        )]
         next: std::sync::atomic::AtomicUsize,
         inner: [Notify; 8],
     }
-
     impl BigNotify {
         pub(super) fn new() -> Self {
-            Self {
-                #[cfg(not(all(
-                    not(loom),
-                    feature = "sync",
-                    any(feature = "rt", feature = "macros")
-                )))]
-                next: std::sync::atomic::AtomicUsize::new(0),
-                inner: Default::default(),
-            }
+            panic!("STUB: not implemented");
         }
-
         pub(super) fn notify_waiters(&self) {
-            for notify in &self.inner {
-                notify.notify_waiters();
-            }
+            panic!("STUB: not implemented");
         }
-
         /// This function implements the case where randomness is not available.
-        #[cfg(not(all(not(loom), feature = "sync", any(feature = "rt", feature = "macros"))))]
+        #[cfg(
+            not(
+                all(not(loom), feature = "sync", any(feature = "rt", feature = "macros"))
+            )
+        )]
         pub(super) fn notified(&self) -> Notified<'_> {
-            let i = self.next.fetch_add(1, std::sync::atomic::Ordering::Relaxed) % 8;
-            self.inner[i].notified()
+            panic!("STUB: not implemented");
         }
-
         /// This function implements the case where randomness is available.
         #[cfg(all(not(loom), feature = "sync", any(feature = "rt", feature = "macros")))]
         pub(super) fn notified(&self) -> Notified<'_> {
-            let i = crate::runtime::context::thread_rng_n(8) as usize;
-            self.inner[i].notified()
+            panic!("STUB: not implemented");
         }
     }
 }
-
 use self::state::{AtomicState, Version};
 mod state {
     use crate::loom::sync::atomic::AtomicUsize;
     use crate::loom::sync::atomic::Ordering;
-
     const CLOSED_BIT: usize = 1;
-
-    // Using 2 as the step size preserves the `CLOSED_BIT`.
     const STEP_SIZE: usize = 2;
-
     /// The version part of the state. The lowest bit is always zero.
     #[derive(Copy, Clone, Debug, Eq, PartialEq)]
     pub(super) struct Version(usize);
-
     /// Snapshot of the state. The first bit is used as the CLOSED bit.
     /// The remaining bits are used as the version.
     ///
@@ -446,7 +379,6 @@ mod state {
     /// receivers does not set it.
     #[derive(Copy, Clone, Debug)]
     pub(super) struct StateSnapshot(usize);
-
     /// The state stored in an atomic integer.
     ///
     /// The `Sender` uses `Release` ordering for storing a new state
@@ -455,38 +387,29 @@ mod state {
     /// the `Receiver`s for a proper handover.
     #[derive(Debug)]
     pub(super) struct AtomicState(AtomicUsize);
-
     impl Version {
         /// Decrements the version.
         pub(super) fn decrement(&mut self) {
-            // Using a wrapping decrement here is required to ensure that the
-            // operation is consistent with `std::sync::atomic::AtomicUsize::fetch_add()`
-            // which wraps on overflow.
-            self.0 = self.0.wrapping_sub(STEP_SIZE);
+            panic!("STUB: not implemented");
         }
-
         pub(super) const INITIAL: Self = Version(0);
     }
-
     impl StateSnapshot {
         /// Extract the version from the state.
         pub(super) fn version(self) -> Version {
-            Version(self.0 & !CLOSED_BIT)
+            panic!("STUB: not implemented");
         }
-
         /// Is the closed bit set?
         pub(super) fn is_closed(self) -> bool {
-            (self.0 & CLOSED_BIT) == CLOSED_BIT
+            panic!("STUB: not implemented");
         }
     }
-
     impl AtomicState {
         /// Create a new `AtomicState` that is not closed and which has the
         /// version set to `Version::INITIAL`.
         pub(super) fn new() -> Self {
-            AtomicState(AtomicUsize::new(Version::INITIAL.0))
+            panic!("STUB: not implemented");
         }
-
         /// Load the current value of the state.
         ///
         /// Only used by the receiver and for debugging purposes.
@@ -496,25 +419,18 @@ mod state {
         /// updated after modifying and before releasing the (exclusive) lock on the
         /// shared value.
         pub(super) fn load(&self) -> StateSnapshot {
-            StateSnapshot(self.0.load(Ordering::Acquire))
+            panic!("STUB: not implemented");
         }
-
         /// Increment the version counter.
         pub(super) fn increment_version_while_locked(&self) {
-            // Use `Release` ordering to ensure that the shared value
-            // has been written before updating the version. The shared
-            // value is still protected by an exclusive lock during this
-            // method.
-            self.0.fetch_add(STEP_SIZE, Ordering::Release);
+            panic!("STUB: not implemented");
         }
-
         /// Set the closed bit in the state.
         pub(super) fn set_closed(&self) {
-            self.0.fetch_or(CLOSED_BIT, Ordering::Release);
+            panic!("STUB: not implemented");
         }
     }
 }
-
 /// Creates a new watch channel, returning the "send" and "receive" handles.
 ///
 /// All values sent by [`Sender`] will become visible to the [`Receiver`] handles.
@@ -552,36 +468,12 @@ mod state {
 /// [`Sender`]: struct@Sender
 /// [`Receiver`]: struct@Receiver
 pub fn channel<T>(init: T) -> (Sender<T>, Receiver<T>) {
-    let shared = Arc::new(Shared {
-        value: RwLock::new(init),
-        state: AtomicState::new(),
-        ref_count_rx: AtomicUsize::new(1),
-        ref_count_tx: AtomicUsize::new(1),
-        notify_rx: big_notify::BigNotify::new(),
-        notify_tx: Notify::new(),
-    });
-
-    let tx = Sender {
-        shared: shared.clone(),
-    };
-
-    let rx = Receiver {
-        shared,
-        version: Version::INITIAL,
-    };
-
-    (tx, rx)
+    panic!("STUB: not implemented");
 }
-
 impl<T> Receiver<T> {
     fn from_shared(version: Version, shared: Arc<Shared<T>>) -> Self {
-        // No synchronization necessary as this is only used as a counter and
-        // not memory access.
-        shared.ref_count_rx.fetch_add(1, Relaxed);
-
-        Self { shared, version }
+        panic!("STUB: not implemented");
     }
-
     /// Returns a reference to the most recently sent value.
     ///
     /// This method does not mark the returned value as seen, so future calls to
@@ -627,16 +519,8 @@ impl<T> Receiver<T> {
     /// assert_eq!(*rx.borrow(), "hello");
     /// ```
     pub fn borrow(&self) -> Ref<'_, T> {
-        let inner = self.shared.value.read();
-
-        // After obtaining a read-lock no concurrent writes could occur
-        // and the loaded version matches that of the borrowed reference.
-        let new_version = self.shared.state.load().version();
-        let has_changed = self.version != new_version;
-
-        Ref { inner, has_changed }
+        panic!("STUB: not implemented");
     }
-
     /// Returns a reference to the most recently sent value and marks that value
     /// as seen.
     ///
@@ -674,19 +558,8 @@ impl<T> Receiver<T> {
     /// [`changed`]: Receiver::changed
     /// [`borrow`]: Receiver::borrow
     pub fn borrow_and_update(&mut self) -> Ref<'_, T> {
-        let inner = self.shared.value.read();
-
-        // After obtaining a read-lock no concurrent writes could occur
-        // and the loaded version matches that of the borrowed reference.
-        let new_version = self.shared.state.load().version();
-        let has_changed = self.version != new_version;
-
-        // Mark the shared value as seen by updating the version
-        self.version = new_version;
-
-        Ref { inner, has_changed }
+        panic!("STUB: not implemented");
     }
-
     /// Checks if this channel contains a message that this receiver has not yet
     /// seen. The current value will not be marked as seen.
     ///
@@ -736,17 +609,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn has_changed(&self) -> Result<bool, error::RecvError> {
-        // Load the version from the state
-        let state = self.shared.state.load();
-        if state.is_closed() {
-            // All senders have dropped.
-            return Err(error::RecvError(()));
-        }
-        let new_version = state.version();
-
-        Ok(self.version != new_version)
+        panic!("STUB: not implemented");
     }
-
     /// Marks the state as changed.
     ///
     /// After invoking this method [`has_changed()`](Self::has_changed)
@@ -756,9 +620,8 @@ impl<T> Receiver<T> {
     /// This is useful for triggering an initial change notification after
     /// subscribing to synchronize new receivers.
     pub fn mark_changed(&mut self) {
-        self.version.decrement();
+        panic!("STUB: not implemented");
     }
-
     /// Marks the state as unchanged.
     ///
     /// The current value will be considered seen by the receiver.
@@ -766,10 +629,8 @@ impl<T> Receiver<T> {
     /// This is useful if you are not interested in the current value
     /// visible in the receiver.
     pub fn mark_unchanged(&mut self) {
-        let current_version = self.shared.state.load().version();
-        self.version = current_version;
+        panic!("STUB: not implemented");
     }
-
     /// Waits for a change notification, then marks the current value as seen.
     ///
     /// If the current value in the channel has not yet been marked seen when
@@ -816,9 +677,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub async fn changed(&mut self) -> Result<(), error::RecvError> {
-        cooperative(changed_impl(&self.shared, &mut self.version)).await
+        panic!("STUB: not implemented");
     }
-
     /// Waits for a value that satisfies the provided condition.
     ///
     /// This method will call the provided closure whenever something is sent on
@@ -890,51 +750,14 @@ impl<T> Receiver<T> {
         &mut self,
         f: impl FnMut(&T) -> bool,
     ) -> Result<Ref<'_, T>, error::RecvError> {
-        cooperative(self.wait_for_inner(f)).await
+        panic!("STUB: not implemented");
     }
-
     async fn wait_for_inner(
         &mut self,
         mut f: impl FnMut(&T) -> bool,
     ) -> Result<Ref<'_, T>, error::RecvError> {
-        let mut closed = false;
-        loop {
-            {
-                let inner = self.shared.value.read();
-
-                let new_version = self.shared.state.load().version();
-                let has_changed = self.version != new_version;
-                self.version = new_version;
-
-                if !closed || has_changed {
-                    let result = panic::catch_unwind(panic::AssertUnwindSafe(|| f(&inner)));
-                    match result {
-                        Ok(true) => {
-                            return Ok(Ref { inner, has_changed });
-                        }
-                        Ok(false) => {
-                            // Skip the value.
-                        }
-                        Err(panicked) => {
-                            // Drop the read-lock to avoid poisoning it.
-                            drop(inner);
-                            // Forward the panic to the caller.
-                            panic::resume_unwind(panicked);
-                            // Unreachable
-                        }
-                    };
-                }
-            }
-
-            if closed {
-                return Err(error::RecvError(()));
-            }
-
-            // Wait for the value to change.
-            closed = changed_impl(&self.shared, &mut self.version).await.is_err();
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if receivers belong to the same channel.
     ///
     /// # Examples
@@ -948,79 +771,35 @@ impl<T> Receiver<T> {
     /// assert!(!rx3.same_channel(&rx2));
     /// ```
     pub fn same_channel(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.shared, &other.shared)
+        panic!("STUB: not implemented");
     }
-
     cfg_process_driver! {
-        pub(crate) fn try_has_changed(&mut self) -> Option<Result<(), error::RecvError>> {
-            maybe_changed(&self.shared, &mut self.version)
-        }
+        pub (crate) fn try_has_changed(& mut self) -> Option < Result < (),
+        error::RecvError >> { maybe_changed(& self.shared, & mut self.version) }
     }
 }
-
 fn maybe_changed<T>(
     shared: &Shared<T>,
     version: &mut Version,
 ) -> Option<Result<(), error::RecvError>> {
-    // Load the version from the state
-    let state = shared.state.load();
-    let new_version = state.version();
-
-    if *version != new_version {
-        // Observe the new version and return
-        *version = new_version;
-        return Some(Ok(()));
-    }
-
-    if state.is_closed() {
-        // All senders have been dropped.
-        return Some(Err(error::RecvError(())));
-    }
-
-    None
+    panic!("STUB: not implemented");
 }
-
 async fn changed_impl<T>(
     shared: &Shared<T>,
     version: &mut Version,
 ) -> Result<(), error::RecvError> {
-    crate::trace::async_trace_leaf().await;
-
-    loop {
-        // In order to avoid a race condition, we first request a notification,
-        // **then** check the current value's version. If a new version exists,
-        // the notification request is dropped.
-        let notified = shared.notify_rx.notified();
-
-        if let Some(ret) = maybe_changed(shared, version) {
-            return ret;
-        }
-
-        notified.await;
-        // loop around again in case the wake-up was spurious
-    }
+    panic!("STUB: not implemented");
 }
-
 impl<T> Clone for Receiver<T> {
     fn clone(&self) -> Self {
-        let version = self.version;
-        let shared = self.shared.clone();
-
-        Self::from_shared(version, shared)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
-        // No synchronization necessary as this is only used as a counter and
-        // not memory access.
-        if 1 == self.shared.ref_count_rx.fetch_sub(1, Relaxed) {
-            // This is the last `Receiver` handle, tasks waiting on `Sender::closed()`
-            self.shared.notify_tx.notify_waiters();
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Sender<T> {
     /// Creates the sending-half of the [`watch`] channel.
     ///
@@ -1039,10 +818,8 @@ impl<T> Sender<T> {
     /// assert!(sender.send(4).is_ok());
     /// ```
     pub fn new(init: T) -> Self {
-        let (tx, _) = channel(init);
-        tx
+        panic!("STUB: not implemented");
     }
-
     /// Sends a new value via the channel, notifying all receivers.
     ///
     /// This method fails if the channel is closed, which is the case when
@@ -1062,15 +839,8 @@ impl<T> Sender<T> {
     /// [`send_modify`]: Sender::send_modify
     /// [`send_replace`]: Sender::send_replace
     pub fn send(&self, value: T) -> Result<(), error::SendError<T>> {
-        // This is pretty much only useful as a hint anyway, so synchronization isn't critical.
-        if 0 == self.receiver_count() {
-            return Err(error::SendError(value));
-        }
-
-        self.send_replace(value);
-        Ok(())
+        panic!("STUB: not implemented");
     }
-
     /// Modifies the watched value **unconditionally** in-place,
     /// notifying all receivers.
     ///
@@ -1105,12 +875,8 @@ impl<T> Sender<T> {
     where
         F: FnOnce(&mut T),
     {
-        self.send_if_modified(|value| {
-            modify(value);
-            true
-        });
+        panic!("STUB: not implemented");
     }
-
     /// Modifies the watched value **conditionally** in-place,
     /// notifying all receivers only if modified.
     ///
@@ -1172,44 +938,8 @@ impl<T> Sender<T> {
     where
         F: FnOnce(&mut T) -> bool,
     {
-        {
-            // Acquire the write lock and update the value.
-            let mut lock = self.shared.value.write();
-
-            // Update the value and catch possible panic inside func.
-            let result = panic::catch_unwind(panic::AssertUnwindSafe(|| modify(&mut lock)));
-            match result {
-                Ok(modified) => {
-                    if !modified {
-                        // Abort, i.e. don't notify receivers if unmodified
-                        return false;
-                    }
-                    // Continue if modified
-                }
-                Err(panicked) => {
-                    // Drop the lock to avoid poisoning it.
-                    drop(lock);
-                    // Forward the panic to the caller.
-                    panic::resume_unwind(panicked);
-                    // Unreachable
-                }
-            };
-
-            self.shared.state.increment_version_while_locked();
-
-            // Release the write lock.
-            //
-            // Incrementing the version counter while holding the lock ensures
-            // that receivers are able to figure out the version number of the
-            // value they are currently looking at.
-            drop(lock);
-        }
-
-        self.shared.notify_rx.notify_waiters();
-
-        true
+        panic!("STUB: not implemented");
     }
-
     /// Sends a new value via the channel, notifying all receivers and returning
     /// the previous value in the channel.
     ///
@@ -1227,12 +957,8 @@ impl<T> Sender<T> {
     /// assert_eq!(tx.send_replace(3), 2);
     /// ```
     pub fn send_replace(&self, mut value: T) -> T {
-        // swap old watched value with the new one
-        self.send_modify(|old| mem::swap(old, &mut value));
-
-        value
+        panic!("STUB: not implemented");
     }
-
     /// Returns a reference to the most recently sent value
     ///
     /// Outstanding borrows hold a read lock on the inner value. This means that
@@ -1251,14 +977,8 @@ impl<T> Sender<T> {
     /// assert_eq!(*tx.borrow(), "hello");
     /// ```
     pub fn borrow(&self) -> Ref<'_, T> {
-        let inner = self.shared.value.read();
-
-        // The sender/producer always sees the current version
-        let has_changed = false;
-
-        Ref { inner, has_changed }
+        panic!("STUB: not implemented");
     }
-
     /// Checks if the channel has been closed. This happens when all receivers
     /// have dropped.
     ///
@@ -1272,9 +992,8 @@ impl<T> Sender<T> {
     /// assert!(tx.is_closed());
     /// ```
     pub fn is_closed(&self) -> bool {
-        self.receiver_count() == 0
+        panic!("STUB: not implemented");
     }
-
     /// Completes when all receivers have dropped.
     ///
     /// This allows the producer to get notified when interest in the produced
@@ -1311,24 +1030,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub async fn closed(&self) {
-        cooperative(async {
-            crate::trace::async_trace_leaf().await;
-
-            while self.receiver_count() > 0 {
-                let notified = self.shared.notify_tx.notified();
-
-                if self.receiver_count() == 0 {
-                    return;
-                }
-
-                notified.await;
-                // The channel could have been reopened in the meantime by calling
-                // `subscribe`, so we loop again.
-            }
-        })
-        .await;
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new [`Receiver`] connected to this `Sender`.
     ///
     /// All messages sent before this call to `subscribe` are initially marked
@@ -1385,14 +1088,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn subscribe(&self) -> Receiver<T> {
-        let shared = self.shared.clone();
-        let version = shared.state.load().version();
-
-        // The CLOSED bit in the state tracks only whether the sender is
-        // dropped, so we do not need to unset it if this reopens the channel.
-        Receiver::from_shared(version, shared)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of receivers that currently exist.
     ///
     /// # Examples
@@ -1412,9 +1109,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn receiver_count(&self) -> usize {
-        self.shared.ref_count_rx.load(Relaxed)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of senders that currently exist.
     ///
     /// # Examples
@@ -1435,9 +1131,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn sender_count(&self) -> usize {
-        self.shared.ref_count_tx.load(Relaxed)
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if senders belong to the same channel.
     ///
     /// # Examples
@@ -1451,106 +1146,77 @@ impl<T> Sender<T> {
     /// assert!(!tx3.same_channel(&tx2));
     /// ```
     pub fn same_channel(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.shared, &other.shared)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for Sender<T> {
     fn drop(&mut self) {
-        if self.shared.ref_count_tx.fetch_sub(1, AcqRel) == 1 {
-            self.shared.state.set_closed();
-            self.shared.notify_rx.notify_waiters();
-        }
+        panic!("STUB: not implemented");
     }
 }
-
-// ===== impl Ref =====
-
 impl<T> ops::Deref for Ref<'_, T> {
     type Target = T;
-
     fn deref(&self) -> &T {
-        self.inner.deref()
+        panic!("STUB: not implemented");
     }
 }
-
 #[cfg(all(test, loom))]
 mod tests {
     use futures::future::FutureExt;
     use loom::thread;
-
-    // test for https://github.com/tokio-rs/tokio/issues/3168
     #[test]
     fn watch_spurious_wakeup() {
         loom::model(|| {
             let (send, mut recv) = crate::sync::watch::channel(0i32);
-
             send.send(1).unwrap();
-
             let send_thread = thread::spawn(move || {
                 send.send(2).unwrap();
                 send
             });
-
             recv.changed().now_or_never();
-
             let send = send_thread.join().unwrap();
             let recv_thread = thread::spawn(move || {
                 recv.changed().now_or_never();
                 recv.changed().now_or_never();
                 recv
             });
-
             send.send(3).unwrap();
-
             let mut recv = recv_thread.join().unwrap();
             let send_thread = thread::spawn(move || {
                 send.send(2).unwrap();
             });
-
             recv.changed().now_or_never();
-
             send_thread.join().unwrap();
         });
     }
-
     #[test]
     fn watch_borrow() {
         loom::model(|| {
             let (send, mut recv) = crate::sync::watch::channel(0i32);
-
-            assert!(send.borrow().eq(&0));
-            assert!(recv.borrow().eq(&0));
-
+            assert!(send.borrow().eq(& 0));
+            assert!(recv.borrow().eq(& 0));
             send.send(1).unwrap();
-            assert!(send.borrow().eq(&1));
-
+            assert!(send.borrow().eq(& 1));
             let send_thread = thread::spawn(move || {
                 send.send(2).unwrap();
                 send
             });
-
             recv.changed().now_or_never();
-
             let send = send_thread.join().unwrap();
             let recv_thread = thread::spawn(move || {
                 recv.changed().now_or_never();
                 recv.changed().now_or_never();
                 recv
             });
-
             send.send(3).unwrap();
-
             let recv = recv_thread.join().unwrap();
-            assert!(recv.borrow().eq(&3));
-            assert!(send.borrow().eq(&3));
-
+            assert!(recv.borrow().eq(& 3));
+            assert!(send.borrow().eq(& 3));
             send.send(2).unwrap();
-
             thread::spawn(move || {
-                assert!(recv.borrow().eq(&2));
+                assert!(recv.borrow().eq(& 2));
             });
-            assert!(send.borrow().eq(&2));
+            assert!(send.borrow().eq(& 2));
         });
     }
 }

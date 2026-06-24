@@ -1,9 +1,7 @@
 #![allow(clippy::trivially_copy_pass_by_ref)]
-
 use std::fmt;
 use std::ops;
 use std::time::Duration;
-
 /// A measurement of a monotonically nondecreasing clock.
 /// Opaque and useful only with `Duration`.
 ///
@@ -34,7 +32,6 @@ use std::time::Duration;
 pub struct Instant {
     std: std::time::Instant,
 }
-
 impl Instant {
     /// Returns an instant corresponding to "now".
     ///
@@ -46,33 +43,24 @@ impl Instant {
     /// let now = Instant::now();
     /// ```
     pub fn now() -> Instant {
-        variant::now()
+        panic!("STUB: not implemented");
     }
-
     /// Create a `tokio::time::Instant` from a `std::time::Instant`.
     pub fn from_std(std: std::time::Instant) -> Instant {
-        Instant { std }
+        panic!("STUB: not implemented");
     }
-
     pub(crate) fn far_future() -> Instant {
-        // Roughly 30 years from now.
-        // API does not provide a way to obtain max `Instant`
-        // or convert specific date in the future to instant.
-        // 1000 years overflows on macOS, 100 years overflows on FreeBSD.
-        Self::now() + Duration::from_secs(86400 * 365 * 30)
+        panic!("STUB: not implemented");
     }
-
     /// Convert the value into a `std::time::Instant`.
     pub fn into_std(self) -> std::time::Instant {
-        self.std
+        panic!("STUB: not implemented");
     }
-
     /// Returns the amount of time elapsed from another instant to this one, or
     /// zero duration if that instant is later than this one.
     pub fn duration_since(&self, earlier: Instant) -> Duration {
-        self.std.saturating_duration_since(earlier.std)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the amount of time elapsed from another instant to this one, or
     /// None if that instant is later than this one.
     ///
@@ -91,9 +79,8 @@ impl Instant {
     /// # }
     /// ```
     pub fn checked_duration_since(&self, earlier: Instant) -> Option<Duration> {
-        self.std.checked_duration_since(earlier.std)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the amount of time elapsed from another instant to this one, or
     /// zero duration if that instant is later than this one.
     ///
@@ -112,9 +99,8 @@ impl Instant {
     /// }
     /// ```
     pub fn saturating_duration_since(&self, earlier: Instant) -> Duration {
-        self.std.saturating_duration_since(earlier.std)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the amount of time elapsed since this instant was created,
     /// or zero duration if this instant is in the future.
     ///
@@ -132,91 +118,74 @@ impl Instant {
     /// # }
     /// ```
     pub fn elapsed(&self) -> Duration {
-        Instant::now().saturating_duration_since(*self)
+        panic!("STUB: not implemented");
     }
-
     /// Returns `Some(t)` where `t` is the time `self + duration` if `t` can be
     /// represented as `Instant` (which means it's inside the bounds of the
     /// underlying data structure), `None` otherwise.
     pub fn checked_add(&self, duration: Duration) -> Option<Instant> {
-        self.std.checked_add(duration).map(Instant::from_std)
+        panic!("STUB: not implemented");
     }
-
     /// Returns `Some(t)` where `t` is the time `self - duration` if `t` can be
     /// represented as `Instant` (which means it's inside the bounds of the
     /// underlying data structure), `None` otherwise.
     pub fn checked_sub(&self, duration: Duration) -> Option<Instant> {
-        self.std.checked_sub(duration).map(Instant::from_std)
+        panic!("STUB: not implemented");
     }
 }
-
 impl From<std::time::Instant> for Instant {
     fn from(time: std::time::Instant) -> Instant {
-        Instant::from_std(time)
+        panic!("STUB: not implemented");
     }
 }
-
 impl From<Instant> for std::time::Instant {
     fn from(time: Instant) -> std::time::Instant {
-        time.into_std()
+        panic!("STUB: not implemented");
     }
 }
-
 impl ops::Add<Duration> for Instant {
     type Output = Instant;
-
     fn add(self, other: Duration) -> Instant {
-        Instant::from_std(self.std + other)
+        panic!("STUB: not implemented");
     }
 }
-
 impl ops::AddAssign<Duration> for Instant {
     fn add_assign(&mut self, rhs: Duration) {
-        *self = *self + rhs;
+        panic!("STUB: not implemented");
     }
 }
-
 impl ops::Sub for Instant {
     type Output = Duration;
-
     fn sub(self, rhs: Instant) -> Duration {
-        self.std.saturating_duration_since(rhs.std)
+        panic!("STUB: not implemented");
     }
 }
-
 impl ops::Sub<Duration> for Instant {
     type Output = Instant;
-
     fn sub(self, rhs: Duration) -> Instant {
-        Instant::from_std(std::time::Instant::sub(self.std, rhs))
+        panic!("STUB: not implemented");
     }
 }
-
 impl ops::SubAssign<Duration> for Instant {
     fn sub_assign(&mut self, rhs: Duration) {
-        *self = *self - rhs;
+        panic!("STUB: not implemented");
     }
 }
-
 impl fmt::Debug for Instant {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.std.fmt(fmt)
+        panic!("STUB: not implemented");
     }
 }
-
 #[cfg(not(feature = "test-util"))]
 mod variant {
     use super::Instant;
-
     pub(super) fn now() -> Instant {
         Instant::from_std(std::time::Instant::now())
     }
 }
-
 #[cfg(feature = "test-util")]
 mod variant {
     use super::Instant;
-
     pub(super) fn now() -> Instant {
         crate::time::clock::now()
     }

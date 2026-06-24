@@ -115,14 +115,12 @@
 //! assert_eq!(30, rx.recv().await.unwrap());
 //! # }
 //! ```
-
 use crate::loom::cell::UnsafeCell;
 use crate::loom::sync::atomic::{AtomicBool, AtomicUsize};
 use crate::loom::sync::{Arc, Mutex, MutexGuard};
 use crate::task::coop::cooperative;
 use crate::util::linked_list::{self, GuardedLinkedList, LinkedList};
 use crate::util::WakeList;
-
 use std::fmt;
 use std::future::Future;
 use std::marker::PhantomPinned;
@@ -130,7 +128,6 @@ use std::pin::Pin;
 use std::ptr::NonNull;
 use std::sync::atomic::Ordering::{AcqRel, Acquire, Relaxed, Release, SeqCst};
 use std::task::{ready, Context, Poll, Waker};
-
 /// Sending-half of the [`broadcast`] channel.
 ///
 /// May be used from many threads. Messages can be sent with
@@ -165,7 +162,6 @@ use std::task::{ready, Context, Poll, Waker};
 pub struct Sender<T> {
     shared: Arc<Shared<T>>,
 }
-
 /// A sender that does not prevent the channel from being closed.
 ///
 /// If all [`Sender`] instances of a channel were dropped and only `WeakSender`
@@ -199,7 +195,6 @@ pub struct Sender<T> {
 pub struct WeakSender<T> {
     shared: Arc<Shared<T>>,
 }
-
 /// Receiving-half of the [`broadcast`] channel.
 ///
 /// Must not be used concurrently. Messages may be retrieved using
@@ -239,16 +234,12 @@ pub struct WeakSender<T> {
 pub struct Receiver<T> {
     /// State shared with all receivers and senders.
     shared: Arc<Shared<T>>,
-
     /// Next position to read from
     next: u64,
 }
-
 pub mod error {
     //! Broadcast error types
-
     use std::fmt;
-
     /// Error returned by the [`send`] function on a [`Sender`].
     ///
     /// A **send** operation can only fail if there are no active receivers,
@@ -259,15 +250,12 @@ pub mod error {
     /// [`Sender`]: crate::sync::broadcast::Sender
     #[derive(Debug)]
     pub struct SendError<T>(pub T);
-
     impl<T> fmt::Display for SendError<T> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "channel closed")
+            panic!("STUB: not implemented");
         }
     }
-
     impl<T: fmt::Debug> std::error::Error for SendError<T> {}
-
     /// An error returned from the [`recv`] function on a [`Receiver`].
     ///
     /// [`recv`]: crate::sync::broadcast::Receiver::recv
@@ -277,25 +265,18 @@ pub mod error {
         /// There are no more active senders implying no further messages will ever
         /// be sent.
         Closed,
-
         /// The receiver lagged too far behind. Attempting to receive again will
         /// return the oldest message still retained by the channel.
         ///
         /// Includes the number of skipped messages.
         Lagged(u64),
     }
-
     impl fmt::Display for RecvError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            match self {
-                RecvError::Closed => write!(f, "channel closed"),
-                RecvError::Lagged(amt) => write!(f, "channel lagged by {amt}"),
-            }
+            panic!("STUB: not implemented");
         }
     }
-
     impl std::error::Error for RecvError {}
-
     /// An error returned from the [`try_recv`] function on a [`Receiver`].
     ///
     /// [`try_recv`]: crate::sync::broadcast::Receiver::try_recv
@@ -307,11 +288,9 @@ pub mod error {
         ///
         /// [`Sender`]: crate::sync::broadcast::Sender
         Empty,
-
         /// There are no more active senders implying no further messages will ever
         /// be sent.
         Closed,
-
         /// The receiver lagged too far behind and has been forcibly disconnected.
         /// Attempting to receive again will return the oldest message still
         /// retained by the channel.
@@ -319,60 +298,41 @@ pub mod error {
         /// Includes the number of skipped messages.
         Lagged(u64),
     }
-
     impl fmt::Display for TryRecvError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            match self {
-                TryRecvError::Empty => write!(f, "channel empty"),
-                TryRecvError::Closed => write!(f, "channel closed"),
-                TryRecvError::Lagged(amt) => write!(f, "channel lagged by {amt}"),
-            }
+            panic!("STUB: not implemented");
         }
     }
-
     impl std::error::Error for TryRecvError {}
 }
-
 use self::error::{RecvError, SendError, TryRecvError};
-
 use super::Notify;
-
 /// Data shared between senders and receivers.
 struct Shared<T> {
     /// slots in the channel.
     buffer: Box<[Mutex<Slot<T>>]>,
-
     /// Mask a position -> index.
     mask: usize,
-
     /// Tail of the queue. Includes the rx wait list.
     tail: Mutex<Tail>,
-
     /// Number of outstanding Sender handles.
     num_tx: AtomicUsize,
-
     /// Number of outstanding weak Sender handles.
     num_weak_tx: AtomicUsize,
-
     /// Notify when the last subscribed [`Receiver`] drops.
     notify_last_rx_drop: Notify,
 }
-
 /// Next position to write a value.
 struct Tail {
     /// Next position to write to.
     pos: u64,
-
     /// Number of active receivers.
     rx_cnt: usize,
-
     /// True if the channel is closed.
     closed: bool,
-
     /// Receivers waiting for a value.
     waiters: LinkedList<Waiter>,
 }
-
 /// Slot in the buffer.
 struct Slot<T> {
     /// Remaining number of receivers that are expected to see this value.
@@ -382,74 +342,49 @@ struct Slot<T> {
     /// An atomic is used as it is mutated concurrently with the slot read lock
     /// acquired.
     rem: AtomicUsize,
-
     /// Uniquely identifies the `send` stored in the slot.
     pos: u64,
-
     /// The value being broadcast.
     ///
     /// The value is set by `send` when the write lock is held. When a reader
     /// drops, `rem` is decremented. When it hits zero, the value is dropped.
     val: Option<T>,
 }
-
 /// An entry in the wait queue.
 struct Waiter {
     /// True if queued.
     queued: AtomicBool,
-
     /// Task waiting on the broadcast channel.
     waker: Option<Waker>,
-
     /// Intrusive linked-list pointers.
     pointers: linked_list::Pointers<Waiter>,
-
     /// Should not be `Unpin`.
     _p: PhantomPinned,
 }
-
 impl Waiter {
     fn new() -> Self {
-        Self {
-            queued: AtomicBool::new(false),
-            waker: None,
-            pointers: linked_list::Pointers::new(),
-            _p: PhantomPinned,
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 generate_addr_of_methods! {
-    impl<> Waiter {
-        unsafe fn addr_of_pointers(self: NonNull<Self>) -> NonNull<linked_list::Pointers<Waiter>> {
-            &self.pointers
-        }
-    }
+    impl <> Waiter { unsafe fn addr_of_pointers(self : NonNull < Self >) -> NonNull <
+    linked_list::Pointers < Waiter >> { & self.pointers } }
 }
-
 struct RecvGuard<'a, T> {
     slot: MutexGuard<'a, Slot<T>>,
 }
-
 /// Receive a value future.
 struct Recv<'a, T> {
     /// Receiver being waited on.
     receiver: &'a mut Receiver<T>,
-
     /// Entry in the waiter `LinkedList`.
     waiter: WaiterCell,
 }
-
-// The wrapper around `UnsafeCell` isolates the unsafe impl `Send` and `Sync`
-// from `Recv`.
 struct WaiterCell(UnsafeCell<Waiter>);
-
 unsafe impl Send for WaiterCell {}
 unsafe impl Sync for WaiterCell {}
-
 /// Max number of receivers. Reserve space to lock.
 const MAX_RECEIVERS: usize = usize::MAX >> 2;
-
 /// Create a bounded, multi-producer, multi-consumer channel where each sent
 /// value is broadcasted to all active receivers.
 ///
@@ -506,15 +441,8 @@ const MAX_RECEIVERS: usize = usize::MAX >> 2;
 /// [an allocation error](std::alloc::handle_alloc_error).
 #[track_caller]
 pub fn channel<T: Clone>(capacity: usize) -> (Sender<T>, Receiver<T>) {
-    // SAFETY: In the line below we are creating one extra receiver, so there will be 1 in total.
-    let tx = unsafe { Sender::new_with_receiver_count(1, capacity) };
-    let rx = Receiver {
-        shared: tx.shared.clone(),
-        next: 0,
-    };
-    (tx, rx)
+    panic!("STUB: not implemented");
 }
-
 impl<T> Sender<T> {
     /// Creates the sending-half of the [`broadcast`] channel.
     ///
@@ -524,10 +452,8 @@ impl<T> Sender<T> {
     /// [`broadcast::channel`]: crate::sync::broadcast::channel
     #[track_caller]
     pub fn new(capacity: usize) -> Self {
-        // SAFETY: We don't create extra receivers, so there are 0.
-        unsafe { Self::new_with_receiver_count(0, capacity) }
+        panic!("STUB: not implemented");
     }
-
     /// Creates the sending-half of the [`broadcast`](self) channel, and provide the receiver
     /// count.
     ///
@@ -540,41 +466,12 @@ impl<T> Sender<T> {
     /// the channel functionalities are used, the count is zero by default, as this function
     /// does not create any receivers by itself.
     #[track_caller]
-    unsafe fn new_with_receiver_count(receiver_count: usize, mut capacity: usize) -> Self {
-        assert!(capacity > 0, "broadcast channel capacity cannot be zero");
-        assert!(
-            capacity <= usize::MAX >> 1,
-            "broadcast channel capacity exceeded `usize::MAX / 2`"
-        );
-
-        // Round to a power of two
-        capacity = capacity.next_power_of_two();
-
-        let buffer = (0..capacity).map(|i| {
-            Mutex::new(Slot {
-                rem: AtomicUsize::new(0),
-                pos: (i as u64).wrapping_sub(capacity as u64),
-                val: None,
-            })
-        });
-
-        let shared = Arc::new(Shared {
-            buffer: buffer.collect(),
-            mask: capacity - 1,
-            tail: Mutex::new(Tail {
-                pos: 0,
-                rx_cnt: receiver_count,
-                closed: receiver_count == 0,
-                waiters: LinkedList::new(),
-            }),
-            num_tx: AtomicUsize::new(1),
-            num_weak_tx: AtomicUsize::new(0),
-            notify_last_rx_drop: Notify::new(),
-        });
-
-        Sender { shared }
+    unsafe fn new_with_receiver_count(
+        receiver_count: usize,
+        mut capacity: usize,
+    ) -> Self {
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to send a value to all active [`Receiver`] handles, returning
     /// it back if it could not be sent.
     ///
@@ -627,43 +524,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn send(&self, value: T) -> Result<usize, SendError<T>> {
-        let mut tail = self.shared.tail.lock();
-
-        if tail.rx_cnt == 0 {
-            return Err(SendError(value));
-        }
-
-        // Position to write into
-        let pos = tail.pos;
-        let rem = tail.rx_cnt;
-        let idx = (pos & self.shared.mask as u64) as usize;
-
-        // Update the tail position
-        tail.pos = tail.pos.wrapping_add(1);
-
-        // Get the slot
-        let mut slot = self.shared.buffer[idx].lock();
-
-        // Track the position
-        slot.pos = pos;
-
-        // Set remaining receivers
-        slot.rem.with_mut(|v| *v = rem);
-
-        // Write the value
-        slot.val = Some(value);
-
-        // Release the slot lock before notifying the receivers.
-        drop(slot);
-
-        // Notify and release the mutex. This must happen after the slot lock is
-        // released, otherwise the writer lock bit could be cleared while another
-        // thread is in the critical section.
-        self.shared.notify_rx(tail);
-
-        Ok(rem)
+        panic!("STUB: not implemented");
     }
-
     /// Creates a new [`Receiver`] handle that will receive values sent **after**
     /// this call to `subscribe`.
     ///
@@ -688,22 +550,16 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn subscribe(&self) -> Receiver<T> {
-        let shared = self.shared.clone();
-        new_receiver(shared)
+        panic!("STUB: not implemented");
     }
-
     /// Converts the `Sender` to a [`WeakSender`] that does not count
     /// towards RAII semantics, i.e. if all `Sender` instances of the
     /// channel were dropped and only `WeakSender` instances remain,
     /// the channel is closed.
     #[must_use = "Downgrade creates a WeakSender without destroying the original non-weak sender."]
     pub fn downgrade(&self) -> WeakSender<T> {
-        self.shared.num_weak_tx.fetch_add(1, Relaxed);
-        WeakSender {
-            shared: self.shared.clone(),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of queued values.
     ///
     /// A value is queued until it has either been seen by all receivers that were alive at the time
@@ -742,24 +598,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn len(&self) -> usize {
-        let tail = self.shared.tail.lock();
-
-        let base_idx = (tail.pos & self.shared.mask as u64) as usize;
-        let mut low = 0;
-        let mut high = self.shared.buffer.len();
-        while low < high {
-            let mid = low + (high - low) / 2;
-            let idx = base_idx.wrapping_add(mid) & self.shared.mask;
-            if self.shared.buffer[idx].lock().rem.load(SeqCst) == 0 {
-                low = mid + 1;
-            } else {
-                high = mid;
-            }
-        }
-
-        self.shared.buffer.len() - low
+        panic!("STUB: not implemented");
     }
-
     /// Returns true if there are no queued values.
     ///
     /// # Examples
@@ -789,12 +629,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn is_empty(&self) -> bool {
-        let tail = self.shared.tail.lock();
-
-        let idx = (tail.pos.wrapping_sub(1) & self.shared.mask as u64) as usize;
-        self.shared.buffer[idx].lock().rem.load(SeqCst) == 0
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of active receivers.
     ///
     /// An active receiver is a [`Receiver`] handle returned from [`channel`] or
@@ -832,10 +668,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn receiver_count(&self) -> usize {
-        let tail = self.shared.tail.lock();
-        tail.rx_cnt
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if senders belong to the same channel.
     ///
     /// # Examples
@@ -856,9 +690,8 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub fn same_channel(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.shared, &other.shared)
+        panic!("STUB: not implemented");
     }
-
     /// A future which completes when the number of [Receiver]s subscribed to this `Sender` reaches
     /// zero.
     ///
@@ -885,60 +718,24 @@ impl<T> Sender<T> {
     /// # }
     /// ```
     pub async fn closed(&self) {
-        loop {
-            let notified = self.shared.notify_last_rx_drop.notified();
-
-            {
-                // Ensure the lock drops if the channel isn't closed
-                let tail = self.shared.tail.lock();
-                if tail.closed {
-                    return;
-                }
-            }
-
-            notified.await;
-        }
+        panic!("STUB: not implemented");
     }
-
     fn close_channel(&self) {
-        let mut tail = self.shared.tail.lock();
-        tail.closed = true;
-
-        self.shared.notify_rx(tail);
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`Sender`] handles.
     pub fn strong_count(&self) -> usize {
-        self.shared.num_tx.load(Acquire)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`WeakSender`] handles.
     pub fn weak_count(&self) -> usize {
-        self.shared.num_weak_tx.load(Acquire)
+        panic!("STUB: not implemented");
     }
 }
-
 /// Create a new `Receiver` which reads starting from the tail.
 fn new_receiver<T>(shared: Arc<Shared<T>>) -> Receiver<T> {
-    let mut tail = shared.tail.lock();
-
-    assert!(tail.rx_cnt != MAX_RECEIVERS, "max receivers");
-
-    if tail.rx_cnt == 0 {
-        // Potentially need to re-open the channel, if a new receiver has been added between calls
-        // to poll(). Note that we use rx_cnt == 0 instead of is_closed since is_closed also
-        // applies if the sender has been dropped
-        tail.closed = false;
-    }
-
-    tail.rx_cnt = tail.rx_cnt.checked_add(1).expect("overflow");
-    let next = tail.pos;
-
-    drop(tail);
-
-    Receiver { shared, next }
+    panic!("STUB: not implemented");
 }
-
 /// List used in `Shared::notify_rx`. It wraps a guarded linked list
 /// and gates the access to it on the `Shared.tail` mutex. It also empties
 /// the list on drop.
@@ -947,129 +744,40 @@ struct WaitersList<'a, T> {
     is_empty: bool,
     shared: &'a Shared<T>,
 }
-
 impl<'a, T> Drop for WaitersList<'a, T> {
     fn drop(&mut self) {
-        // If the list is not empty, we unlink all waiters from it.
-        // We do not wake the waiters to avoid double panics.
-        if !self.is_empty {
-            let _lock_guard = self.shared.tail.lock();
-            while self.list.pop_back().is_some() {}
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T> WaitersList<'a, T> {
     fn new(
         unguarded_list: LinkedList<Waiter>,
         guard: Pin<&'a Waiter>,
         shared: &'a Shared<T>,
     ) -> Self {
-        let guard_ptr = NonNull::from(guard.get_ref());
-        let list = unguarded_list.into_guarded(guard_ptr);
-        WaitersList {
-            list,
-            is_empty: false,
-            shared,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Removes the last element from the guarded list. Modifying this list
     /// requires an exclusive access to the main list in `Notify`.
     fn pop_back_locked(&mut self, _tail: &mut Tail) -> Option<NonNull<Waiter>> {
-        let result = self.list.pop_back();
-        if result.is_none() {
-            // Save information about emptiness to avoid waiting for lock
-            // in the destructor.
-            self.is_empty = true;
-        }
-        result
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Shared<T> {
     fn notify_rx<'a, 'b: 'a>(&'b self, mut tail: MutexGuard<'a, Tail>) {
-        // It is critical for `GuardedLinkedList` safety that the guard node is
-        // pinned in memory and is not dropped until the guarded list is dropped.
-        let guard = Waiter::new();
-        pin!(guard);
-
-        // We move all waiters to a secondary list. It uses a `GuardedLinkedList`
-        // underneath to allow every waiter to safely remove itself from it.
-        //
-        // * This list will be still guarded by the `waiters` lock.
-        //   `NotifyWaitersList` wrapper makes sure we hold the lock to modify it.
-        // * This wrapper will empty the list on drop. It is critical for safety
-        //   that we will not leave any list entry with a pointer to the local
-        //   guard node after this function returns / panics.
-        let mut list = WaitersList::new(std::mem::take(&mut tail.waiters), guard.as_ref(), self);
-
-        let mut wakers = WakeList::new();
-        'outer: loop {
-            while wakers.can_push() {
-                match list.pop_back_locked(&mut tail) {
-                    Some(waiter) => {
-                        unsafe {
-                            // Safety: accessing `waker` is safe because
-                            // the tail lock is held.
-                            if let Some(waker) = (*waiter.as_ptr()).waker.take() {
-                                wakers.push(waker);
-                            }
-
-                            // Safety: `queued` is atomic.
-                            let queued = &(*waiter.as_ptr()).queued;
-                            // `Relaxed` suffices because the tail lock is held.
-                            assert!(queued.load(Relaxed));
-                            // `Release` is needed to synchronize with `Recv::drop`.
-                            // It is critical to set this variable **after** waker
-                            // is extracted, otherwise we may data race with `Recv::drop`.
-                            queued.store(false, Release);
-                        }
-                    }
-                    None => {
-                        break 'outer;
-                    }
-                }
-            }
-
-            // Release the lock before waking.
-            drop(tail);
-
-            // Before we acquire the lock again all sorts of things can happen:
-            // some waiters may remove themselves from the list and new waiters
-            // may be added. This is fine since at worst we will unnecessarily
-            // wake up waiters which will then queue themselves again.
-
-            wakers.wake_all();
-
-            // Acquire the lock again.
-            tail = self.tail.lock();
-        }
-
-        // Release the lock before waking.
-        drop(tail);
-
-        wakers.wake_all();
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Clone for Sender<T> {
     fn clone(&self) -> Sender<T> {
-        let shared = self.shared.clone();
-        shared.num_tx.fetch_add(1, Relaxed);
-
-        Sender { shared }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for Sender<T> {
     fn drop(&mut self) {
-        if 1 == self.shared.num_tx.fetch_sub(1, AcqRel) {
-            self.close_channel();
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> WeakSender<T> {
     /// Tries to convert a `WeakSender` into a [`Sender`].
     ///
@@ -1077,55 +785,27 @@ impl<T> WeakSender<T> {
     /// the channel wasn't previously dropped, otherwise `None` is returned.
     #[must_use]
     pub fn upgrade(&self) -> Option<Sender<T>> {
-        let mut tx_count = self.shared.num_tx.load(Acquire);
-
-        loop {
-            if tx_count == 0 {
-                // channel is closed so this WeakSender can not be upgraded
-                return None;
-            }
-
-            match self
-                .shared
-                .num_tx
-                .compare_exchange_weak(tx_count, tx_count + 1, Relaxed, Acquire)
-            {
-                Ok(_) => {
-                    return Some(Sender {
-                        shared: self.shared.clone(),
-                    })
-                }
-                Err(prev_count) => tx_count = prev_count,
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`Sender`] handles.
     pub fn strong_count(&self) -> usize {
-        self.shared.num_tx.load(Acquire)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`WeakSender`] handles.
     pub fn weak_count(&self) -> usize {
-        self.shared.num_weak_tx.load(Acquire)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Clone for WeakSender<T> {
     fn clone(&self) -> WeakSender<T> {
-        let shared = self.shared.clone();
-        shared.num_weak_tx.fetch_add(1, Relaxed);
-
-        Self { shared }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for WeakSender<T> {
     fn drop(&mut self) {
-        self.shared.num_weak_tx.fetch_sub(1, AcqRel);
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Receiver<T> {
     /// Returns the number of messages that were sent into the channel and that
     /// this [`Receiver`] has yet to receive.
@@ -1161,10 +841,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn len(&self) -> usize {
-        let next_send_pos = self.shared.tail.lock().pos;
-        (next_send_pos - self.next) as usize
+        panic!("STUB: not implemented");
     }
-
     /// Returns true if there aren't any messages in the channel that the [`Receiver`]
     /// has yet to receive.
     ///
@@ -1191,9 +869,8 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        panic!("STUB: not implemented");
     }
-
     /// Returns `true` if receivers belong to the same channel.
     ///
     /// # Examples
@@ -1214,127 +891,23 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn same_channel(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.shared, &other.shared)
+        panic!("STUB: not implemented");
     }
-
     /// Locks the next value if there is one.
     fn recv_ref(
         &mut self,
         waiter: Option<(&UnsafeCell<Waiter>, &Waker)>,
     ) -> Result<RecvGuard<'_, T>, TryRecvError> {
-        let idx = (self.next & self.shared.mask as u64) as usize;
-
-        // The slot holding the next value to read
-        let mut slot = self.shared.buffer[idx].lock();
-
-        if slot.pos != self.next {
-            // Release the `slot` lock before attempting to acquire the `tail`
-            // lock. This is required because `send2` acquires the tail lock
-            // first followed by the slot lock. Acquiring the locks in reverse
-            // order here would result in a potential deadlock: `recv_ref`
-            // acquires the `slot` lock and attempts to acquire the `tail` lock
-            // while `send2` acquired the `tail` lock and attempts to acquire
-            // the slot lock.
-            drop(slot);
-
-            let mut old_waker = None;
-
-            let mut tail = self.shared.tail.lock();
-
-            // Acquire slot lock again
-            slot = self.shared.buffer[idx].lock();
-
-            // Make sure the position did not change. This could happen in the
-            // unlikely event that the buffer is wrapped between dropping the
-            // read lock and acquiring the tail lock.
-            if slot.pos != self.next {
-                let next_pos = slot.pos.wrapping_add(self.shared.buffer.len() as u64);
-
-                if next_pos == self.next {
-                    // At this point the channel is empty for *this* receiver. If
-                    // it's been closed, then that's what we return, otherwise we
-                    // set a waker and return empty.
-                    if tail.closed {
-                        return Err(TryRecvError::Closed);
-                    }
-
-                    // Store the waker
-                    if let Some((waiter, waker)) = waiter {
-                        // Safety: called while locked.
-                        unsafe {
-                            // Only queue if not already queued
-                            waiter.with_mut(|ptr| {
-                                // If there is no waker **or** if the currently
-                                // stored waker references a **different** task,
-                                // track the tasks' waker to be notified on
-                                // receipt of a new value.
-                                match (*ptr).waker {
-                                    Some(ref w) if w.will_wake(waker) => {}
-                                    _ => {
-                                        old_waker = (*ptr).waker.replace(waker.clone());
-                                    }
-                                }
-
-                                // If the waiter is not already queued, enqueue it.
-                                // `Relaxed` order suffices: we have synchronized with
-                                // all writers through the tail lock that we hold.
-                                if !(*ptr).queued.load(Relaxed) {
-                                    // `Relaxed` order suffices: all the readers will
-                                    // synchronize with this write through the tail lock.
-                                    (*ptr).queued.store(true, Relaxed);
-                                    tail.waiters.push_front(NonNull::new_unchecked(&mut *ptr));
-                                }
-                            });
-                        }
-                    }
-
-                    // Drop the old waker after releasing the locks.
-                    drop(slot);
-                    drop(tail);
-                    drop(old_waker);
-
-                    return Err(TryRecvError::Empty);
-                }
-
-                // At this point, the receiver has lagged behind the sender by
-                // more than the channel capacity. The receiver will attempt to
-                // catch up by skipping dropped messages and setting the
-                // internal cursor to the **oldest** message stored by the
-                // channel.
-                let next = tail.pos.wrapping_sub(self.shared.buffer.len() as u64);
-
-                let missed = next.wrapping_sub(self.next);
-
-                drop(tail);
-
-                // The receiver is slow but no values have been missed
-                if missed == 0 {
-                    self.next = self.next.wrapping_add(1);
-
-                    return Ok(RecvGuard { slot });
-                }
-
-                self.next = next;
-
-                return Err(TryRecvError::Lagged(missed));
-            }
-        }
-
-        self.next = self.next.wrapping_add(1);
-
-        Ok(RecvGuard { slot })
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`Sender`] handles.
     pub fn sender_strong_count(&self) -> usize {
-        self.shared.num_tx.load(Acquire)
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of [`WeakSender`] handles.
     pub fn sender_weak_count(&self) -> usize {
-        self.shared.num_weak_tx.load(Acquire)
+        panic!("STUB: not implemented");
     }
-
     /// Checks if a channel is closed.
     ///
     /// This method returns `true` if the channel has been closed. The channel is closed
@@ -1357,11 +930,9 @@ impl<T> Receiver<T> {
     /// # }
     /// ```
     pub fn is_closed(&self) -> bool {
-        // Channel is closed when there are no strong senders left active
-        self.shared.num_tx.load(Acquire) == 0
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: Clone> Receiver<T> {
     /// Re-subscribes to the channel starting from the current tail element.
     ///
@@ -1387,8 +958,7 @@ impl<T: Clone> Receiver<T> {
     /// # }
     /// ```
     pub fn resubscribe(&self) -> Self {
-        let shared = self.shared.clone();
-        new_receiver(shared)
+        panic!("STUB: not implemented");
     }
     /// Receives the next value for this receiver.
     ///
@@ -1463,9 +1033,8 @@ impl<T: Clone> Receiver<T> {
     /// # }
     /// ```
     pub async fn recv(&mut self) -> Result<T, RecvError> {
-        cooperative(Recv::new(self)).await
+        panic!("STUB: not implemented");
     }
-
     /// Attempts to return a pending value on this receiver without awaiting.
     ///
     /// This is useful for a flavor of "optimistic check" before deciding to
@@ -1507,10 +1076,8 @@ impl<T: Clone> Receiver<T> {
     /// # }
     /// ```
     pub fn try_recv(&mut self) -> Result<T, TryRecvError> {
-        let guard = self.recv_ref(None)?;
-        guard.clone_value().ok_or(TryRecvError::Closed)
+        panic!("STUB: not implemented");
     }
-
     /// Blocking receive to call outside of asynchronous contexts.
     ///
     /// # Panics
@@ -1539,218 +1106,112 @@ impl<T: Clone> Receiver<T> {
     /// # }
     /// ```
     pub fn blocking_recv(&mut self) -> Result<T, RecvError> {
-        crate::future::block_on(self.recv())
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for Receiver<T> {
     fn drop(&mut self) {
-        let mut tail = self.shared.tail.lock();
-
-        tail.rx_cnt -= 1;
-        let until = tail.pos;
-        let remaining_rx = tail.rx_cnt;
-
-        if remaining_rx == 0 {
-            self.shared.notify_last_rx_drop.notify_waiters();
-            tail.closed = true;
-        }
-
-        drop(tail);
-
-        while self.next < until {
-            match self.recv_ref(None) {
-                Ok(_) => {}
-                // The channel is closed
-                Err(TryRecvError::Closed) => break,
-                // Ignore lagging, we will catch up
-                Err(TryRecvError::Lagged(..)) => {}
-                // Can't be empty
-                Err(TryRecvError::Empty) => panic!("unexpected empty broadcast channel"),
-            }
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T> Recv<'a, T> {
     fn new(receiver: &'a mut Receiver<T>) -> Recv<'a, T> {
-        Recv {
-            receiver,
-            waiter: WaiterCell(UnsafeCell::new(Waiter {
-                queued: AtomicBool::new(false),
-                waker: None,
-                pointers: linked_list::Pointers::new(),
-                _p: PhantomPinned,
-            })),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// A custom `project` implementation is used in place of `pin-project-lite`
     /// as a custom drop implementation is needed.
     fn project(self: Pin<&mut Self>) -> (&mut Receiver<T>, &UnsafeCell<Waiter>) {
-        unsafe {
-            // Safety: Receiver is Unpin
-            is_unpin::<&mut Receiver<T>>();
-
-            let me = self.get_unchecked_mut();
-            (me.receiver, &me.waiter.0)
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T> Future for Recv<'a, T>
 where
     T: Clone,
 {
     type Output = Result<T, RecvError>;
-
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<T, RecvError>> {
-        ready!(crate::trace::trace_leaf());
-
-        let (receiver, waiter) = self.project();
-
-        let guard = match receiver.recv_ref(Some((waiter, cx.waker()))) {
-            Ok(value) => value,
-            Err(TryRecvError::Empty) => return Poll::Pending,
-            Err(TryRecvError::Lagged(n)) => return Poll::Ready(Err(RecvError::Lagged(n))),
-            Err(TryRecvError::Closed) => return Poll::Ready(Err(RecvError::Closed)),
-        };
-
-        Poll::Ready(guard.clone_value().ok_or(RecvError::Closed))
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T> Drop for Recv<'a, T> {
     fn drop(&mut self) {
-        // Safety: `waiter.queued` is atomic.
-        // Acquire ordering is required to synchronize with
-        // `Shared::notify_rx` before we drop the object.
-        let queued = self
-            .waiter
-            .0
-            .with(|ptr| unsafe { (*ptr).queued.load(Acquire) });
-
-        // If the waiter is queued, we need to unlink it from the waiters list.
-        // If not, no further synchronization is required, since the waiter
-        // is not in the list and, as such, is not shared with any other threads.
-        if queued {
-            // Acquire the tail lock. This is required for safety before accessing
-            // the waiter node.
-            let mut tail = self.receiver.shared.tail.lock();
-
-            // Safety: tail lock is held.
-            // `Relaxed` order suffices because we hold the tail lock.
-            let queued = self
-                .waiter
-                .0
-                .with_mut(|ptr| unsafe { (*ptr).queued.load(Relaxed) });
-
-            if queued {
-                // Remove the node
-                //
-                // safety: tail lock is held and the wait node is verified to be in
-                // the list.
-                unsafe {
-                    self.waiter.0.with_mut(|ptr| {
-                        tail.waiters.remove((&mut *ptr).into());
-                    });
-                }
-            }
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 /// # Safety
 ///
 /// `Waiter` is forced to be !Unpin.
 unsafe impl linked_list::Link for Waiter {
     type Handle = NonNull<Waiter>;
     type Target = Waiter;
-
     fn as_raw(handle: &NonNull<Waiter>) -> NonNull<Waiter> {
-        *handle
+        panic!("STUB: not implemented");
     }
-
     unsafe fn from_raw(ptr: NonNull<Waiter>) -> NonNull<Waiter> {
-        ptr
+        panic!("STUB: not implemented");
     }
-
-    unsafe fn pointers(target: NonNull<Waiter>) -> NonNull<linked_list::Pointers<Waiter>> {
-        unsafe { Waiter::addr_of_pointers(target) }
+    unsafe fn pointers(
+        target: NonNull<Waiter>,
+    ) -> NonNull<linked_list::Pointers<Waiter>> {
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for Sender<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "broadcast::Sender")
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for WeakSender<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "broadcast::WeakSender")
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for Receiver<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(fmt, "broadcast::Receiver")
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T> RecvGuard<'a, T> {
     fn clone_value(&self) -> Option<T>
     where
         T: Clone,
     {
-        self.slot.val.clone()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T> Drop for RecvGuard<'a, T> {
     fn drop(&mut self) {
-        // Decrement the remaining counter
-        if 1 == self.slot.rem.fetch_sub(1, SeqCst) {
-            self.slot.val = None;
-        }
+        panic!("STUB: not implemented");
     }
 }
-
-fn is_unpin<T: Unpin>() {}
-
+fn is_unpin<T: Unpin>() {
+    panic!("STUB: not implemented");
+}
 #[cfg(not(loom))]
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn receiver_count_on_sender_constructor() {
         let sender = Sender::<i32>::new(16);
         assert_eq!(sender.receiver_count(), 0);
-
         let rx_1 = sender.subscribe();
         assert_eq!(sender.receiver_count(), 1);
-
         let rx_2 = rx_1.resubscribe();
         assert_eq!(sender.receiver_count(), 2);
-
         let rx_3 = sender.subscribe();
         assert_eq!(sender.receiver_count(), 3);
-
         drop(rx_3);
         drop(rx_1);
         assert_eq!(sender.receiver_count(), 1);
-
         drop(rx_2);
         assert_eq!(sender.receiver_count(), 0);
     }
-
     #[cfg(not(loom))]
     #[test]
     fn receiver_count_on_channel_constructor() {
         let (sender, rx) = channel::<i32>(16);
         assert_eq!(sender.receiver_count(), 1);
-
         let _rx_2 = rx.resubscribe();
         assert_eq!(sender.receiver_count(), 2);
     }

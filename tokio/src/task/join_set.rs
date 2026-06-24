@@ -8,12 +8,10 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::{fmt, panic};
-
 use crate::runtime::Handle;
 use crate::task::Id;
 use crate::task::{unconstrained, AbortHandle, JoinError, JoinHandle, LocalSet};
 use crate::util::IdleNotifiedSet;
-
 /// A collection of tasks spawned on a Tokio runtime.
 ///
 /// A `JoinSet` can be used to await the completion of some or all of the tasks
@@ -64,7 +62,6 @@ use crate::util::IdleNotifiedSet;
 pub struct JoinSet<T> {
     inner: IdleNotifiedSet<JoinHandle<T>>,
 }
-
 /// A variant of [`task::Builder`] that spawns tasks on a [`JoinSet`] rather
 /// than on the current default runtime.
 ///
@@ -76,26 +73,20 @@ pub struct Builder<'a, T> {
     joinset: &'a mut JoinSet<T>,
     builder: super::Builder<'a>,
 }
-
 impl<T> JoinSet<T> {
     /// Create a new `JoinSet`.
     pub fn new() -> Self {
-        Self {
-            inner: IdleNotifiedSet::new(),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns the number of tasks currently in the `JoinSet`.
     pub fn len(&self) -> usize {
-        self.inner.len()
+        panic!("STUB: not implemented");
     }
-
     /// Returns whether the `JoinSet` is empty.
     pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: 'static> JoinSet<T> {
     /// Returns a [`Builder`] that can be used to configure a task prior to
     /// spawning it on this `JoinSet`.
@@ -120,12 +111,8 @@ impl<T: 'static> JoinSet<T> {
     #[cfg(all(tokio_unstable, feature = "tracing"))]
     #[cfg_attr(docsrs, doc(cfg(all(tokio_unstable, feature = "tracing"))))]
     pub fn build_task(&mut self) -> Builder<'_, T> {
-        Builder {
-            builder: super::Builder::new(),
-            joinset: self,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the provided task on the `JoinSet`, returning an [`AbortHandle`]
     /// that can be used to remotely cancel the task.
     ///
@@ -145,9 +132,8 @@ impl<T: 'static> JoinSet<T> {
         F: Send + 'static,
         T: Send,
     {
-        self.insert(crate::spawn(task))
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the provided task on the provided runtime and store it in this
     /// `JoinSet` returning an [`AbortHandle`] that can be used to remotely
     /// cancel the task.
@@ -164,9 +150,8 @@ impl<T: 'static> JoinSet<T> {
         F: Send + 'static,
         T: Send,
     {
-        self.insert(handle.spawn(task))
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the provided task on the current [`LocalSet`] or [`LocalRuntime`]
     /// and store it in this `JoinSet`, returning an [`AbortHandle`] that can
     /// be used to remotely cancel the task.
@@ -188,9 +173,8 @@ impl<T: 'static> JoinSet<T> {
         F: Future<Output = T>,
         F: 'static,
     {
-        self.insert(crate::task::spawn_local(task))
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the provided task on the provided [`LocalSet`] and store it in
     /// this `JoinSet`, returning an [`AbortHandle`] that can be used to
     /// remotely cancel the task.
@@ -208,9 +192,8 @@ impl<T: 'static> JoinSet<T> {
         F: Future<Output = T>,
         F: 'static,
     {
-        self.insert(local_set.spawn_local(task))
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the blocking code on the blocking threadpool and store
     /// it in this `JoinSet`, returning an [`AbortHandle`] that can be
     /// used to remotely cancel the task.
@@ -257,9 +240,8 @@ impl<T: 'static> JoinSet<T> {
         F: Send + 'static,
         T: Send,
     {
-        self.insert(crate::runtime::spawn_blocking(f))
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the blocking code on the blocking threadpool of the
     /// provided runtime and store it in this `JoinSet`, returning an
     /// [`AbortHandle`] that can be used to remotely cancel the task.
@@ -272,18 +254,11 @@ impl<T: 'static> JoinSet<T> {
         F: Send + 'static,
         T: Send,
     {
-        self.insert(handle.spawn_blocking(f))
+        panic!("STUB: not implemented");
     }
-
     fn insert(&mut self, jh: JoinHandle<T>) -> AbortHandle {
-        let abort = jh.abort_handle();
-        let mut entry = self.inner.insert_idle(jh);
-
-        // Set the waker that is notified when the task completes.
-        entry.with_value_and_context(|jh, ctx| jh.set_join_waker(ctx.waker()));
-        abort
+        panic!("STUB: not implemented");
     }
-
     /// Waits until one of the tasks in the set completes and returns its output.
     ///
     /// Returns `None` if the set is empty.
@@ -294,9 +269,8 @@ impl<T: 'static> JoinSet<T> {
     /// `tokio::select!` and another branch completes first, it is guaranteed
     /// that no tasks were removed from this `JoinSet`.
     pub async fn join_next(&mut self) -> Option<Result<T, JoinError>> {
-        std::future::poll_fn(|cx| self.poll_join_next(cx)).await
+        panic!("STUB: not implemented");
     }
-
     /// Waits until one of the tasks in the set completes and returns its
     /// output, along with the [task ID] of the completed task.
     ///
@@ -314,31 +288,14 @@ impl<T: 'static> JoinSet<T> {
     /// [task ID]: crate::task::Id
     /// [`JoinError::id`]: fn@crate::task::JoinError::id
     pub async fn join_next_with_id(&mut self) -> Option<Result<(Id, T), JoinError>> {
-        std::future::poll_fn(|cx| self.poll_join_next_with_id(cx)).await
+        panic!("STUB: not implemented");
     }
-
     /// Tries to join one of the tasks in the set that has completed and return its output.
     ///
     /// Returns `None` if there are no completed tasks, or if the set is empty.
     pub fn try_join_next(&mut self) -> Option<Result<T, JoinError>> {
-        // Loop over all notified `JoinHandle`s to find one that's ready, or until none are left.
-        loop {
-            let mut entry = self.inner.try_pop_notified()?;
-
-            let res = entry.with_value_and_context(|jh, ctx| {
-                // Since this function is not async and cannot be forced to yield, we should
-                // disable budgeting when we want to check for the `JoinHandle` readiness.
-                Pin::new(&mut unconstrained(jh)).poll(ctx)
-            });
-
-            if let Poll::Ready(res) = res {
-                let _entry = entry.remove();
-
-                return Some(res);
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Tries to join one of the tasks in the set that has completed and return its output,
     /// along with the [task ID] of the completed task.
     ///
@@ -350,24 +307,8 @@ impl<T: 'static> JoinSet<T> {
     /// [task ID]: crate::task::Id
     /// [`JoinError::id`]: fn@crate::task::JoinError::id
     pub fn try_join_next_with_id(&mut self) -> Option<Result<(Id, T), JoinError>> {
-        // Loop over all notified `JoinHandle`s to find one that's ready, or until none are left.
-        loop {
-            let mut entry = self.inner.try_pop_notified()?;
-
-            let res = entry.with_value_and_context(|jh, ctx| {
-                // Since this function is not async and cannot be forced to yield, we should
-                // disable budgeting when we want to check for the `JoinHandle` readiness.
-                Pin::new(&mut unconstrained(jh)).poll(ctx)
-            });
-
-            if let Poll::Ready(res) = res {
-                let entry = entry.remove();
-
-                return Some(res.map(|output| (entry.id(), output)));
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Aborts all tasks and waits for them to finish shutting down.
     ///
     /// Calling this method is equivalent to calling [`abort_all`] and then calling [`join_next`] in
@@ -379,10 +320,8 @@ impl<T: 'static> JoinSet<T> {
     /// [`abort_all`]: fn@Self::abort_all
     /// [`join_next`]: fn@Self::join_next
     pub async fn shutdown(&mut self) {
-        self.abort_all();
-        while self.join_next().await.is_some() {}
+        panic!("STUB: not implemented");
     }
-
     /// Awaits the completion of all tasks in this `JoinSet`, returning a vector of their results.
     ///
     /// The results will be stored in the order they completed not the order they were spawned.
@@ -444,34 +383,22 @@ impl<T: 'static> JoinSet<T> {
     /// [`join_next`]: fn@Self::join_next
     /// [`JoinError::id`]: fn@crate::task::JoinError::id
     pub async fn join_all(mut self) -> Vec<T> {
-        let mut output = Vec::with_capacity(self.len());
-
-        while let Some(res) = self.join_next().await {
-            match res {
-                Ok(t) => output.push(t),
-                Err(err) if err.is_panic() => panic::resume_unwind(err.into_panic()),
-                Err(err) => panic!("{err}"),
-            }
-        }
-        output
+        panic!("STUB: not implemented");
     }
-
     /// Aborts all tasks on this `JoinSet`.
     ///
     /// This does not remove the tasks from the `JoinSet`. To wait for the tasks to complete
     /// cancellation, you should call `join_next` in a loop until the `JoinSet` is empty.
     pub fn abort_all(&mut self) {
-        self.inner.for_each(|jh| jh.abort());
+        panic!("STUB: not implemented");
     }
-
     /// Removes all tasks from this `JoinSet` without aborting them.
     ///
     /// The tasks removed by this call will continue to run in the background even if the `JoinSet`
     /// is dropped.
     pub fn detach_all(&mut self) {
-        self.inner.drain(drop);
+        panic!("STUB: not implemented");
     }
-
     /// Polls for one of the tasks in the set to complete.
     ///
     /// If this returns `Poll::Ready(Some(_))`, then the task that completed is removed from the set.
@@ -497,35 +424,12 @@ impl<T: 'static> JoinSet<T> {
     /// This can happen if the [coop budget] is reached.
     ///
     /// [coop budget]: crate::task::coop#cooperative-scheduling
-    pub fn poll_join_next(&mut self, cx: &mut Context<'_>) -> Poll<Option<Result<T, JoinError>>> {
-        // The call to `pop_notified` moves the entry to the `idle` list. It is moved back to
-        // the `notified` list if the waker is notified in the `poll` call below.
-        let mut entry = match self.inner.pop_notified(cx.waker()) {
-            Some(entry) => entry,
-            None => {
-                if self.is_empty() {
-                    return Poll::Ready(None);
-                } else {
-                    // The waker was set by `pop_notified`.
-                    return Poll::Pending;
-                }
-            }
-        };
-
-        let res = entry.with_value_and_context(|jh, ctx| Pin::new(jh).poll(ctx));
-
-        if let Poll::Ready(res) = res {
-            let _entry = entry.remove();
-            Poll::Ready(Some(res))
-        } else {
-            // A JoinHandle generally won't emit a wakeup without being ready unless
-            // the coop limit has been reached. We yield to the executor in this
-            // case.
-            cx.waker().wake_by_ref();
-            Poll::Pending
-        }
+    pub fn poll_join_next(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Result<T, JoinError>>> {
+        panic!("STUB: not implemented");
     }
-
     /// Polls for one of the tasks in the set to complete.
     ///
     /// If this returns `Poll::Ready(Some(_))`, then the task that completed is removed from the set.
@@ -557,55 +461,24 @@ impl<T: 'static> JoinSet<T> {
         &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<(Id, T), JoinError>>> {
-        // The call to `pop_notified` moves the entry to the `idle` list. It is moved back to
-        // the `notified` list if the waker is notified in the `poll` call below.
-        let mut entry = match self.inner.pop_notified(cx.waker()) {
-            Some(entry) => entry,
-            None => {
-                if self.is_empty() {
-                    return Poll::Ready(None);
-                } else {
-                    // The waker was set by `pop_notified`.
-                    return Poll::Pending;
-                }
-            }
-        };
-
-        let res = entry.with_value_and_context(|jh, ctx| Pin::new(jh).poll(ctx));
-
-        if let Poll::Ready(res) = res {
-            let entry = entry.remove();
-            // If the task succeeded, add the task ID to the output. Otherwise, the
-            // `JoinError` will already have the task's ID.
-            Poll::Ready(Some(res.map(|output| (entry.id(), output))))
-        } else {
-            // A JoinHandle generally won't emit a wakeup without being ready unless
-            // the coop limit has been reached. We yield to the executor in this
-            // case.
-            cx.waker().wake_by_ref();
-            Poll::Pending
-        }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Drop for JoinSet<T> {
     fn drop(&mut self) {
-        self.inner.drain(|join_handle| join_handle.abort());
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for JoinSet<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("JoinSet").field("len", &self.len()).finish()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Default for JoinSet<T> {
     fn default() -> Self {
-        Self::new()
+        panic!("STUB: not implemented");
     }
 }
-
 /// Collect an iterator of futures into a [`JoinSet`].
 ///
 /// This is equivalent to calling [`JoinSet::spawn`] on each element of the iterator.
@@ -641,14 +514,9 @@ where
     T: Send + 'static,
 {
     fn from_iter<I: IntoIterator<Item = F>>(iter: I) -> Self {
-        let mut set = Self::new();
-        iter.into_iter().for_each(|task| {
-            set.spawn(task);
-        });
-        set
+        panic!("STUB: not implemented");
     }
 }
-
 /// Extend a [`JoinSet`] with futures from an iterator.
 ///
 /// This is equivalent to calling [`JoinSet::spawn`] on each element of the iterator.
@@ -688,23 +556,16 @@ where
     where
         I: IntoIterator<Item = F>,
     {
-        iter.into_iter().for_each(|task| {
-            self.spawn(task);
-        });
+        panic!("STUB: not implemented");
     }
 }
-
-// === impl Builder ===
-
 #[cfg(all(tokio_unstable, feature = "tracing"))]
 #[cfg_attr(docsrs, doc(cfg(all(tokio_unstable, feature = "tracing"))))]
 impl<'a, T: 'static> Builder<'a, T> {
     /// Assigns a name to the task which will be spawned.
     pub fn name(self, name: &'a str) -> Self {
-        let builder = self.builder.name(name);
-        Self { builder, ..self }
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the provided task with this builder's settings and store it in the
     /// [`JoinSet`], returning an [`AbortHandle`] that can be used to remotely
     /// cancel the task.
@@ -725,9 +586,8 @@ impl<'a, T: 'static> Builder<'a, T> {
         F: Send + 'static,
         T: Send,
     {
-        Ok(self.joinset.insert(self.builder.spawn(future)?))
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the provided task on the provided [runtime handle] with this
     /// builder's settings, and store it in the [`JoinSet`].
     ///
@@ -745,9 +605,8 @@ impl<'a, T: 'static> Builder<'a, T> {
         F: Send + 'static,
         T: Send,
     {
-        Ok(self.joinset.insert(self.builder.spawn_on(future, handle)?))
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the blocking code on the blocking threadpool with this builder's
     /// settings, and store it in the [`JoinSet`].
     ///
@@ -768,9 +627,8 @@ impl<'a, T: 'static> Builder<'a, T> {
         F: Send + 'static,
         T: Send,
     {
-        Ok(self.joinset.insert(self.builder.spawn_blocking(f)?))
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the blocking code on the blocking threadpool of the provided
     /// runtime handle with this builder's settings, and store it in the
     /// [`JoinSet`].
@@ -782,17 +640,18 @@ impl<'a, T: 'static> Builder<'a, T> {
     /// [`JoinSet`]: crate::task::JoinSet
     /// [`AbortHandle`]: crate::task::AbortHandle
     #[track_caller]
-    pub fn spawn_blocking_on<F>(self, f: F, handle: &Handle) -> std::io::Result<AbortHandle>
+    pub fn spawn_blocking_on<F>(
+        self,
+        f: F,
+        handle: &Handle,
+    ) -> std::io::Result<AbortHandle>
     where
         F: FnOnce() -> T,
         F: Send + 'static,
         T: Send,
     {
-        Ok(self
-            .joinset
-            .insert(self.builder.spawn_blocking_on(f, handle)?))
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the provided task on the current [`LocalSet`] or [`LocalRuntime`]
     /// with this builder's settings, and store it in the [`JoinSet`].
     ///
@@ -813,9 +672,8 @@ impl<'a, T: 'static> Builder<'a, T> {
         F: Future<Output = T>,
         F: 'static,
     {
-        Ok(self.joinset.insert(self.builder.spawn_local(future)?))
+        panic!("STUB: not implemented");
     }
-
     /// Spawn the provided task on the provided [`LocalSet`] with this builder's
     /// settings, and store it in the [`JoinSet`].
     ///
@@ -826,26 +684,22 @@ impl<'a, T: 'static> Builder<'a, T> {
     /// [`LocalSet`]: crate::task::LocalSet
     /// [`AbortHandle`]: crate::task::AbortHandle
     #[track_caller]
-    pub fn spawn_local_on<F>(self, future: F, local_set: &LocalSet) -> std::io::Result<AbortHandle>
+    pub fn spawn_local_on<F>(
+        self,
+        future: F,
+        local_set: &LocalSet,
+    ) -> std::io::Result<AbortHandle>
     where
         F: Future<Output = T>,
         F: 'static,
     {
-        Ok(self
-            .joinset
-            .insert(self.builder.spawn_local_on(future, local_set)?))
+        panic!("STUB: not implemented");
     }
 }
-
-// Manual `Debug` impl so that `Builder` is `Debug` regardless of whether `T` is
-// `Debug`.
 #[cfg(all(tokio_unstable, feature = "tracing"))]
 #[cfg_attr(docsrs, doc(cfg(all(tokio_unstable, feature = "tracing"))))]
 impl<'a, T> fmt::Debug for Builder<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("join_set::Builder")
-            .field("joinset", &self.joinset)
-            .field("builder", &self.builder)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }

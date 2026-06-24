@@ -1,5 +1,4 @@
 #![cfg(not(loom))]
-
 //! TCP/UDP/Unix bindings for `tokio`.
 //!
 //! This module contains the TCP/UDP/Unix networking types, similar to the standard
@@ -27,38 +26,21 @@
 //! [`tokio::net::unix::pipe`]: unix::pipe
 //! [`tokio::net::windows::named_pipe`]: windows::named_pipe
 //! [`AsyncFd`]: crate::io::unix::AsyncFd
-
 mod addr;
 cfg_not_wasip1! {
-    #[cfg(feature = "net")]
-    pub(crate) use addr::to_socket_addrs;
+    #[cfg(feature = "net")] pub (crate) use addr::to_socket_addrs;
 }
 pub use addr::ToSocketAddrs;
-
 cfg_net! {
-    mod lookup_host;
-    pub use lookup_host::lookup_host;
-
-    pub mod tcp;
-    pub use tcp::listener::TcpListener;
-    pub use tcp::stream::TcpStream;
-    cfg_not_wasip1! {
-        pub use tcp::socket::TcpSocket;
-
-        mod udp;
-        #[doc(inline)]
-        pub use udp::UdpSocket;
-    }
+    mod lookup_host; pub use lookup_host::lookup_host; pub mod tcp; pub use
+    tcp::listener::TcpListener; pub use tcp::stream::TcpStream; cfg_not_wasip1! { pub use
+    tcp::socket::TcpSocket; mod udp; #[doc(inline)] pub use udp::UdpSocket; }
 }
-
 cfg_net_unix! {
-    pub mod unix;
-    pub use unix::datagram::socket::UnixDatagram;
-    pub use unix::listener::UnixListener;
-    pub use unix::stream::UnixStream;
-    pub use unix::socket::UnixSocket;
+    pub mod unix; pub use unix::datagram::socket::UnixDatagram; pub use
+    unix::listener::UnixListener; pub use unix::stream::UnixStream; pub use
+    unix::socket::UnixSocket;
 }
-
 cfg_net_windows! {
     pub mod windows;
 }

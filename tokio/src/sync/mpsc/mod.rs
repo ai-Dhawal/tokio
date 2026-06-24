@@ -1,5 +1,4 @@
 #![cfg_attr(not(feature = "sync"), allow(dead_code, unreachable_pub))]
-
 //! A multi-producer, single-consumer queue for sending values between
 //! asynchronous tasks.
 //!
@@ -113,34 +112,25 @@
 //! [std-unbounded]: std::sync::mpsc::channel
 //! [crossbeam-unbounded]: https://docs.rs/crossbeam/*/crossbeam/channel/fn.unbounded.html
 //! [`send_timeout`]: crate::sync::mpsc::Sender::send_timeout
-
 pub(super) mod block;
-
 mod bounded;
 pub use self::bounded::{
     channel, OwnedPermit, Permit, PermitIterator, Receiver, Sender, WeakSender,
 };
-
 mod chan;
-
 pub(super) mod list;
-
 mod unbounded;
 pub use self::unbounded::{
     unbounded_channel, UnboundedReceiver, UnboundedSender, WeakUnboundedSender,
 };
-
 pub mod error;
-
 /// The number of values a block can contain.
 ///
 /// This value must be a power of 2. It also must be smaller than the number of
 /// bits in `usize`.
 #[cfg(all(target_pointer_width = "64", not(loom)))]
 pub(crate) const BLOCK_CAP: usize = 32;
-
 #[cfg(all(not(target_pointer_width = "64"), not(loom)))]
 pub(crate) const BLOCK_CAP: usize = 16;
-
 #[cfg(loom)]
 pub(crate) const BLOCK_CAP: usize = 2;

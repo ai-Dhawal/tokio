@@ -1,14 +1,12 @@
 use crate::io::{Interest, Ready};
 use crate::runtime::io::{ReadyEvent, Registration};
 use crate::runtime::scheduler;
-
 use mio::unix::SourceFd;
 use std::error::Error;
 use std::fmt;
 use std::io;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::task::{ready, Context, Poll};
-
 /// Associates an IO object backed by a Unix file descriptor with the tokio
 /// reactor, allowing for readiness to be polled. The file descriptor must be of
 /// a type that can be used with the OS polling facilities (ie, `poll`, `epoll`,
@@ -180,11 +178,8 @@ use std::task::{ready, Context, Poll};
 /// [`OwnedFd`]: struct@std::os::fd::OwnedFd
 pub struct AsyncFd<T: AsRawFd> {
     registration: Registration,
-    // The inner value is always present. the Option is required for `drop` and `into_inner`.
-    // In all other methods `unwrap` is valid, and will never panic.
     inner: Option<T>,
 }
-
 /// Represents an IO-ready event detected on a particular file descriptor that
 /// has not yet been acknowledged. This is a `must_use` structure to help ensure
 /// that you do not forget to explicitly clear (or not clear) the event.
@@ -195,7 +190,6 @@ pub struct AsyncFdReadyGuard<'a, T: AsRawFd> {
     async_fd: &'a AsyncFd<T>,
     event: Option<ReadyEvent>,
 }
-
 /// Represents an IO-ready event detected on a particular file descriptor that
 /// has not yet been acknowledged. This is a `must_use` structure to help ensure
 /// that you do not forget to explicitly clear (or not clear) the event.
@@ -206,7 +200,6 @@ pub struct AsyncFdReadyMutGuard<'a, T: AsRawFd> {
     async_fd: &'a mut AsyncFd<T>,
     event: Option<ReadyEvent>,
 }
-
 impl<T: AsRawFd> AsyncFd<T> {
     /// Creates an [`AsyncFd`] backed by (and taking ownership of) an object
     /// implementing [`AsRawFd`]. The backing file descriptor is cached at the
@@ -227,9 +220,8 @@ impl<T: AsRawFd> AsyncFd<T> {
     where
         T: AsRawFd,
     {
-        Self::with_interest(inner, Interest::READABLE | Interest::WRITABLE)
+        panic!("STUB: not implemented");
     }
-
     /// Creates an [`AsyncFd`] backed by (and taking ownership of) an object
     /// implementing [`AsRawFd`], with a specific [`Interest`]. The backing
     /// file descriptor is cached at the time of creation.
@@ -244,18 +236,16 @@ impl<T: AsRawFd> AsyncFd<T> {
     where
         T: AsRawFd,
     {
-        Self::new_with_handle_and_interest(inner, scheduler::Handle::current(), interest)
+        panic!("STUB: not implemented");
     }
-
     #[track_caller]
     pub(crate) fn new_with_handle_and_interest(
         inner: T,
         handle: scheduler::Handle,
         interest: Interest,
     ) -> io::Result<Self> {
-        Self::try_new_with_handle_and_interest(inner, handle, interest).map_err(Into::into)
+        panic!("STUB: not implemented");
     }
-
     /// Creates an [`AsyncFd`] backed by (and taking ownership of) an object
     /// implementing [`AsRawFd`]. The backing file descriptor is cached at the
     /// time of creation.
@@ -278,9 +268,8 @@ impl<T: AsRawFd> AsyncFd<T> {
     where
         T: AsRawFd,
     {
-        Self::try_with_interest(inner, Interest::READABLE | Interest::WRITABLE)
+        panic!("STUB: not implemented");
     }
-
     /// Creates an [`AsyncFd`] backed by (and taking ownership of) an object
     /// implementing [`AsRawFd`], with a specific [`Interest`]. The backing
     /// file descriptor is cached at the time of creation.
@@ -294,57 +283,41 @@ impl<T: AsRawFd> AsyncFd<T> {
     /// feature flag is not enabled.
     #[inline]
     #[track_caller]
-    pub fn try_with_interest(inner: T, interest: Interest) -> Result<Self, AsyncFdTryNewError<T>>
+    pub fn try_with_interest(
+        inner: T,
+        interest: Interest,
+    ) -> Result<Self, AsyncFdTryNewError<T>>
     where
         T: AsRawFd,
     {
-        Self::try_new_with_handle_and_interest(inner, scheduler::Handle::current(), interest)
+        panic!("STUB: not implemented");
     }
-
     #[track_caller]
     pub(crate) fn try_new_with_handle_and_interest(
         inner: T,
         handle: scheduler::Handle,
         interest: Interest,
     ) -> Result<Self, AsyncFdTryNewError<T>> {
-        let fd = inner.as_raw_fd();
-
-        match Registration::new_with_interest_and_handle(&mut SourceFd(&fd), interest, handle) {
-            Ok(registration) => Ok(AsyncFd {
-                registration,
-                inner: Some(inner),
-            }),
-            Err(cause) => Err(AsyncFdTryNewError { inner, cause }),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns a shared reference to the backing object of this [`AsyncFd`].
     #[inline]
     pub fn get_ref(&self) -> &T {
-        self.inner.as_ref().unwrap()
+        panic!("STUB: not implemented");
     }
-
     /// Returns a mutable reference to the backing object of this [`AsyncFd`].
     #[inline]
     pub fn get_mut(&mut self) -> &mut T {
-        self.inner.as_mut().unwrap()
+        panic!("STUB: not implemented");
     }
-
     fn take_inner(&mut self) -> Option<T> {
-        let inner = self.inner.take()?;
-        let fd = inner.as_raw_fd();
-
-        let _ = self.registration.deregister(&mut SourceFd(&fd));
-
-        Some(inner)
+        panic!("STUB: not implemented");
     }
-
     /// Deregisters this file descriptor and returns ownership of the backing
     /// object.
     pub fn into_inner(mut self) -> T {
-        self.take_inner().unwrap()
+        panic!("STUB: not implemented");
     }
-
     /// Polls for read readiness.
     ///
     /// If the file descriptor is not currently ready for reading, this method
@@ -376,14 +349,8 @@ impl<T: AsRawFd> AsyncFd<T> {
         &'a self,
         cx: &mut Context<'_>,
     ) -> Poll<io::Result<AsyncFdReadyGuard<'a, T>>> {
-        let event = ready!(self.registration.poll_read_ready(cx))?;
-
-        Poll::Ready(Ok(AsyncFdReadyGuard {
-            async_fd: self,
-            event: Some(event),
-        }))
+        panic!("STUB: not implemented");
     }
-
     /// Polls for read readiness.
     ///
     /// If the file descriptor is not currently ready for reading, this method
@@ -413,14 +380,8 @@ impl<T: AsRawFd> AsyncFd<T> {
         &'a mut self,
         cx: &mut Context<'_>,
     ) -> Poll<io::Result<AsyncFdReadyMutGuard<'a, T>>> {
-        let event = ready!(self.registration.poll_read_ready(cx))?;
-
-        Poll::Ready(Ok(AsyncFdReadyMutGuard {
-            async_fd: self,
-            event: Some(event),
-        }))
+        panic!("STUB: not implemented");
     }
-
     /// Polls for write readiness.
     ///
     /// If the file descriptor is not currently ready for writing, this method
@@ -452,14 +413,8 @@ impl<T: AsRawFd> AsyncFd<T> {
         &'a self,
         cx: &mut Context<'_>,
     ) -> Poll<io::Result<AsyncFdReadyGuard<'a, T>>> {
-        let event = ready!(self.registration.poll_write_ready(cx))?;
-
-        Poll::Ready(Ok(AsyncFdReadyGuard {
-            async_fd: self,
-            event: Some(event),
-        }))
+        panic!("STUB: not implemented");
     }
-
     /// Polls for write readiness.
     ///
     /// If the file descriptor is not currently ready for writing, this method
@@ -489,14 +444,8 @@ impl<T: AsRawFd> AsyncFd<T> {
         &'a mut self,
         cx: &mut Context<'_>,
     ) -> Poll<io::Result<AsyncFdReadyMutGuard<'a, T>>> {
-        let event = ready!(self.registration.poll_write_ready(cx))?;
-
-        Poll::Ready(Ok(AsyncFdReadyMutGuard {
-            async_fd: self,
-            event: Some(event),
-        }))
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states, returning a
     /// [`AsyncFdReadyGuard`] that must be dropped to resume
     /// polling for the requested ready states.
@@ -586,15 +535,12 @@ impl<T: AsRawFd> AsyncFd<T> {
     ///     }
     /// }
     /// ```
-    pub async fn ready(&self, interest: Interest) -> io::Result<AsyncFdReadyGuard<'_, T>> {
-        let event = self.registration.readiness(interest).await?;
-
-        Ok(AsyncFdReadyGuard {
-            async_fd: self,
-            event: Some(event),
-        })
+    pub async fn ready(
+        &self,
+        interest: Interest,
+    ) -> io::Result<AsyncFdReadyGuard<'_, T>> {
+        panic!("STUB: not implemented");
     }
-
     /// Waits for any of the requested ready states, returning a
     /// [`AsyncFdReadyMutGuard`] that must be dropped to resume
     /// polling for the requested ready states.
@@ -686,14 +632,8 @@ impl<T: AsRawFd> AsyncFd<T> {
         &mut self,
         interest: Interest,
     ) -> io::Result<AsyncFdReadyMutGuard<'_, T>> {
-        let event = self.registration.readiness(interest).await?;
-
-        Ok(AsyncFdReadyMutGuard {
-            async_fd: self,
-            event: Some(event),
-        })
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the file descriptor to become readable, returning a
     /// [`AsyncFdReadyGuard`] that must be dropped to resume read-readiness
     /// polling.
@@ -709,11 +649,10 @@ impl<T: AsRawFd> AsyncFd<T> {
     /// will continue to return immediately until the readiness event is
     /// consumed by an attempt to read or write that fails with `WouldBlock` or
     /// `Poll::Pending`.
-    #[allow(clippy::needless_lifetimes)] // The lifetime improves rustdoc rendering.
+    #[allow(clippy::needless_lifetimes)]
     pub async fn readable<'a>(&'a self) -> io::Result<AsyncFdReadyGuard<'a, T>> {
-        self.ready(Interest::READABLE).await
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the file descriptor to become readable, returning a
     /// [`AsyncFdReadyMutGuard`] that must be dropped to resume read-readiness
     /// polling.
@@ -727,11 +666,12 @@ impl<T: AsRawFd> AsyncFd<T> {
     /// will continue to return immediately until the readiness event is
     /// consumed by an attempt to read or write that fails with `WouldBlock` or
     /// `Poll::Pending`.
-    #[allow(clippy::needless_lifetimes)] // The lifetime improves rustdoc rendering.
-    pub async fn readable_mut<'a>(&'a mut self) -> io::Result<AsyncFdReadyMutGuard<'a, T>> {
-        self.ready_mut(Interest::READABLE).await
+    #[allow(clippy::needless_lifetimes)]
+    pub async fn readable_mut<'a>(
+        &'a mut self,
+    ) -> io::Result<AsyncFdReadyMutGuard<'a, T>> {
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the file descriptor to become writable, returning a
     /// [`AsyncFdReadyGuard`] that must be dropped to resume write-readiness
     /// polling.
@@ -747,11 +687,10 @@ impl<T: AsRawFd> AsyncFd<T> {
     /// will continue to return immediately until the readiness event is
     /// consumed by an attempt to read or write that fails with `WouldBlock` or
     /// `Poll::Pending`.
-    #[allow(clippy::needless_lifetimes)] // The lifetime improves rustdoc rendering.
+    #[allow(clippy::needless_lifetimes)]
     pub async fn writable<'a>(&'a self) -> io::Result<AsyncFdReadyGuard<'a, T>> {
-        self.ready(Interest::WRITABLE).await
+        panic!("STUB: not implemented");
     }
-
     /// Waits for the file descriptor to become writable, returning a
     /// [`AsyncFdReadyMutGuard`] that must be dropped to resume write-readiness
     /// polling.
@@ -765,11 +704,12 @@ impl<T: AsRawFd> AsyncFd<T> {
     /// will continue to return immediately until the readiness event is
     /// consumed by an attempt to read or write that fails with `WouldBlock` or
     /// `Poll::Pending`.
-    #[allow(clippy::needless_lifetimes)] // The lifetime improves rustdoc rendering.
-    pub async fn writable_mut<'a>(&'a mut self) -> io::Result<AsyncFdReadyMutGuard<'a, T>> {
-        self.ready_mut(Interest::WRITABLE).await
+    #[allow(clippy::needless_lifetimes)]
+    pub async fn writable_mut<'a>(
+        &'a mut self,
+    ) -> io::Result<AsyncFdReadyMutGuard<'a, T>> {
+        panic!("STUB: not implemented");
     }
-
     /// Reads or writes from the file descriptor using a user-provided IO operation.
     ///
     /// The `async_io` method is a convenience utility that waits for the file
@@ -852,11 +792,8 @@ impl<T: AsRawFd> AsyncFd<T> {
         interest: Interest,
         mut f: impl FnMut(&T) -> io::Result<R>,
     ) -> io::Result<R> {
-        self.registration
-            .async_io(interest, || f(self.get_ref()))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Reads or writes from the file descriptor using a user-provided IO operation.
     ///
     /// The behavior is the same as [`async_io`], except that the closure can mutate the inner
@@ -868,11 +805,8 @@ impl<T: AsRawFd> AsyncFd<T> {
         interest: Interest,
         mut f: impl FnMut(&mut T) -> io::Result<R>,
     ) -> io::Result<R> {
-        self.registration
-            .async_io(interest, || f(self.inner.as_mut().unwrap()))
-            .await
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read or write from the file descriptor using a user-provided IO operation.
     ///
     /// If the file descriptor is ready, the provided closure is called. The closure
@@ -904,10 +838,8 @@ impl<T: AsRawFd> AsyncFd<T> {
         interest: Interest,
         f: impl FnOnce(&T) -> io::Result<R>,
     ) -> io::Result<R> {
-        self.registration
-            .try_io(interest, || f(self.inner.as_ref().unwrap()))
+        panic!("STUB: not implemented");
     }
-
     /// Tries to read or write from the file descriptor using a user-provided IO operation.
     ///
     /// The behavior is the same as [`try_io`], except that the closure can mutate the inner
@@ -919,37 +851,29 @@ impl<T: AsRawFd> AsyncFd<T> {
         interest: Interest,
         f: impl FnOnce(&mut T) -> io::Result<R>,
     ) -> io::Result<R> {
-        self.registration
-            .try_io(interest, || f(self.inner.as_mut().unwrap()))
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: AsRawFd> AsRawFd for AsyncFd<T> {
     fn as_raw_fd(&self) -> RawFd {
-        self.inner.as_ref().unwrap().as_raw_fd()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: AsRawFd> std::os::unix::io::AsFd for AsyncFd<T> {
     fn as_fd(&self) -> std::os::unix::io::BorrowedFd<'_> {
-        unsafe { std::os::unix::io::BorrowedFd::borrow_raw(self.as_raw_fd()) }
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: std::fmt::Debug + AsRawFd> std::fmt::Debug for AsyncFd<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AsyncFd")
-            .field("inner", &self.inner)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T: AsRawFd> Drop for AsyncFd<T> {
     fn drop(&mut self) {
-        let _ = self.take_inner();
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, Inner: AsRawFd> AsyncFdReadyGuard<'a, Inner> {
     /// Indicates to tokio that the file descriptor is no longer ready. All
     /// internal readiness flags will be cleared, and tokio will wait for the
@@ -967,11 +891,8 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyGuard<'a, Inner> {
     /// In other words, if the IO resource becomes ready between the creation of the guard and
     /// this call to `clear_ready`, then the readiness is not actually cleared.
     pub fn clear_ready(&mut self) {
-        if let Some(event) = self.event.take() {
-            self.async_fd.registration.clear_readiness(event);
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Indicates to tokio that the file descriptor no longer has a specific readiness.
     /// The internal readiness flag will be cleared, and tokio will wait for the
     /// next edge-triggered readiness notification from the OS.
@@ -1056,29 +977,16 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyGuard<'a, Inner> {
     /// }
     /// ```
     pub fn clear_ready_matching(&mut self, ready: Ready) {
-        if let Some(mut event) = self.event.take() {
-            self.async_fd
-                .registration
-                .clear_readiness(event.with_ready(ready));
-
-            // the event is no longer ready for the readiness that was just cleared
-            event.ready = event.ready - ready;
-
-            if !event.ready.is_empty() {
-                self.event = Some(event);
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// This method should be invoked when you intentionally want to keep the
     /// ready flag asserted.
     ///
     /// While this function is itself a no-op, it satisfies the `#[must_use]`
     /// constraint on the [`AsyncFdReadyGuard`] type.
     pub fn retain_ready(&mut self) {
-        // no-op
+        panic!("STUB: not implemented");
     }
-
     /// Get the [`Ready`] value associated with this guard.
     ///
     /// This method will return the empty readiness state if
@@ -1087,12 +995,8 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyGuard<'a, Inner> {
     ///
     /// [`Ready`]: crate::io::Ready
     pub fn ready(&self) -> Ready {
-        match &self.event {
-            Some(event) => event.ready,
-            None => Ready::EMPTY,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Performs the provided IO operation.
     ///
     /// If `f` returns a [`WouldBlock`] error, the readiness state associated
@@ -1146,34 +1050,22 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyGuard<'a, Inner> {
     /// ```
     ///
     /// [`WouldBlock`]: std::io::ErrorKind::WouldBlock
-    // Alias for old name in 0.x
     #[cfg_attr(docsrs, doc(alias = "with_io"))]
     pub fn try_io<R>(
         &mut self,
         f: impl FnOnce(&'a AsyncFd<Inner>) -> io::Result<R>,
     ) -> Result<io::Result<R>, TryIoError> {
-        let result = f(self.async_fd);
-
-        match result {
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
-                self.clear_ready();
-                Err(TryIoError(()))
-            }
-            result => Ok(result),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns a shared reference to the inner [`AsyncFd`].
     pub fn get_ref(&self) -> &'a AsyncFd<Inner> {
-        self.async_fd
+        panic!("STUB: not implemented");
     }
-
     /// Returns a shared reference to the backing object of the inner [`AsyncFd`].
     pub fn get_inner(&self) -> &'a Inner {
-        self.get_ref().get_ref()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, Inner: AsRawFd> AsyncFdReadyMutGuard<'a, Inner> {
     /// Indicates to tokio that the file descriptor is no longer ready. All
     /// internal readiness flags will be cleared, and tokio will wait for the
@@ -1191,11 +1083,8 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyMutGuard<'a, Inner> {
     /// In other words, if the IO resource becomes ready between the creation of the guard and
     /// this call to `clear_ready`, then the readiness is not actually cleared.
     pub fn clear_ready(&mut self) {
-        if let Some(event) = self.event.take() {
-            self.async_fd.registration.clear_readiness(event);
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Indicates to tokio that the file descriptor no longer has a specific readiness.
     /// The internal readiness flag will be cleared, and tokio will wait for the
     /// next edge-triggered readiness notification from the OS.
@@ -1280,29 +1169,16 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyMutGuard<'a, Inner> {
     /// }
     /// ```
     pub fn clear_ready_matching(&mut self, ready: Ready) {
-        if let Some(mut event) = self.event.take() {
-            self.async_fd
-                .registration
-                .clear_readiness(event.with_ready(ready));
-
-            // the event is no longer ready for the readiness that was just cleared
-            event.ready = event.ready - ready;
-
-            if !event.ready.is_empty() {
-                self.event = Some(event);
-            }
-        }
+        panic!("STUB: not implemented");
     }
-
     /// This method should be invoked when you intentionally want to keep the
     /// ready flag asserted.
     ///
     /// While this function is itself a no-op, it satisfies the `#[must_use]`
     /// constraint on the [`AsyncFdReadyGuard`] type.
     pub fn retain_ready(&mut self) {
-        // no-op
+        panic!("STUB: not implemented");
     }
-
     /// Get the [`Ready`] value associated with this guard.
     ///
     /// This method will return the empty readiness state if
@@ -1311,12 +1187,8 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyMutGuard<'a, Inner> {
     ///
     /// [`Ready`]: super::Ready
     pub fn ready(&self) -> Ready {
-        match &self.event {
-            Some(event) => event.ready,
-            None => Ready::EMPTY,
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Performs the provided IO operation.
     ///
     /// If `f` returns a [`WouldBlock`] error, the readiness state associated
@@ -1337,54 +1209,35 @@ impl<'a, Inner: AsRawFd> AsyncFdReadyMutGuard<'a, Inner> {
         &mut self,
         f: impl FnOnce(&mut AsyncFd<Inner>) -> io::Result<R>,
     ) -> Result<io::Result<R>, TryIoError> {
-        let result = f(self.async_fd);
-
-        match result {
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
-                self.clear_ready();
-                Err(TryIoError(()))
-            }
-            result => Ok(result),
-        }
+        panic!("STUB: not implemented");
     }
-
     /// Returns a shared reference to the inner [`AsyncFd`].
     pub fn get_ref(&self) -> &AsyncFd<Inner> {
-        self.async_fd
+        panic!("STUB: not implemented");
     }
-
     /// Returns a mutable reference to the inner [`AsyncFd`].
     pub fn get_mut(&mut self) -> &mut AsyncFd<Inner> {
-        self.async_fd
+        panic!("STUB: not implemented");
     }
-
     /// Returns a shared reference to the backing object of the inner [`AsyncFd`].
     pub fn get_inner(&self) -> &Inner {
-        self.get_ref().get_ref()
+        panic!("STUB: not implemented");
     }
-
     /// Returns a mutable reference to the backing object of the inner [`AsyncFd`].
     pub fn get_inner_mut(&mut self) -> &mut Inner {
-        self.get_mut().get_mut()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T: std::fmt::Debug + AsRawFd> std::fmt::Debug for AsyncFdReadyGuard<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ReadyGuard")
-            .field("async_fd", &self.async_fd)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 impl<'a, T: std::fmt::Debug + AsRawFd> std::fmt::Debug for AsyncFdReadyMutGuard<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MutReadyGuard")
-            .field("async_fd", &self.async_fd)
-            .finish()
+        panic!("STUB: not implemented");
     }
 }
-
 /// The error type returned by [`try_io`].
 ///
 /// This error indicates that the IO resource returned a [`WouldBlock`] error.
@@ -1393,7 +1246,6 @@ impl<'a, T: std::fmt::Debug + AsRawFd> std::fmt::Debug for AsyncFdReadyMutGuard<
 /// [`try_io`]: method@AsyncFdReadyGuard::try_io
 #[derive(Debug)]
 pub struct TryIoError(());
-
 /// Error returned by [`try_new`] or [`try_with_interest`].
 ///
 /// [`try_new`]: AsyncFd::try_new
@@ -1402,7 +1254,6 @@ pub struct AsyncFdTryNewError<T> {
     inner: T,
     cause: io::Error,
 }
-
 impl<T> AsyncFdTryNewError<T> {
     /// Returns the original object passed to [`try_new`] or [`try_with_interest`]
     /// alongside the error that caused these functions to fail.
@@ -1410,30 +1261,26 @@ impl<T> AsyncFdTryNewError<T> {
     /// [`try_new`]: AsyncFd::try_new
     /// [`try_with_interest`]: AsyncFd::try_with_interest
     pub fn into_parts(self) -> (T, io::Error) {
-        (self.inner, self.cause)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Display for AsyncFdTryNewError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&self.cause, f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> fmt::Debug for AsyncFdTryNewError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(&self.cause, f)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> Error for AsyncFdTryNewError<T> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.cause)
+        panic!("STUB: not implemented");
     }
 }
-
 impl<T> From<AsyncFdTryNewError<T>> for io::Error {
     fn from(value: AsyncFdTryNewError<T>) -> Self {
-        value.cause
+        panic!("STUB: not implemented");
     }
 }
